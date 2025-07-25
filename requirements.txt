@@ -1,0 +1,7 @@
+torch
+pytorch-lightning
+omegaconf
+scikit-learn
+tensorboard
+matplotlib
+tqdm
