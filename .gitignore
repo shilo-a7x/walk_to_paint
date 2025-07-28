@@ -4,3 +4,5 @@
 /checkpoints
 # Ignore Python bytecode files recursively
 **/__pycache__/
+/nohup
+nohup.out
