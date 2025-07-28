@@ -1,1 +1,6 @@
 /.venv
+/data
+/logs
+/checkpoints
+# Ignore Python bytecode files recursively
+**/__pycache__/

@@ -13,14 +13,13 @@ def get_sinusoidal_encoding(length, dim):
 
 
 class TransformerModel(nn.Module):
-    def __init__(self, vocab_size, cfg):
+    def __init__(self, cfg):
         super().__init__()
-        self.embed = nn.Embedding(vocab_size, cfg.model.embedding_dim)
+        self.embed = nn.Embedding(cfg.model.vocab_size, cfg.model.embedding_dim)
+        max_length = 2 * cfg.dataset.max_walk_length + 1
         self.register_buffer(
             "pos_encoder",
-            get_sinusoidal_encoding(
-                cfg.dataset.max_walk_length, cfg.model.embedding_dim
-            ),
+            get_sinusoidal_encoding(max_length, cfg.model.embedding_dim),
         )
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=cfg.model.embedding_dim,
@@ -32,9 +31,16 @@ class TransformerModel(nn.Module):
         self.transformer = nn.TransformerEncoder(
             encoder_layer, num_layers=cfg.model.nlayers
         )
-        self.out = nn.Linear(cfg.model.embedding_dim, vocab_size)
+        self.out = nn.Linear(cfg.model.embedding_dim, cfg.model.num_classes)
 
-    def forward(self, input_ids):
+    def forward(self, input_ids, attention_mask=None):
         x = self.embed(input_ids) + self.pos_encoder[: input_ids.size(1)]
-        x = self.transformer(x)
+        if attention_mask is not None:
+            # Convert mask to shape [batch_size, seq_len] with bool type
+            # True = to be ignored, False = to attend
+            src_key_padding_mask = ~attention_mask.bool()
+        else:
+            src_key_padding_mask = None
+
+        x = self.transformer(x, src_key_padding_mask=src_key_padding_mask)
         return self.out(x)

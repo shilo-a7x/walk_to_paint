@@ -1,27 +1,38 @@
+preprocess:
+    save: true
+    use_cache: true
+
 dataset:
-  name: chess
-  data_dir: data/
-  max_walk_length: 32
-  mask_prob: 0.15
-  ignore_index: -100
-  num_walks: 1000
-  train_ratio: 0.8
-  val_ratio: 0.1
-  test_ratio: 0.1
+    name: chess
+    data_dir: data/chess
+    edge_list_file: out.chess
+    walks_file: walks.json
+    tokenizer_file: tokenizer.json
+    encoded_file: encoded.pt
+    splits_file: splits.json
+    max_walk_length: 20
+    mask_prob: 0.15
+    ignore_index: -100
+    num_walks: 10000000
+    train_ratio: 0.8
+    val_ratio: 0.1
+    test_ratio: 0.1
 
 model:
-  embedding_dim: 128
-  hidden_dim: 256
-  dropout: 0.1
-  nhead: 4
-  nlayers: 2
+    embedding_dim: 128
+    hidden_dim: 256
+    dropout: 0.1
+    nhead: 4
+    nlayers: 2
 
 training:
-  batch_size: 64
-  epochs: 10
-  lr: 0.001
-  weight_decay: 0.0
-  log_dir: logs/
-  exp_name: default_run
-  checkpoint_dir: checkpoints/
-  use_cuda: true
+    batch_size: 64
+    epochs: 10
+    lr: 1e-3
+    weight_decay: 1e-5
+    log_dir: logs/
+    exp_name: walk_to_paint_experiment
+    checkpoint_dir: checkpoints/
+    resume_from_checkpoint: null
+    eval_only: false
+    use_cuda: true

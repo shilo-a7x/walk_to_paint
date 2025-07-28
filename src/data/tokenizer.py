@@ -1,49 +1,107 @@
 import json
-from collections import Counter
 
 
 class Tokenizer:
-    PAD_TOKEN = "<PAD>"
-    MASK_TOKEN = "<MASK>"
-    UNK_TOKEN = "<UNK>"
+    PAD = "<PAD>"
+    MASK = "<MASK>"
+    UNK = "<UNK>"
 
     def __init__(self):
-        self.token2id = {}
-        self.id2token = {}
-        self.vocab_size = 0
+        self.token2id = {
+            self.PAD: 0,
+            self.MASK: 1,
+            self.UNK: 2,
+        }
+        self.id2token = {v: k for k, v in self.token2id.items()}
 
-    def fit(self, sequences):
-        counter = Counter(token for seq in sequences for token in seq)
-        vocab = [self.PAD_TOKEN, self.MASK_TOKEN, self.UNK_TOKEN] + sorted(counter)
+    def add_token(self, token):
+        if token not in self.token2id:
+            idx = len(self.token2id)
+            self.token2id[token] = idx
+            self.id2token[idx] = token
 
-        self.token2id = {tok: i for i, tok in enumerate(vocab)}
-        self.id2token = {i: tok for tok, i in self.token2id.items()}
-        self.vocab_size = len(self.token2id)
+    def fit(self, walks, edges=None):
+        for walk in walks:
+            for tok in walk:
+                self.add_token(tok)
+        if edges:
+            for u, v, label in edges:
+                self.add_token(f"N_{u}")
+                self.add_token(f"N_{v}")
+                self.add_token(f"E_{label}")
+        self.build_edge_label_map()
+
+    def build_edge_label_map(self):
+        """Create mapping from edge label tokens to [0, num_classes)"""
+        self.edge_label2id = {}
+        self.id2edge_label = {}
+        current = 0
+        for token in self.token2id:
+            if self.is_edge(token):
+                self.edge_label2id[token] = current
+                self.id2edge_label[current] = token
+                current += 1
+
+    def encode_edge_label(self, token_or_id):
+        """Convert edge token (str or int) to class ID in [0, num_classes)"""
+        token = (
+            token_or_id
+            if isinstance(token_or_id, str)
+            else self.id2token.get(token_or_id, "")
+        )
+        return self.edge_label2id.get(token, -1)
+
+    def decode_edge_label(self, class_id):
+        """Convert class ID (0, ..., num_classes-1) back to edge token string"""
+        return self.id2edge_label.get(class_id, self.UNK)
 
     def encode(self, sequence):
-        return [self.token2id.get(token, self.unk_idx) for token in sequence]
+        return [self.token2id.get(token, self.UNK_ID) for token in sequence]
 
     def decode(self, ids):
-        return [self.id2token.get(i, self.UNK_TOKEN) for i in ids]
+        return [self.id2token.get(i, self.UNK) for i in ids]
 
     def save(self, path):
         with open(path, "w") as f:
-            json.dump({"token2id": self.token2id}, f)
+            json.dump(
+                {"token2id": self.token2id, "edge_label2id": self.edge_label2id}, f
+            )
 
-    def load(self, path):
+    @classmethod
+    def load(cls, path):
         with open(path) as f:
-            self.token2id = json.load(f)["token2id"]
-        self.id2token = {int(i): t for t, i in self.token2id.items()}
-        self.vocab_size = len(self.token2id)
+            data = json.load(f)
+        tok = cls()
+        tok.token2id = data.get("token2id", {})
+        tok.id2token = {int(v): k for k, v in tok.token2id.items()}
+        tok.edge_label2id = data.get("edge_label2id", {})
+        tok.id2edge_label = {v: k for k, v in tok.edge_label2id.items()}
+
+        return tok
+
+    def is_edge(self, token_or_id):
+        if isinstance(token_or_id, int):
+            token = self.id2token.get(token_or_id, "")
+        else:
+            token = token_or_id
+        return token.startswith("E_")
 
     @property
-    def pad_idx(self):
-        return self.token2id[self.PAD_TOKEN]
+    def PAD_ID(self):
+        return self.token2id[self.PAD]
 
     @property
-    def mask_idx(self):
-        return self.token2id[self.MASK_TOKEN]
+    def MASK_ID(self):
+        return self.token2id[self.MASK]
 
     @property
-    def unk_idx(self):
-        return self.token2id[self.UNK_TOKEN]
+    def UNK_ID(self):
+        return self.token2id[self.UNK]
+
+    @property
+    def vocab_size(self):
+        return len(self.token2id)
+
+    @property
+    def num_edge_tokens(self):
+        return len([k for k in self.token2id if self.is_edge(k)])
