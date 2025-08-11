@@ -54,11 +54,6 @@ class LitEdgeClassifier(pl.LightningModule):
         input_ids, labels, attention_mask = batch
 
         logits = self.model(input_ids, attention_mask=attention_mask)
-        valid_mask = labels != self.cfg.dataset.ignore_index
-        assert torch.all(
-            (labels[valid_mask] >= 0)
-            & (labels[valid_mask] < self.cfg.model.num_classes)
-        ), f"Label out of range: {labels.min().item()} to {labels.max().item()}, expected [0, {self.cfg.model.num_classes - 1}]"
 
         loss = self.loss_fn(logits.view(-1, logits.size(-1)), labels.view(-1))
 

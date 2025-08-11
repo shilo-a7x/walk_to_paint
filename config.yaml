@@ -9,11 +9,12 @@ dataset:
     walks_file: walks.json
     tokenizer_file: tokenizer.json
     encoded_file: encoded.pt
-    splits_file: splits.json
+    edge_split_file: splits.json
+    meta_file: meta.json
     max_walk_length: 20
-    mask_prob: 0.15
+    mask_prob: 0.5
     ignore_index: -100
-    num_walks: 10000000
+    num_walks: 1000000
     train_ratio: 0.8
     val_ratio: 0.1
     test_ratio: 0.1
@@ -30,6 +31,7 @@ training:
     epochs: 10
     lr: 1e-3
     weight_decay: 1e-5
+    early_stopping_patience: 10
     log_dir: logs/
     exp_name: walk_to_paint_experiment
     checkpoint_dir: checkpoints/
