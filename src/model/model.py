@@ -15,7 +15,10 @@ def get_sinusoidal_encoding(length, dim):
 class TransformerModel(nn.Module):
     def __init__(self, cfg):
         super().__init__()
-        self.embed = nn.Embedding(cfg.model.vocab_size, cfg.model.embedding_dim)
+        pad_id = cfg.model.pad_id
+        self.embed = nn.Embedding(
+            cfg.model.vocab_size, cfg.model.embedding_dim, padding_idx=pad_id
+        )
         max_length = 2 * cfg.dataset.max_walk_length + 1
         self.register_buffer(
             "pos_encoder",

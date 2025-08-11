@@ -12,12 +12,10 @@ dataset:
     edge_split_file: splits.json
     meta_file: meta.json
     max_walk_length: 20
-    mask_prob: 0.5
-    ignore_index: -100
     num_walks: 1000000
-    train_ratio: 0.8
+    train_ratio: 0.7
+    mask_ratio: 0.1
     val_ratio: 0.1
-    test_ratio: 0.1
 
 model:
     embedding_dim: 128

@@ -11,7 +11,7 @@ class LitEdgeClassifier(pl.LightningModule):
         self.save_hyperparameters(ignore=["cfg"])
         self.model = TransformerModel(cfg)
         self.cfg = cfg
-        ignore_index = cfg.dataset.ignore_index
+        ignore_index = cfg.model.ignore_index
         self.loss_fn = nn.CrossEntropyLoss(ignore_index=ignore_index)
 
         self.num_classes = cfg.model.num_classes

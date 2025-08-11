@@ -5,6 +5,7 @@ class Tokenizer:
     PAD = "<PAD>"
     MASK = "<MASK>"
     UNK = "<UNK>"
+    UNK_LABEL = "<UNK_LABEL>"
     NODE_PREFIX = "N_"
     EDGE_PREFIX = "E_"
     DELIMITER = "_"
@@ -52,11 +53,11 @@ class Tokenizer:
             if isinstance(token_or_id, str)
             else self.id2token.get(token_or_id, "")
         )
-        return self.edge_label2id.get(token, -1)
+        return self.edge_label2id.get(token, self.UNK_LABEL_ID)
 
     def decode_edge_label(self, class_id):
         """Convert class ID (0, ..., num_classes-1) back to edge token string"""
-        return self.id2edge_label.get(class_id, self.UNK)
+        return self.id2edge_label.get(class_id, self.UNK_LABEL)
 
     def encode(self, sequence):
         if isinstance(sequence, str):
@@ -126,6 +127,10 @@ class Tokenizer:
     @property
     def UNK_ID(self):
         return self.token2id[self.UNK]
+
+    @property
+    def UNK_LABEL_ID(self):
+        return -1
 
     @property
     def vocab_size(self):
