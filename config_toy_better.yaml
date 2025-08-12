@@ -1,0 +1,36 @@
+dataset:
+  data_dir: data/toy_better
+  edge_list_file: out.toy
+  edge_split_file: splits.json
+  encoded_file: encoded.pt
+  mask_ratio: 0.1
+  max_walk_length: 5  # Longer walks = more labels
+  meta_file: meta.json
+  name: toy
+  num_walks: 500  # Fewer but longer walks
+  tokenizer_file: tokenizer.json
+  train_ratio: 0.7
+  val_ratio: 0.1
+  walks_file: walks.json
+model:
+  dropout: 0.1
+  embedding_dim: 16
+  hidden_dim: 32
+  nhead: 2
+  nlayers: 1
+preprocess:
+  save: false  # Force regeneration
+  use_cache: false
+training:
+  batch_size: 4  # Larger batches
+  checkpoint_dir: checkpoints/
+  early_stopping_patience: 10
+  epochs: 3
+  eval_only: false
+  exp_name: walk_to_paint_toy_better
+  gradient_clip_val: 0.5
+  log_dir: logs/
+  lr: 1e-4
+  resume_from_checkpoint: null
+  use_cuda: true
+  weight_decay: 1e-3

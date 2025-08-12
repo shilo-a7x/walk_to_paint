@@ -130,7 +130,7 @@ def encode_walks(
 
 
 def _stage_views_from_base(
-    cfg, input_ids: torch.Tensor, edge_split_mask: torch.Tensor, tokenizer: Tokenizer
+    input_ids: torch.Tensor, edge_split_mask: torch.Tensor, tokenizer: Tokenizer
 ):
     """
     Build per-stage (input_ids, labels, attention_mask) with those rules:
@@ -163,22 +163,31 @@ def _stage_views_from_base(
 
         # input ids: mask only target edges; pad disallowed edges
         x = input_ids.clone()
-        target_mask = edge_split_mask == target_split
+        target_edges = edge_split_mask == target_split
         # labels from original token ids (before overwrite)
         labels = torch.full_like(input_ids, ignore_index)
-        if target_mask.any():
-            labels[target_mask] = id2class[x[target_mask]]
+        if target_edges.any():
+            labels[target_edges] = id2class[x[target_edges]]
         # replace target edges with MASK token id
-        x[target_mask] = mask_id
+        x[target_edges] = mask_id
         # hide disallowed edges completely
         x[disallowed_edges] = pad_id
 
         return x, labels, attn
 
-    # Stage definitions
-    train_allowed = [SplitID.TRAIN]
-    val_allowed = [SplitID.TRAIN, SplitID.MASK]
-    test_allowed = [SplitID.TRAIN, SplitID.MASK, SplitID.VAL]
+    # Stage definitions - include target splits in allowed splits for attention
+    train_allowed = [SplitID.TRAIN, SplitID.MASK]  # Include MASK (target) in allowed
+    val_allowed = [
+        SplitID.TRAIN,
+        SplitID.MASK,
+        SplitID.VAL,
+    ]  # Include VAL (target) in allowed
+    test_allowed = [
+        SplitID.TRAIN,
+        SplitID.MASK,
+        SplitID.VAL,
+        SplitID.TEST,
+    ]  # Include TEST (target) in allowed
 
     train_x, train_y, train_attn = build_for_stage(train_allowed, SplitID.MASK)
     val_x, val_y, val_attn = build_for_stage(val_allowed, SplitID.VAL)
@@ -209,7 +218,7 @@ def pad_and_build_stage_tensors(cfg, input_ids_list, edge_split_masks_list, toke
     ).long()
     # derive stage-specific views
     train_pack, val_pack, test_pack = _stage_views_from_base(
-        cfg, input_ids, edge_split_mask, tokenizer
+        input_ids, edge_split_mask, tokenizer
     )
     if cfg.preprocess.save:
         torch.save((train_pack, val_pack, test_pack), enc_path)

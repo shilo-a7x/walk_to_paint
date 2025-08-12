@@ -3,9 +3,9 @@ preprocess:
     use_cache: true
 
 dataset:
-    name: chess
-    data_dir: data/chess
-    edge_list_file: out.chess
+    name: bitcoin_alpha
+    data_dir: data/bitcoin_alpha
+    edge_list_file: soc-sign-bitcoinalpha.csv
     walks_file: walks.json
     tokenizer_file: tokenizer.json
     encoded_file: encoded.pt
@@ -20,7 +20,7 @@ dataset:
 model:
     embedding_dim: 128
     hidden_dim: 256
-    dropout: 0.1
+    dropout: 0.2
     nhead: 4
     nlayers: 2
 
@@ -28,8 +28,9 @@ training:
     batch_size: 64
     epochs: 10
     lr: 1e-3
-    weight_decay: 1e-5
+    weight_decay: 1e-4
     early_stopping_patience: 10
+    gradient_clip_val: 1.0
     log_dir: logs/
     exp_name: walk_to_paint_experiment
     checkpoint_dir: checkpoints/

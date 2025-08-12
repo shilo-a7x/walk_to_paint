@@ -7,7 +7,8 @@ from src.model.lit_model import LitEdgeClassifier
 
 def train_model(cfg, data_module):
     logger = TensorBoardLogger(
-        save_dir=cfg.training.log_dir, name=cfg.training.exp_name
+        save_dir=cfg.training.log_dir,
+        name=f"{cfg.dataset.name}-{cfg.training.exp_name}",
     )
     model = LitEdgeClassifier(cfg)
 
@@ -29,12 +30,13 @@ def train_model(cfg, data_module):
     trainer = Trainer(
         max_epochs=cfg.training.epochs,
         logger=logger,
-        log_every_n_steps=len(data_module["train"]) / 10,
+        log_every_n_steps=len(data_module["train"]) // 10,
         default_root_dir=cfg.training.checkpoint_dir,
         accelerator=(
             "gpu" if cfg.training.use_cuda and torch.cuda.is_available() else "cpu"
         ),
         callbacks=[checkpoint, early_stopping],
+        gradient_clip_val=cfg.training.gradient_clip_val,
     )
 
     ckpt_path = cfg.training.resume_from_checkpoint or None

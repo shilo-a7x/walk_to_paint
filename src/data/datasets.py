@@ -18,14 +18,40 @@ def load_chess(cfg):
 
 
 def load_bitcoin(cfg):
-    """Placeholder for Bitcoin dataset loading."""
-    raise NotImplementedError("Bitcoin dataset loader is not yet implemented.")
+    """Load the Bitcoin dataset from a csv file."""
+    path = os.path.join(cfg.dataset.data_dir, cfg.dataset.edge_list_file)
+    edges = []
+    with open(path, "r") as f:
+        for line in f:
+            parts = line.strip().split(",")
+            if len(parts) < 3:
+                continue  # Invalid line
+            u, v, label = int(parts[0]), int(parts[1]), int(parts[2])
+            edges.append((u, v, label))
+    return edges
 
+
+def load_toy(cfg):
+    """Load the toy dataset from an edge list file."""
+    path = os.path.join(cfg.dataset.data_dir, cfg.dataset.edge_list_file)
+    edges = []
+    with open(path, "r") as f:
+        for line in f:
+            if line.startswith("%"):
+                continue  # Skip comments
+            parts = line.strip().split()
+            if len(parts) < 3:
+                continue  # Invalid line
+            u, v, label = int(parts[0]), int(parts[1]), int(parts[2])
+            edges.append((u, v, label))
+    return edges
 
 # 🔁 Registry of dataset loaders
 DATASET_LOADERS = {
     "chess": load_chess,
-    "bitcoin": load_bitcoin,
+    "bitcoin_alpha": load_bitcoin,
+    "bitcoin_otc": load_bitcoin,
+    "toy": load_toy,
 }
 
 

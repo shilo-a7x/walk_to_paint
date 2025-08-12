@@ -53,6 +53,11 @@ class LitEdgeClassifier(pl.LightningModule):
     def _step(self, batch, stage: str):
         input_ids, labels, attention_mask = batch
 
+        # Check if all labels are ignore_index
+        if torch.all(labels == self.cfg.model.ignore_index):
+            # Skip the batch completely if all labels are ignore_index
+            return None  # Returning None indicates that no loss/metrics are computed
+
         logits = self.model(input_ids, attention_mask=attention_mask)
 
         loss = self.loss_fn(logits.view(-1, logits.size(-1)), labels.view(-1))
@@ -83,11 +88,24 @@ class LitEdgeClassifier(pl.LightningModule):
         return self._step(batch, "test")
 
     def configure_optimizers(self):
-        return torch.optim.AdamW(
+        optimizer = torch.optim.AdamW(
             self.parameters(),
             lr=self.cfg.training.lr,
             weight_decay=self.cfg.training.weight_decay,
         )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=self.cfg.training.epochs
+        )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {"scheduler": scheduler, "interval": "epoch"},
+        }
+
+    def on_train_epoch_end(self):
+        self.log("train_acc_epoch", self.train_acc.compute(), prog_bar=True)
+        self.log("train_f1_epoch", self.train_f1.compute(), prog_bar=True)
+        self.train_acc.reset()
+        self.train_f1.reset()
 
     def on_validation_epoch_end(self):
         self.log("val_acc_epoch", self.val_acc.compute(), prog_bar=True)
