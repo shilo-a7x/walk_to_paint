@@ -30,7 +30,8 @@ def train_model(cfg, data_module):
     trainer = Trainer(
         max_epochs=cfg.training.epochs,
         logger=logger,
-        log_every_n_steps=len(data_module["train"]) // 10,
+        # log_every_n_steps=len(data_module["train"]) // 10,
+        log_every_n_steps=None,
         default_root_dir=cfg.training.checkpoint_dir,
         accelerator=(
             "gpu" if cfg.training.use_cuda and torch.cuda.is_available() else "cpu"

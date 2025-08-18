@@ -99,9 +99,7 @@ def get_tokenizer(cfg, walks, edges):
     return tokenizer
 
 
-def encode_walks(
-    cfg, walks, tokenizer: Tokenizer, train_set, mask_set, val_set, test_set
-):
+def encode_walks(walks, tokenizer: Tokenizer, train_set, mask_set, val_set, test_set):
     input_ids, edge_split_masks = [], []
 
     split_lookup = {}
@@ -161,7 +159,7 @@ def _stage_views_from_base(
         disallowed_edges = is_edge_pos & (~allowed_edges)
         attn[disallowed_edges] = 0
 
-        # input ids: mask only target edges; pad disallowed edges
+        # input ids: mask only target edges; mask disallowed edges too
         x = input_ids.clone()
         target_edges = edge_split_mask == target_split
         # labels from original token ids (before overwrite)
@@ -170,8 +168,8 @@ def _stage_views_from_base(
             labels[target_edges] = id2class[x[target_edges]]
         # replace target edges with MASK token id
         x[target_edges] = mask_id
-        # hide disallowed edges completely
-        x[disallowed_edges] = pad_id
+        # mask disallowed edges but don't give them labels (keep ignore_index)
+        x[disallowed_edges] = mask_id
 
         return x, labels, attn
 
@@ -204,7 +202,11 @@ def pad_and_build_stage_tensors(cfg, input_ids_list, edge_split_masks_list, toke
     print(f"Padding and building stage tensors for {cfg.dataset.name} dataset...")
     enc_path = os.path.join(cfg.dataset.data_dir, cfg.dataset.encoded_file)
     meta_path = os.path.join(cfg.dataset.data_dir, cfg.dataset.meta_file)
-    if cfg.preprocess.use_cache and os.path.exists(enc_path):
+    if (
+        cfg.preprocess.use_cache
+        and os.path.exists(enc_path)
+        and os.path.exists(meta_path)
+    ):
         loaded = torch.load(enc_path)
         print(f"Success! ✅")
         return loaded
@@ -278,7 +280,7 @@ def prepare_data(cfg):
     cfg.model.pad_id = tokenizer.PAD_ID
     cfg.model.ignore_index = tokenizer.UNK_LABEL_ID
     input_lists, split_lists = encode_walks(
-        cfg, walks, tokenizer, train_set, mask_set, val_set, test_set
+        walks, tokenizer, train_set, mask_set, val_set, test_set
     )
     train_pack, val_pack, test_pack = pad_and_build_stage_tensors(
         cfg, input_lists, split_lists, tokenizer

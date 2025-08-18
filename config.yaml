@@ -3,32 +3,32 @@ preprocess:
     use_cache: true
 
 dataset:
-    name: bitcoin_alpha
-    data_dir: data/bitcoin_alpha
-    edge_list_file: soc-sign-bitcoinalpha.csv
+    name: bitcoin-alpha-binary
+    data_dir: data/bitcoin-alpha-binary
+    edge_list_file: soc-sign-bitcoinalpha-binary.csv
     walks_file: walks.json
     tokenizer_file: tokenizer.json
     encoded_file: encoded.pt
     edge_split_file: splits.json
     meta_file: meta.json
-    max_walk_length: 20
+    max_walk_length: 40
     num_walks: 1000000
     train_ratio: 0.7
     mask_ratio: 0.1
     val_ratio: 0.1
 
 model:
-    embedding_dim: 128
-    hidden_dim: 256
-    dropout: 0.2
+    embedding_dim: 8
+    hidden_dim: 8
+    dropout: 0.0
     nhead: 4
     nlayers: 2
 
 training:
-    batch_size: 64
+    batch_size: 128
     epochs: 10
     lr: 1e-3
-    weight_decay: 1e-4
+    weight_decay: 1e-2
     early_stopping_patience: 10
     gradient_clip_val: 1.0
     log_dir: logs/

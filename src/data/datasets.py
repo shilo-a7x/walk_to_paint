@@ -46,11 +46,13 @@ def load_toy(cfg):
             edges.append((u, v, label))
     return edges
 
+
 # 🔁 Registry of dataset loaders
 DATASET_LOADERS = {
     "chess": load_chess,
-    "bitcoin_alpha": load_bitcoin,
-    "bitcoin_otc": load_bitcoin,
+    "bitcoin-alpha": load_bitcoin,
+    "bitcoin-alpha-binary": load_bitcoin,
+    "bitcoin-otc": load_bitcoin,
     "toy": load_toy,
 }
 

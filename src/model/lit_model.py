@@ -102,19 +102,55 @@ class LitEdgeClassifier(pl.LightningModule):
         }
 
     def on_train_epoch_end(self):
-        self.log("train_acc_epoch", self.train_acc.compute(), prog_bar=True)
-        self.log("train_f1_epoch", self.train_f1.compute(), prog_bar=True)
+        self.log(
+            "train_acc_epoch",
+            self.train_acc.compute(),
+            prog_bar=True,
+            on_step=False,
+            on_epoch=True,
+        )
+        self.log(
+            "train_f1_epoch",
+            self.train_f1.compute(),
+            prog_bar=True,
+            on_step=False,
+            on_epoch=True,
+        )
         self.train_acc.reset()
         self.train_f1.reset()
 
     def on_validation_epoch_end(self):
-        self.log("val_acc_epoch", self.val_acc.compute(), prog_bar=True)
-        self.log("val_f1_epoch", self.val_f1.compute(), prog_bar=True)
+        self.log(
+            "val_acc_epoch",
+            self.val_acc.compute(),
+            prog_bar=True,
+            on_step=False,
+            on_epoch=True,
+        )
+        self.log(
+            "val_f1_epoch",
+            self.val_f1.compute(),
+            prog_bar=True,
+            on_step=False,
+            on_epoch=True,
+        )
         self.val_acc.reset()
         self.val_f1.reset()
 
     def on_test_epoch_end(self):
-        self.log("test_acc_epoch", self.test_acc.compute(), prog_bar=True)
-        self.log("test_f1_epoch", self.test_f1.compute(), prog_bar=True)
+        self.log(
+            "test_acc_epoch",
+            self.test_acc.compute(),
+            prog_bar=True,
+            on_step=False,
+            on_epoch=True,
+        )
+        self.log(
+            "test_f1_epoch",
+            self.test_f1.compute(),
+            prog_bar=True,
+            on_step=False,
+            on_epoch=True,
+        )
         self.test_acc.reset()
         self.test_f1.reset()
