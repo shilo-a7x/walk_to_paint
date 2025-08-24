@@ -42,7 +42,7 @@ def train_model(cfg, data_module):
 
     ckpt_path = cfg.training.resume_from_checkpoint or None
     if cfg.training.eval_only:
-        # trainer.validate(model, data_module["val"], ckpt_path=ckpt_path)
+        trainer.validate(model, data_module["val"], ckpt_path=ckpt_path)
         trainer.test(model, data_module["test"], ckpt_path=ckpt_path)
     else:
         trainer.fit(

@@ -1,6 +1,6 @@
 preprocess:
-    save: true
-    use_cache: true
+    save: false
+    use_cache: false
 
 dataset:
     name: bitcoin-alpha-binary
@@ -20,17 +20,18 @@ dataset:
 model:
     embedding_dim: 8
     hidden_dim: 8
-    dropout: 0.0
+    dropout: 0.2
     nhead: 4
     nlayers: 2
 
 training:
     batch_size: 128
-    epochs: 10
+    epochs: 50
     lr: 1e-3
-    weight_decay: 1e-2
+    weight_decay: 1e-1
     early_stopping_patience: 10
     gradient_clip_val: 1.0
+    use_weighted_loss: true
     log_dir: logs/
     exp_name: walk_to_paint_experiment
     checkpoint_dir: checkpoints/

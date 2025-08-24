@@ -53,6 +53,7 @@ DATASET_LOADERS = {
     "bitcoin-alpha": load_bitcoin,
     "bitcoin-alpha-binary": load_bitcoin,
     "bitcoin-otc": load_bitcoin,
+    "bitcoin-otc-binary": load_bitcoin,
     "toy": load_toy,
 }
 

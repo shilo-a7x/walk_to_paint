@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Convert Bitcoin Alpha dataset to binary labels based on most dominant class.
+Convert Bitcoin OTC dataset to binary labels based on most dominant class.
 Most dominant class is rating=1 (56.9% of dataset).
 Binary split: rating=1 -> 1, rating≠1 -> 0
 """
@@ -9,14 +9,14 @@ import pandas as pd
 import os
 
 
-def create_dominant_binary_bitcoin_alpha():
-    """Convert bitcoin alpha dataset to binary labels based on most dominant class."""
+def create_dominant_binary_bitcoin_otc():
+    """Convert bitcoin otc dataset to binary labels based on most dominant class."""
 
-    os.makedirs("data/bitcoin-alpha-binary", exist_ok=True)
-    input_path = "data/bitcoin-alpha/soc-sign-bitcoinalpha.csv"
-    output_path = "data/bitcoin-alpha-binary/soc-sign-bitcoinalpha-binary.csv"
+    os.makedirs("data/bitcoin-otc-binary", exist_ok=True)
+    input_path = "data/bitcoin-otc/soc-sign-bitcoinotc.csv"
+    output_path = "data/bitcoin-otc-binary/soc-sign-bitcoinotc-binary.csv"
 
-    print("🔄 Converting Bitcoin Alpha to dominant-class binary labels...")
+    print("🔄 Converting Bitcoin OTC to dominant-class binary labels...")
     print(f"Input:  {input_path}")
     print(f"Output: {output_path}")
 
@@ -95,4 +95,4 @@ def create_dominant_binary_bitcoin_alpha():
 
 
 if __name__ == "__main__":
-    create_dominant_binary_bitcoin_alpha()
+    create_dominant_binary_bitcoin_otc()
