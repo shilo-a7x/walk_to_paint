@@ -7,6 +7,7 @@ from pathlib import Path
 from omegaconf import OmegaConf
 import torch
 import optuna
+from optuna.storages import JournalStorage, JournalFileStorage
 from optuna.integration import PyTorchLightningPruningCallback
 
 from pytorch_lightning import Trainer
@@ -257,6 +258,7 @@ def objective_factory(base_cfg, device, enable_pruning=True):
 
 
 def main():
+
     args = parse_args()
 
     # ---- Load config and apply CLI overrides ----
@@ -269,15 +271,18 @@ def main():
     print(f"🖥️  Device: {args.device}")
     print(f"💾 Keeping top 10 checkpoints/logs to save space")
 
-    # ---- Create study with pruning ----
+    # ---- Create study with Optuna journal file storage ----
+    storage = JournalStorage(JournalFileStorage("optuna_study.log"))
     study = optuna.create_study(
-        direction="minimize",  # Minimize because we return -AUC
+        direction="minimize",
         pruner=optuna.pruners.MedianPruner(
             n_startup_trials=5,
             n_warmup_steps=5,
             interval_steps=1,
         ),
         study_name=f"walk_to_paint_study_{base_cfg.training.exp_name}",
+        storage=storage,
+        load_if_exists=True,
     )
 
     # ---- Add callback to cleanup after every 5 trials ----

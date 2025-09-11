@@ -16,22 +16,22 @@ def train_model(cfg, data_module):
         dirpath=cfg.training.checkpoint_dir,
         filename=f"{cfg.dataset.name}-{cfg.training.exp_name}"
         + "-{epoch:02d}-{val_loss:.2f}",
-        monitor="val_loss",
+        monitor="val_auc_epoch",
         save_top_k=-1,
     )
 
     early_stopping = EarlyStopping(
-        monitor="val_loss",
+        monitor="val_auc_epoch",
         patience=cfg.training.early_stopping_patience,
         verbose=True,
-        mode="min",
+        mode="max",
     )
 
     trainer = Trainer(
         max_epochs=cfg.training.epochs,
         logger=logger,
-        # log_every_n_steps=len(data_module["train"]) // 10,
-        log_every_n_steps=None,
+        log_every_n_steps=len(data_module["train"]) // 10,
+        # log_every_n_steps=None,
         default_root_dir=cfg.training.checkpoint_dir,
         accelerator=(
             "gpu" if cfg.training.use_cuda and torch.cuda.is_available() else "cpu"

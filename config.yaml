@@ -11,26 +11,27 @@ dataset:
     encoded_file: encoded.pt
     edge_split_file: splits.json
     meta_file: meta.json
-    max_walk_length: 40
-    num_walks: 1000000
-    train_ratio: 0.7
-    mask_ratio: 0.1
+    max_walk_length: 83
+    num_walks: 219589
+    train_ratio: 0.48
+    mask_ratio: 0.32
     val_ratio: 0.1
+    test_ratio: 0.1
 
 model:
-    embedding_dim: 8
-    hidden_dim: 8
-    dropout: 0.2
-    nhead: 4
-    nlayers: 2
+    embedding_dim: 32
+    hidden_dim: 16
+    dropout: 0.6207573207736868
+    nhead: 8
+    nlayers: 5
 
 training:
-    batch_size: 128
-    epochs: 50
-    lr: 1e-3
-    weight_decay: 1e-1
+    batch_size: 64
+    epochs: 25
+    lr: 0.0011990397793339518
+    weight_decay: 0.0026821863636421073
     early_stopping_patience: 10
-    gradient_clip_val: 1.0
+    gradient_clip_val: 0.5956847053697083
     use_weighted_loss: true
     log_dir: logs/
     exp_name: walk_to_paint_experiment

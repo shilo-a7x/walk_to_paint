@@ -37,14 +37,24 @@ def split_edges(cfg, edges):
         edges_copy = list(edges)
         random.shuffle(edges_copy)
         n_total = len(edges_copy)
-        n_train = int(cfg.dataset.train_ratio * n_total)
-        n_mask = int(cfg.dataset.mask_ratio * n_total)
-        n_val = int(cfg.dataset.val_ratio * n_total)
-
+        train_ratio = float(cfg.dataset.train_ratio)
+        mask_ratio = float(cfg.dataset.mask_ratio)
+        val_ratio = float(cfg.dataset.val_ratio)
+        test_ratio = float(cfg.dataset.test_ratio)
+        total = train_ratio + mask_ratio + val_ratio + test_ratio
+        if abs(total - 1.0) > 1e-6:
+            raise ValueError(
+                f"Train, mask, val, and test ratios must sum to 1. Got {total:.6f}."
+            )
+        print(
+            f"Ratios: train={train_ratio:.3f}, mask={mask_ratio:.3f}, val={val_ratio:.3f}, test={test_ratio:.3f}"
+        )
+        n_train = int(train_ratio * n_total)
+        n_mask = int(mask_ratio * n_total)
+        n_val = int(val_ratio * n_total)
         n_test = n_total - n_train - n_mask - n_val
         if n_test < 0:
-            raise ValueError("Ratios sum to > 1. Adjust train/mask/val ratios.")
-
+            raise ValueError("Ratios result in negative test split. Adjust ratios.")
         split = {
             "train": edges_copy[:n_train],
             "mask": edges_copy[n_train : n_train + n_mask],
@@ -54,7 +64,6 @@ def split_edges(cfg, edges):
         if cfg.preprocess.save:
             with open(split_path, "w") as f:
                 json.dump(split, f)
-
     # lookup sets for fast membership
     train_set = {tuple(t) for t in split["train"]}
     mask_set = {tuple(t) for t in split["mask"]}

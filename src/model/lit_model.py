@@ -50,17 +50,6 @@ class LitEdgeClassifier(pl.LightningModule):
                 weight=class_weights,
                 ignore_index=self.ignore_index,
             )
-
-            # # Log the weights for monitoring
-            # if stage == "train":
-            #     for i, weight in enumerate(class_weights):
-            #         self.log(
-            #             f"class_{i}_weight",
-            #             weight,
-            #             on_step=False,
-            #             on_epoch=True,
-            #             prog_bar=False,
-            #         )
         else:
             # Standard unweighted loss
             loss = F.cross_entropy(
@@ -76,7 +65,7 @@ class LitEdgeClassifier(pl.LightningModule):
         # Update metrics using the metrics manager
         self.metrics_manager.update_metrics(stage, preds, targets, probs)
 
-        self.log(f"{stage}_loss", loss, prog_bar=True, on_step=False, on_epoch=True)
+        self.log(f"{stage}_loss", loss, prog_bar=True, on_epoch=True, on_step=False)
         return loss
 
     def training_step(self, batch, batch_idx):
@@ -103,25 +92,12 @@ class LitEdgeClassifier(pl.LightningModule):
         }
 
     def on_train_epoch_end(self):
+        self.log("step", self.current_epoch)
         results = self.metrics_manager.compute_and_reset_metrics("train")
 
-        self.log(
-            "train_acc_epoch",
-            results["accuracy"],
-            prog_bar=True,
-            on_step=False,
-            on_epoch=True,
-        )
-        self.log(
-            "train_f1_epoch", results["f1"], prog_bar=True, on_step=False, on_epoch=True
-        )
-        self.log(
-            "train_auc_epoch",
-            results["auc"],
-            prog_bar=True,
-            on_step=False,
-            on_epoch=True,
-        )
+        self.log("train_acc_epoch", results["accuracy"], prog_bar=True)
+        self.log("train_f1_epoch", results["f1"], prog_bar=True)
+        self.log("train_auc_epoch", results["auc"], prog_bar=True)
 
         # Log confusion matrix
         self.logger.experiment.add_figure(
@@ -149,21 +125,12 @@ class LitEdgeClassifier(pl.LightningModule):
         self.metrics_manager.reset_roc_data("train")
 
     def on_validation_epoch_end(self):
+        self.log("step", self.current_epoch)
         results = self.metrics_manager.compute_and_reset_metrics("val")
 
-        self.log(
-            "val_acc_epoch",
-            results["accuracy"],
-            prog_bar=True,
-            on_step=False,
-            on_epoch=True,
-        )
-        self.log(
-            "val_f1_epoch", results["f1"], prog_bar=True, on_step=False, on_epoch=True
-        )
-        self.log(
-            "val_auc_epoch", results["auc"], prog_bar=True, on_step=False, on_epoch=True
-        )
+        self.log("val_acc_epoch", results["accuracy"], prog_bar=True)
+        self.log("val_f1_epoch", results["f1"], prog_bar=True)
+        self.log("val_auc_epoch", results["auc"], prog_bar=True)
 
         # Log confusion matrix
         self.logger.experiment.add_figure(
@@ -191,25 +158,12 @@ class LitEdgeClassifier(pl.LightningModule):
         self.metrics_manager.reset_roc_data("val")
 
     def on_test_epoch_end(self):
+        self.log("step", self.current_epoch)
         results = self.metrics_manager.compute_and_reset_metrics("test")
 
-        self.log(
-            "test_acc_epoch",
-            results["accuracy"],
-            prog_bar=True,
-            on_step=False,
-            on_epoch=True,
-        )
-        self.log(
-            "test_f1_epoch", results["f1"], prog_bar=True, on_step=False, on_epoch=True
-        )
-        self.log(
-            "test_auc_epoch",
-            results["auc"],
-            prog_bar=True,
-            on_step=False,
-            on_epoch=True,
-        )
+        self.log("test_acc_epoch", results["accuracy"], prog_bar=True)
+        self.log("test_f1_epoch", results["f1"], prog_bar=True)
+        self.log("test_auc_epoch", results["auc"], prog_bar=True)
 
         # Log confusion matrix
         self.logger.experiment.add_figure(
