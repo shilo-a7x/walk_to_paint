@@ -1,6 +1,8 @@
 from tbparse import SummaryReader
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+from PIL import Image
 
 log_dir = "logs/bitcoin-alpha-binary-mask_032/version_0"
 reader = SummaryReader(log_dir)
@@ -63,3 +65,29 @@ plt.tight_layout()
 epochs = np.array(sorted(set(train_loss["step"])))
 plt.xticks(np.arange(epochs[0], epochs[-1] + 1, 5))
 plt.savefig("loss_over_epochs_mask_032.png")
+
+
+# --- Plot final ROC curve from TensorBoard images (if available) ---
+def save_last_roc_image(df, tag, out_path):
+    # Find all image events for the given tag
+    img_df = df[(df["tag"] == tag) & (df["type"] == "image")]
+    if len(img_df) == 0:
+        print(f"No ROC curve images found for tag: {tag}")
+        return
+    # Get the last ROC curve image (highest step)
+    last_img = img_df.sort_values("step").iloc[-1]
+    img_data = last_img["value"]  # This is a numpy array (H, W, 3) or (H, W, 4)
+    # Convert to uint8 if needed
+    if img_data.dtype != np.uint8:
+        img_data = (img_data * 255).astype(np.uint8)
+    # Remove alpha channel if present
+    if img_data.shape[-1] == 4:
+        img_data = img_data[..., :3]
+    img = Image.fromarray(img_data)
+    img.save(out_path)
+    print(f"Saved ROC curve image: {out_path}")
+
+
+# Save final ROC curves for train and validation
+save_last_roc_image(df, "train_roc_curve", "final_train_roc_curve.png")
+save_last_roc_image(df, "val_roc_curve", "final_val_roc_curve.png")

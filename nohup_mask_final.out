@@ -1,0 +1,3 @@
+nohup: ignoring input
+/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/networkx/utils/backends.py:135: RuntimeWarning: networkx backend defined more than once: nx-loopback
+  backends.update(_get_backends("networkx.backends"))

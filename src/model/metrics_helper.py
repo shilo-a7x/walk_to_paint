@@ -153,7 +153,7 @@ class PlottingHelper:
 
     @staticmethod
     def plot_roc_curve(targets_list, probs_list, title, num_classes):
-        """Plot ROC curves for each class."""
+        """Plot a single ROC curve for binary classification."""
         if not targets_list or not probs_list:
             return None
 
@@ -161,47 +161,56 @@ class PlottingHelper:
         all_targets = torch.cat(targets_list, dim=0).detach().cpu().numpy()
         all_probs = torch.cat(probs_list, dim=0).detach().cpu().numpy()
 
-        # Convert to binary format for multi-class ROC
-        y_bin = label_binarize(all_targets, classes=range(num_classes))
+        # For binary classification, use the probability of the positive class (assume class 1)
+        if num_classes == 2:
+            fpr, tpr, _ = roc_curve(all_targets, all_probs[:, 1])
+            roc_auc = auc(fpr, tpr)
 
-        # Handle case where not all classes are present
-        if y_bin.shape[1] < num_classes:
-            # Pad with zeros for missing classes
-            y_full = np.zeros((len(all_targets), num_classes))
-            present_classes = np.unique(all_targets)
-            y_full[:, present_classes] = y_bin
-            y_bin = y_full
-
-        fig, ax = plt.subplots(figsize=(10, 8))
-
-        # Compute ROC curve and AUC for each class
-        colors = plt.cm.Set1(np.linspace(0, 1, num_classes))
-
-        for i in range(num_classes):
-            if np.sum(y_bin[:, i]) > 0:  # Only plot if class is present
-                fpr, tpr, _ = roc_curve(y_bin[:, i], all_probs[:, i])
-                roc_auc = auc(fpr, tpr)
-                ax.plot(
-                    fpr,
-                    tpr,
-                    color=colors[i],
-                    lw=2,
-                    label=f"Class {i} (AUC = {roc_auc:.3f})",
-                )
-
-        # Plot random classifier line
-        ax.plot([0, 1], [0, 1], "k--", lw=2, label="Random Classifier")
-
-        ax.set_xlim([0.0, 1.0])
-        ax.set_ylim([0.0, 1.05])
-        ax.set_xlabel("False Positive Rate")
-        ax.set_ylabel("True Positive Rate")
-        ax.set_title(f"{title} ROC Curves")
-        ax.legend(loc="lower right")
-        ax.grid(True, alpha=0.3)
-
-        plt.tight_layout()
-        return fig
+            fig, ax = plt.subplots(figsize=(8, 6))
+            ax.plot(
+                fpr, tpr, color="blue", lw=2, label=f"ROC curve (AUC = {roc_auc:.3f})"
+            )
+            ax.plot([0, 1], [0, 1], "k--", lw=2, label="Random Classifier")
+            ax.set_xlim([0.0, 1.0])
+            ax.set_ylim([0.0, 1.05])
+            ax.set_xlabel("False Positive Rate")
+            ax.set_ylabel("True Positive Rate")
+            ax.set_title(f"{title} ROC Curve (Binary)")
+            ax.legend(loc="lower right")
+            ax.grid(True, alpha=0.3)
+            plt.tight_layout()
+            return fig
+        else:
+            # Fallback to original multi-class plotting if needed
+            fig, ax = plt.subplots(figsize=(10, 8))
+            y_bin = label_binarize(all_targets, classes=range(num_classes))
+            if y_bin.shape[1] < num_classes:
+                y_full = np.zeros((len(all_targets), num_classes))
+                present_classes = np.unique(all_targets)
+                y_full[:, present_classes] = y_bin
+                y_bin = y_full
+            colors = plt.cm.Set1(np.linspace(0, 1, num_classes))
+            for i in range(num_classes):
+                if np.sum(y_bin[:, i]) > 0:
+                    fpr, tpr, _ = roc_curve(y_bin[:, i], all_probs[:, i])
+                    roc_auc = auc(fpr, tpr)
+                    ax.plot(
+                        fpr,
+                        tpr,
+                        color=colors[i],
+                        lw=2,
+                        label=f"Class {i} (AUC = {roc_auc:.3f})",
+                    )
+            ax.plot([0, 1], [0, 1], "k--", lw=2, label="Random Classifier")
+            ax.set_xlim([0.0, 1.0])
+            ax.set_ylim([0.0, 1.05])
+            ax.set_xlabel("False Positive Rate")
+            ax.set_ylabel("True Positive Rate")
+            ax.set_title(f"{title} ROC Curves")
+            ax.legend(loc="lower right")
+            ax.grid(True, alpha=0.3)
+            plt.tight_layout()
+            return fig
 
 
 class WeightedLossHelper:
