@@ -41,12 +41,13 @@ def train_model(cfg, data_module):
     )
 
     ckpt_path = cfg.training.resume_from_checkpoint or None
+    model_arg = None if ckpt_path else model
     if cfg.training.eval_only:
-        trainer.validate(model, data_module["val"], ckpt_path=ckpt_path)
-        trainer.test(model, data_module["test"], ckpt_path=ckpt_path)
+        trainer.validate(model_arg, data_module["val"], ckpt_path=ckpt_path)
+        trainer.test(model_arg, data_module["test"], ckpt_path=ckpt_path)
     else:
         trainer.fit(
-            model, data_module["train"], data_module["val"], ckpt_path=ckpt_path
+            model_arg, data_module["train"], data_module["val"], ckpt_path=ckpt_path
         )
-        trainer.test(model, data_module["test"], ckpt_path=ckpt_path)
-    return model
+        trainer.test(model_arg, data_module["test"], ckpt_path=ckpt_path)
+    return
