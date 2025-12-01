@@ -76,6 +76,27 @@ training:
 preprocess:
     save: true
     use_cache: true
+
+**Configs & Outputs (new workflow)**
+
+- **Per-dataset configs:** Put dataset-specific values under `configs/<dataset>.yaml`. The loader will automatically merge `config.yaml` with `configs/<dataset>.yaml` when `dataset.name` is set, and CLI overrides still apply.
+- **Top-level outputs dir:** By default the project now uses `outputs/` to store run outputs. Structure:
+    - `outputs/<dataset.name>/<exp_name>[_<timestamp>]/checkpoints/`
+    - `outputs/<dataset.name>/<exp_name>[_<timestamp>]/logs/`
+    - `outputs/<dataset.name>/<exp_name>[_<timestamp>]/optuna/`
+    - `outputs/<dataset.name>/<exp_name>[_<timestamp>]/plots/`
+- **Toggle timestamp behavior:** Add `paths.append_timestamp: false` in your config if you prefer deterministic `exp_name` folders.
+- **How to run:**
+
+```bash
+# Use dataset config merging + CLI overrides
+python run.py --config config.yaml dataset.name=toy training.epochs=5
+
+# Run Optuna (outputs and study files saved inside the experiment folder)
+python optuna_run.py --config config.yaml --n-trials 50 dataset.name=bitcoin-alpha-binary
+```
+
+This change avoids accidental overwrites and keeps outputs organized per dataset and experiment.
 ```
 
 ---

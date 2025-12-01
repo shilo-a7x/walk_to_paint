@@ -3,8 +3,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from PIL import Image
+from io import BytesIO
+import argparse
 
-log_dir = "logs/bitcoin-alpha-binary-mask_032/version_4"
+parser = argparse.ArgumentParser()
+parser.add_argument("--log-dir", type=str, default=None, help="TensorBoard log dir to read")
+parser.add_argument("--out-dir", type=str, default='.', help="Directory to save plots")
+args = parser.parse_args()
+
+log_dir = args.log_dir or "logs"
 reader = SummaryReader(log_dir)
 df = reader.scalars
 images_df = getattr(reader, "images", None)
@@ -106,5 +113,5 @@ def save_last_roc_image(images_df, tag, out_path):
 
 
 # Save final ROC curves for train and validation
-save_last_roc_image(images_df, "train_roc_curve", "final_train_roc_curve.png")
-save_last_roc_image(images_df, "val_roc_curve", "final_val_roc_curve.png")
+save_last_roc_image(images_df, "train_roc_curve", os.path.join(args.out_dir, "final_train_roc_curve.png"))
+save_last_roc_image(images_df, "val_roc_curve", os.path.join(args.out_dir, "final_val_roc_curve.png"))

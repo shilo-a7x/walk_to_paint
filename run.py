@@ -5,6 +5,8 @@ import argparse
 from omegaconf import OmegaConf
 from src.data.prepare_data import prepare_data
 from src.training.train import train_model
+from src.utils.paths import resolve_outputs_dirs
+from src.utils.config import load_config
 
 
 def parse_args():
@@ -24,10 +26,12 @@ def parse_args():
 def main():
     args = parse_args()
 
-    # Load and override config
-    cfg = OmegaConf.load(args.config)
-    cli_cfg = OmegaConf.from_dotlist(args.overrides)
-    cfg = OmegaConf.merge(cfg, cli_cfg)
+    # Load and merge config (supports `configs/<dataset>.yaml` and CLI dotlist overrides)
+    cfg = load_config(args.config, overrides=args.overrides)
+
+    # Resolve outputs directories (namespaced by dataset and exp_name)
+    resolved = resolve_outputs_dirs(cfg)
+    print(f"Outputs -> exp_dir: {resolved['exp_dir']}")
 
     # Handle device
     if cfg.training.use_cuda and torch.cuda.is_available():

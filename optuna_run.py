@@ -17,6 +17,8 @@ from pytorch_lightning.loggers import TensorBoardLogger
 # Reuse your project modules
 from src.data.prepare_data import prepare_data
 from src.model.lit_model import LitEdgeClassifier
+from src.utils.paths import resolve_outputs_dirs
+from src.utils.config import load_config
 
 
 def cleanup_old_checkpoints_and_logs(checkpoint_dir, log_dir, keep_top_n=10):
@@ -262,9 +264,12 @@ def main():
     args = parse_args()
 
     # ---- Load config and apply CLI overrides ----
-    base_cfg = OmegaConf.load(args.config)
-    cli_cfg = OmegaConf.from_dotlist(args.overrides)
-    base_cfg = OmegaConf.merge(base_cfg, cli_cfg)
+    # Load and merge config (supports `configs/<dataset>.yaml` and CLI dotlist overrides)
+    base_cfg = load_config(args.config, overrides=args.overrides)
+
+    # Resolve outputs dirs early so Optuna and Trainer write into namespaced locations
+    resolved = resolve_outputs_dirs(base_cfg)
+    print(f"Outputs -> exp_dir: {resolved['exp_dir']}")
 
     print(f"🎯 Starting Optuna hyperparameter optimization with {args.n_trials} trials")
     print(f"📊 Objective: Maximize validation AUC")
@@ -330,7 +335,8 @@ def main():
             print(f"  {key}: {params[key]}")
 
     # ---- Save best config ----
-    out_yaml = f"best_params_optuna_{base_cfg.training.exp_name}.yaml"
+    # Save best config inside the experiment optuna directory
+    out_yaml = os.path.join(resolved.get("optuna_dir", "."), f"best_params_optuna_{base_cfg.training.exp_name}.yaml")
     best_cfg = {
         "dataset": {
             "max_walk_length": params.get("dataset.max_walk_length"),
@@ -364,7 +370,7 @@ def main():
     # ---- Save study for future analysis ----
     import joblib
 
-    study_path = f"optuna_study_{base_cfg.training.exp_name}.pkl"
+    study_path = os.path.join(resolved.get("optuna_dir", "."), f"optuna_study_{base_cfg.training.exp_name}.pkl")
     joblib.dump(study, study_path)
     print(f"📊 Saved complete study to: {study_path}")
 
