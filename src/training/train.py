@@ -1,3 +1,4 @@
+import os
 import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
@@ -10,7 +11,17 @@ def train_model(cfg, data_module):
         save_dir=cfg.training.log_dir,
         name=f"{cfg.dataset.name}-{cfg.training.exp_name}",
     )
+
+    ckpt_path = cfg.training.resume_from_checkpoint or None
     model = LitEdgeClassifier(cfg)
+    if ckpt_path:
+        print(f"Loading model from checkpoint: {ckpt_path}")
+        print("Checkpoint exists:", os.path.exists(ckpt_path))
+        print("Checkpoint size (bytes):", os.path.getsize(ckpt_path))
+        model = LitEdgeClassifier.load_from_checkpoint(ckpt_path, cfg=cfg)
+        print("Model loaded from checkpoint.")
+    else:
+        print("No checkpoint path provided, training from scratch.")
 
     checkpoint = ModelCheckpoint(
         dirpath=cfg.training.checkpoint_dir,
@@ -40,14 +51,14 @@ def train_model(cfg, data_module):
         gradient_clip_val=cfg.training.gradient_clip_val,
     )
 
-    ckpt_path = cfg.training.resume_from_checkpoint or None
-    model_arg = None if ckpt_path else model
     if cfg.training.eval_only:
-        trainer.validate(model_arg, data_module["val"], ckpt_path=ckpt_path)
-        trainer.test(model_arg, data_module["test"], ckpt_path=ckpt_path)
+        # 🔧 Ensure a concrete model is provided for validate/test
+        trainer.validate(model, data_module["val"], ckpt_path=ckpt_path)
+        trainer.test(model, data_module["test"], ckpt_path=ckpt_path)
     else:
         trainer.fit(
-            model_arg, data_module["train"], data_module["val"], ckpt_path=ckpt_path
+            model, data_module["train"], data_module["val"], ckpt_path=ckpt_path
         )
-        trainer.test(model_arg, data_module["test"], ckpt_path=ckpt_path)
-    return
+        trainer.test(model, data_module["test"])
+
+    return model
