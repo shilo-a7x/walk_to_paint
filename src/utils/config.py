@@ -3,7 +3,9 @@ from typing import List, Optional
 from omegaconf import OmegaConf
 
 
-def load_config(config_path: str = "config.yaml", overrides: Optional[List[str]] = None):
+def load_config(
+    config_path: str = "config.yaml", overrides: Optional[List[str]] = None
+):
     """
     Load a base config and optionally merge a dataset-specific config found in `configs/<dataset>.yaml`.
 

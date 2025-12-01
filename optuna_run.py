@@ -336,7 +336,10 @@ def main():
 
     # ---- Save best config ----
     # Save best config inside the experiment optuna directory
-    out_yaml = os.path.join(resolved.get("optuna_dir", "."), f"best_params_optuna_{base_cfg.training.exp_name}.yaml")
+    out_yaml = os.path.join(
+        resolved.get("optuna_dir", "."),
+        f"best_params_optuna_{base_cfg.training.exp_name}.yaml",
+    )
     best_cfg = {
         "dataset": {
             "max_walk_length": params.get("dataset.max_walk_length"),
@@ -370,7 +373,10 @@ def main():
     # ---- Save study for future analysis ----
     import joblib
 
-    study_path = os.path.join(resolved.get("optuna_dir", "."), f"optuna_study_{base_cfg.training.exp_name}.pkl")
+    study_path = os.path.join(
+        resolved.get("optuna_dir", "."),
+        f"optuna_study_{base_cfg.training.exp_name}.pkl",
+    )
     joblib.dump(study, study_path)
     print(f"📊 Saved complete study to: {study_path}")
 

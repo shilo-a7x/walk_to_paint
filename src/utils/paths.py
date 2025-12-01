@@ -3,7 +3,9 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 
-def resolve_outputs_dirs(cfg: Any, make_dirs: bool = True, base_outputs_dir: Optional[str] = None) -> Dict[str, str]:
+def resolve_outputs_dirs(
+    cfg: Any, make_dirs: bool = True, base_outputs_dir: Optional[str] = None
+) -> Dict[str, str]:
     """
     Resolve and create (optional) dataset-scoped output directories.
 
