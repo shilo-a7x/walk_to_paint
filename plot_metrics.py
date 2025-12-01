@@ -4,9 +4,10 @@ import numpy as np
 import os
 from PIL import Image
 
-log_dir = "logs/bitcoin-alpha-binary-mask_032/version_0"
+log_dir = "logs/bitcoin-alpha-binary-mask_032/version_4"
 reader = SummaryReader(log_dir)
 df = reader.scalars
+images_df = getattr(reader, "images", None)
 
 # Extract metrics
 train_auc = df[df["tag"] == "train_auc_epoch"]
@@ -67,27 +68,43 @@ plt.xticks(np.arange(epochs[0], epochs[-1] + 1, 5))
 plt.savefig("loss_over_epochs_mask_032.png")
 
 
-# --- Plot final ROC curve from TensorBoard images (if available) ---
-def save_last_roc_image(df, tag, out_path):
+# --- Save final ROC curve from TensorBoard images (if available) ---
+def save_last_roc_image(images_df, tag, out_path):
+    if images_df is None or images_df.empty:
+        print("No images dataframe available in this log.")
+        return
+
     # Find all image events for the given tag
-    img_df = df[(df["tag"] == tag) & (df["type"] == "image")]
+    img_df = images_df[images_df["tag"] == tag]
     if len(img_df) == 0:
         print(f"No ROC curve images found for tag: {tag}")
         return
+
     # Get the last ROC curve image (highest step)
     last_img = img_df.sort_values("step").iloc[-1]
-    img_data = last_img["value"]  # This is a numpy array (H, W, 3) or (H, W, 4)
-    # Convert to uint8 if needed
-    if img_data.dtype != np.uint8:
-        img_data = (img_data * 255).astype(np.uint8)
-    # Remove alpha channel if present
-    if img_data.shape[-1] == 4:
-        img_data = img_data[..., :3]
-    img = Image.fromarray(img_data)
+    img_data = last_img["value"]  # could be np.ndarray or encoded bytes
+
+    # Decode to a PIL image
+    if isinstance(img_data, bytes):
+        img = Image.open(BytesIO(img_data))
+    else:
+        # Assume numpy array (H, W, 3) or (H, W, 4)
+        if img_data.dtype != np.uint8:
+            img_data = (np.clip(img_data, 0, 1) * 255).astype(np.uint8)
+        if img_data.ndim == 2:
+            img_data = np.stack([img_data] * 3, axis=-1)
+        if img_data.shape[-1] == 4:
+            img_data = img_data[..., :3]
+        img = Image.fromarray(img_data)
+
+    # Ensure RGB
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+
     img.save(out_path)
-    print(f"Saved ROC curve image: {out_path}")
+    print(f"Saved ROC curve image: {out_path} (tag='{tag}', step={int(last_img['step'])})")
 
 
 # Save final ROC curves for train and validation
-save_last_roc_image(df, "train_roc_curve", "final_train_roc_curve.png")
-save_last_roc_image(df, "val_roc_curve", "final_val_roc_curve.png")
+save_last_roc_image(images_df, "train_roc_curve", "final_train_roc_curve.png")
+save_last_roc_image(images_df, "val_roc_curve", "final_val_roc_curve.png")
