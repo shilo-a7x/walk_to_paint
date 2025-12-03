@@ -1,0 +1,25 @@
+/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/networkx/utils/backends.py:135: RuntimeWarning: networkx backend defined more than once: nx-loopback
+  backends.update(_get_backends("networkx.backends"))
+Outputs -> exp_dir: outputs/slashdot090221/slashdot090221-optuna_20251203-222442
+🎯 Starting Optuna hyperparameter optimization with 200 trials
+📊 Objective: Maximize validation AUC
+🖥️  Device: 3
+💾 Keeping top 10 checkpoints/logs to save space
+/home/eng/shilo_avital/yolo_lab/walk_to_paint/optuna_run.py:358: ExperimentalWarning: JournalStorage is experimental (supported from v3.1.0). The interface can change in the future.
+  storage = JournalStorage(JournalFileStorage(optuna_log))
+[I 2025-12-03 22:24:42,279] A new study created in Journal with name: walk_to_paint_study_slashdot090221-optuna
+🔁 Enqueued initial seed trial from config.optuna.initial_params
+Seed set to 42
+
+🔬 Trial 0 hyperparameters:
+  Walk length: 83, Num walks: 691,427
+  LR: 1.20e-03, Batch size: 64
+  Model: emb_dim=32, hidden_dim=16
+  Transformer: 5 layers, 8 heads
+  Epochs: 25, Weighted loss: True
+Loading slashdot090221 dataset...
+Success! ✅
+Splitting edges for slashdot090221 dataset...
+Ratios: train=0.480, mask=0.320, val=0.100, test=0.100
+Success! ✅
+Sampling random walks from slashdot090221 dataset...

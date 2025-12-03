@@ -39,3 +39,10 @@ training:
     resume_from_checkpoint: null
     eval_only: false
     use_cuda: true
+    # DataLoader / performance tuning
+    num_workers: 16
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+    # seed for reproducibility (worker seeding uses base seed + worker id)
+    seed: 42

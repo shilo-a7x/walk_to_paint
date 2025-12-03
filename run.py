@@ -29,9 +29,50 @@ def main():
     # Load and merge config (supports `configs/<dataset>.yaml` and CLI dotlist overrides)
     cfg = load_config(args.config, overrides=args.overrides)
 
+    # Auto-generate exp_name when placeholder or absent
+    try:
+        current_exp = getattr(cfg.training, "exp_name", None)
+    except Exception:
+        current_exp = None
+    if not current_exp or current_exp in ("walk_to_paint_experiment", "experiment"):
+        try:
+            note = getattr(cfg.training, "exp_note", None)
+        except Exception:
+            note = None
+        note_part = f"-{note}" if note else ""
+        cfg.training.exp_name = (
+            f"{getattr(cfg.dataset, 'name', 'dataset')}-run{note_part}"
+        )
+        print(f"Auto-generated exp_name: {cfg.training.exp_name}")
+
+    # Set global seeds for reproducibility (if provided in config)
+    seed = getattr(cfg.training, "seed", None)
+    if seed is not None:
+        try:
+            seed = int(seed)
+            from pytorch_lightning import seed_everything
+            import random, numpy as np
+
+            seed_everything(seed, workers=True)
+            random.seed(seed)
+            np.random.seed(seed)
+            print(f"Using seed={seed}")
+        except Exception:
+            pass
+
     # Resolve outputs directories (namespaced by dataset and exp_name)
     resolved = resolve_outputs_dirs(cfg)
     print(f"Outputs -> exp_dir: {resolved['exp_dir']}")
+
+    # If GPU present, prefer medium float32 matmul precision to utilize Tensor Cores
+    try:
+        if cfg.training.use_cuda and torch.cuda.is_available():
+            torch.set_float32_matmul_precision("medium")
+            print(
+                "Set torch.float32 matmul precision to 'medium' (Tensor Cores enabled)"
+            )
+    except Exception:
+        pass
 
     # Handle device
     if cfg.training.use_cuda and torch.cuda.is_available():

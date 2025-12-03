@@ -1,0 +1,69 @@
+dataset:
+    name: slashdot090221
+    data_dir: data/slashdot090221
+    edge_list_file: soc-sign-Slashdot090221.txt.gz
+    walks_file: walks.json
+    tokenizer_file: tokenizer.json
+    encoded_file: encoded.pt
+    edge_split_file: splits.json
+    meta_file: meta.json
+    # Walk generation defaults (overridden by Optuna during HPO)
+    max_walk_length: 83
+    num_walks: 691427
+    # Splits (match bitcoin config ratios)
+    train_ratio: 0.48
+    mask_ratio: 0.32
+    val_ratio: 0.1
+    test_ratio: 0.1
+
+model:
+    embedding_dim: 32
+    hidden_dim: 16
+    dropout: 0.6207573207736868
+    nhead: 8
+    nlayers: 5
+
+training:
+    batch_size: 64
+    epochs: 25
+    lr: 0.0011990397793339518
+    weight_decay: 0.0026821863636421073
+    early_stopping_patience: 10
+    gradient_clip_val: 0.5956847053697083
+    use_weighted_loss: true
+    log_dir: logs/
+    exp_name: walk_to_paint_experiment
+    checkpoint_dir: checkpoints/
+    resume_from_checkpoint: null
+    eval_only: false
+    use_cuda: true
+
+preprocess:
+    save: false
+    use_cache: false
+
+paths:
+    base_outputs_dir: outputs
+    use_dataset_outputs: true
+    append_timestamp: true
+
+# Optuna starting point: record the bitcoin hyperparameters as an initial suggestion
+optuna:
+    # Not used automatically by optuna_run.py yet, but recorded here for manual seeding.
+    initial_params:
+        dataset:
+            max_walk_length: 83
+            num_walks: 691427
+        training:
+            lr: 0.0011990397793339518
+            weight_decay: 0.0026821863636421073
+            batch_size: 64
+            gradient_clip_val: 0.5956847053697083
+            early_stopping_patience: 10
+            epochs: 25
+        model:
+            embedding_dim: 32
+            hidden_dim: 16
+            nhead: 8
+            nlayers: 5
+            dropout: 0.6207573207736868

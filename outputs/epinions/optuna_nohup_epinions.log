@@ -1,0 +1,73 @@
+/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/networkx/utils/backends.py:135: RuntimeWarning: networkx backend defined more than once: nx-loopback
+  backends.update(_get_backends("networkx.backends"))
+Outputs -> exp_dir: outputs/epinions/epinions-optuna_20251203-222442
+🎯 Starting Optuna hyperparameter optimization with 200 trials
+📊 Objective: Maximize validation AUC
+🖥️  Device: 0
+💾 Keeping top 10 checkpoints/logs to save space
+/home/eng/shilo_avital/yolo_lab/walk_to_paint/optuna_run.py:358: ExperimentalWarning: JournalStorage is experimental (supported from v3.1.0). The interface can change in the future.
+  storage = JournalStorage(JournalFileStorage(optuna_log))
+[I 2025-12-03 22:24:42,328] A new study created in Journal with name: walk_to_paint_study_epinions-optuna
+🔁 Enqueued initial seed trial from config.optuna.initial_params
+[W 2025-12-03 22:24:42,336] Trial 0 failed with parameters: {'dataset.max_walk_length': 83, 'dataset.num_walks': 691427, 'training.lr': 0.0011990397793339518, 'training.weight_decay': 0.0026821863636421073, 'training.batch_size': 64, 'training.gradient_clip_val': 0.5956847053697083, 'training.early_stopping_patience': 10, 'model.nhead': 8} because of the following error: ConfigAttributeError('Missing key model\n    full_key: model\n    object_type=dict').
+Traceback (most recent call last):
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/optuna/study/_optimize.py", line 200, in _run_trial
+    value_or_values = func(trial)
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/optuna_run.py", line 207, in objective
+    cfg.model.nhead = trial.suggest_categorical(
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/omegaconf/dictconfig.py", line 355, in __getattr__
+    self._format_and_raise(
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/omegaconf/base.py", line 231, in _format_and_raise
+    format_and_raise(
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/omegaconf/_utils.py", line 899, in format_and_raise
+    _raise(ex, cause)
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/omegaconf/_utils.py", line 797, in _raise
+    raise ex.with_traceback(sys.exc_info()[2])  # set env var OC_CAUSE=1 for full trace
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/omegaconf/dictconfig.py", line 351, in __getattr__
+    return self._get_impl(
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/omegaconf/dictconfig.py", line 442, in _get_impl
+    node = self._get_child(
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/omegaconf/basecontainer.py", line 73, in _get_child
+    child = self._get_node(
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/omegaconf/dictconfig.py", line 480, in _get_node
+    raise ConfigKeyError(f"Missing key {key!s}")
+omegaconf.errors.ConfigAttributeError: Missing key model
+    full_key: model
+    object_type=dict
+[W 2025-12-03 22:24:42,337] Trial 0 failed with value None.
+Traceback (most recent call last):
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/optuna_run.py", line 607, in <module>
+    main()
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/optuna_run.py", line 450, in main
+    study.optimize(objective, n_trials=args.n_trials, callbacks=[cleanup_callback])
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/optuna/study/study.py", line 451, in optimize
+    _optimize(
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/optuna/study/_optimize.py", line 66, in _optimize
+    _optimize_sequential(
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/optuna/study/_optimize.py", line 163, in _optimize_sequential
+    frozen_trial = _run_trial(study, func, catch)
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/optuna/study/_optimize.py", line 251, in _run_trial
+    raise func_err
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/optuna/study/_optimize.py", line 200, in _run_trial
+    value_or_values = func(trial)
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/optuna_run.py", line 207, in objective
+    cfg.model.nhead = trial.suggest_categorical(
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/omegaconf/dictconfig.py", line 355, in __getattr__
+    self._format_and_raise(
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/omegaconf/base.py", line 231, in _format_and_raise
+    format_and_raise(
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/omegaconf/_utils.py", line 899, in format_and_raise
+    _raise(ex, cause)
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/omegaconf/_utils.py", line 797, in _raise
+    raise ex.with_traceback(sys.exc_info()[2])  # set env var OC_CAUSE=1 for full trace
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/omegaconf/dictconfig.py", line 351, in __getattr__
+    return self._get_impl(
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/omegaconf/dictconfig.py", line 442, in _get_impl
+    node = self._get_child(
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/omegaconf/basecontainer.py", line 73, in _get_child
+    child = self._get_node(
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/omegaconf/dictconfig.py", line 480, in _get_node
+    raise ConfigKeyError(f"Missing key {key!s}")
+omegaconf.errors.ConfigAttributeError: Missing key model
+    full_key: model
+    object_type=dict

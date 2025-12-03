@@ -1,0 +1,38 @@
+dataset:
+    name: epinions
+    data_dir: data/epinions
+    edge_list_file: soc-sign-epinions.txt.gz
+    # Remove self-loops present in epinions
+    remove_self_loops: true
+    # Keep multiedges as-is (this dataset is already signed)
+    multiedge_handling: keep
+    # Reproducibility
+    seed: 42
+
+optuna:
+    initial_params:
+        dataset:
+            max_walk_length: 83
+            num_walks: 691427
+        training:
+            lr: 0.0011990397793339518
+            weight_decay: 0.0026821863636421073
+            batch_size: 64
+            gradient_clip_val: 0.5956847053697083
+            early_stopping_patience: 10
+            epochs: 25
+        model:
+            embedding_dim: 32
+            hidden_dim: 16
+            nhead: 8
+            nlayers: 5
+            dropout: 0.6207573207736868
+
+preprocess:
+    save: false
+    use_cache: false
+
+paths:
+    base_outputs_dir: outputs
+    use_dataset_outputs: true
+    append_timestamp: true

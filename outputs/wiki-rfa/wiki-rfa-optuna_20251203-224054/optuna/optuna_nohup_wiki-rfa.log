@@ -1,0 +1,91 @@
+/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/networkx/utils/backends.py:135: RuntimeWarning: networkx backend defined more than once: nx-loopback
+  backends.update(_get_backends("networkx.backends"))
+Outputs -> exp_dir: outputs/wiki-rfa/wiki-rfa-optuna_20251203-224054
+🎯 Starting Optuna hyperparameter optimization with 200 trials
+📊 Objective: Maximize validation AUC
+🖥️  Device: 1
+💾 Keeping top 10 checkpoints/logs to save space
+/home/eng/shilo_avital/yolo_lab/walk_to_paint/optuna_run.py:358: ExperimentalWarning: JournalStorage is experimental (supported from v3.1.0). The interface can change in the future.
+  storage = JournalStorage(JournalFileStorage(optuna_log))
+[I 2025-12-03 22:40:57,905] A new study created in Journal with name: walk_to_paint_study_wiki-rfa-optuna_20251203-224054
+🔁 Enqueued initial seed trial from config.optuna.initial_params
+Seed set to 42
+
+🔬 Trial 0 hyperparameters:
+  Walk length: 83, Num walks: 219,589
+  LR: 1.20e-03, Batch size: 64
+  Model: emb_dim=32, hidden_dim=16
+  Transformer: 5 layers, 8 heads
+  Epochs: 25, Weighted loss: True
+Loading wiki-rfa dataset...
+Success! ✅
+Splitting edges for wiki-rfa dataset...
+Ratios: train=0.480, mask=0.320, val=0.100, test=0.100
+Success! ✅
+Sampling random walks from wiki-rfa dataset...
+Success! ✅
+Building tokenizer for wiki-rfa dataset...
+Success! ✅
+Padding and building stage tensors for wiki-rfa dataset...
+Success! ✅
+Creating DataLoaders for wiki-rfa dataset...
+Success! ✅
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+HPU available: False, using: 0 HPUs
+You are using a CUDA device ('NVIDIA L40S') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [1]
+/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/pytorch_lightning/trainer/connectors/data_connector.py:425: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=127` in the `DataLoader` to improve performance.
+/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/pytorch_lightning/trainer/connectors/data_connector.py:425: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=127` in the `DataLoader` to improve performance.
+Metric val_auc_epoch improved. New best score: 0.534
+Metric val_auc_epoch improved by 0.006 >= min_delta = 0.0. New best score: 0.540
+Metric val_auc_epoch improved by 0.004 >= min_delta = 0.0. New best score: 0.544
+Metric val_auc_epoch improved by 0.004 >= min_delta = 0.0. New best score: 0.548
+Metric val_auc_epoch improved by 0.002 >= min_delta = 0.0. New best score: 0.549
+Monitored metric val_auc_epoch did not improve in the last 10 records. Best score: 0.549. Signaling Trainer to stop.
+Restoring states from the checkpoint path at /home/eng/shilo_avital/yolo_lab/walk_to_paint/outputs/wiki-rfa/wiki-rfa-optuna_20251203-224054/checkpoints/trial_0-epoch=05-val_auc_epoch=0.5495.ckpt
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [1]
+Loaded model weights from the checkpoint at /home/eng/shilo_avital/yolo_lab/walk_to_paint/outputs/wiki-rfa/wiki-rfa-optuna_20251203-224054/checkpoints/trial_0-epoch=05-val_auc_epoch=0.5495.ckpt
+/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/pytorch_lightning/trainer/connectors/data_connector.py:425: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=127` in the `DataLoader` to improve performance.
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+     Validate metric           DataLoader 0
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+          step                     16.0
+      val_acc_epoch         0.37331992387771606
+      val_auc_epoch         0.5494852066040039
+      val_f1_epoch           0.336818665266037
+        val_loss             1.261963963508606
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+✅ Trial 0 completed - Val AUC: 0.5495
+[I 2025-12-03 23:05:49,662] Trial 0 finished with value: 0.5494852066040039 and parameters: {'dataset.max_walk_length': 83, 'dataset.num_walks': 219589, 'training.lr': 0.0011990397793339518, 'training.weight_decay': 0.0026821863636421073, 'training.batch_size': 64, 'training.gradient_clip_val': 0.5956847053697083, 'training.early_stopping_patience': 10, 'model.nhead': 8, 'model.embedding_dim': 32, 'model.hidden_dim': 16, 'model.nlayers': 5, 'model.dropout': 0.6207573207736868, 'training.epochs': 25}. Best is trial 0 with value: 0.5494852066040039.
+Seed set to 43
+
+🔬 Trial 1 hyperparameters:
+  Walk length: 27, Num walks: 1,344,885
+  LR: 1.65e-02, Batch size: 64
+  Model: emb_dim=16, hidden_dim=16
+  Transformer: 5 layers, 1 heads
+  Epochs: 8, Weighted loss: True
+Loading wiki-rfa dataset...
+Success! ✅
+Splitting edges for wiki-rfa dataset...
+Ratios: train=0.480, mask=0.320, val=0.100, test=0.100
+Success! ✅
+Sampling random walks from wiki-rfa dataset...
+Success! ✅
+Building tokenizer for wiki-rfa dataset...
+Success! ✅
+Padding and building stage tensors for wiki-rfa dataset...
+Success! ✅
+Creating DataLoaders for wiki-rfa dataset...
+Success! ✅
+/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/torch/nn/modules/transformer.py:382: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.self_attn.num_heads is odd
+  warnings.warn(
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+HPU available: False, using: 0 HPUs
+/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/pytorch_lightning/callbacks/model_checkpoint.py:658: Checkpoint directory /home/eng/shilo_avital/yolo_lab/walk_to_paint/outputs/wiki-rfa/wiki-rfa-optuna_20251203-224054/checkpoints exists and is not empty.
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [1]
+/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/pytorch_lightning/trainer/connectors/data_connector.py:425: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=127` in the `DataLoader` to improve performance.
+/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/pytorch_lightning/trainer/connectors/data_connector.py:425: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=127` in the `DataLoader` to improve performance.
+Metric val_auc_epoch improved. New best score: 0.497

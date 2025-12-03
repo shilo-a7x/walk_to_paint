@@ -1,7 +1,9 @@
 import os
 import json
 import random
+import time
 import torch
+import numpy as np
 from enum import IntEnum
 from torch.utils.data import TensorDataset, DataLoader
 from torch.nn.utils.rnn import pad_sequence
@@ -253,9 +255,86 @@ def make_dataloaders(cfg, train_pack, val_pack, test_pack):
     val_ds = TensorDataset(*val_pack)
     test_ds = TensorDataset(*test_pack)
 
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
+    # configurable worker options (set in config under training)
+    try:
+        num_workers = int(getattr(cfg.training, "num_workers", 4))
+    except Exception:
+        num_workers = 4
+    try:
+        pin_memory = bool(getattr(cfg.training, "pin_memory", True))
+    except Exception:
+        pin_memory = True
+    try:
+        persistent = bool(getattr(cfg.training, "persistent_workers", False))
+    except Exception:
+        persistent = False
+    try:
+        prefetch = int(getattr(cfg.training, "prefetch_factor", 2))
+    except Exception:
+        prefetch = 2
+
+    # seeded generator for reproducible shuffling when needed
+    base_seed = getattr(cfg.training, "seed", None)
+    if base_seed is not None:
+        try:
+            base_seed = int(base_seed)
+            g = torch.Generator()
+            g.manual_seed(base_seed)
+        except Exception:
+            g = None
+    else:
+        g = None
+
+    def worker_init_fn(worker_id):
+        # seed python, numpy and torch in each worker deterministically
+        seed = None
+        if base_seed is not None:
+            seed = base_seed + worker_id
+        else:
+            # fall back to time-based seed (still better than identical seeds)
+            seed = int(time.time()) + worker_id
+        random.seed(seed)
+        np.random.seed(seed % (2**32 - 1))
+        try:
+            torch.manual_seed(seed)
+        except Exception:
+            pass
+
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        persistent_workers=(persistent and num_workers > 0),
+        prefetch_factor=prefetch,
+        worker_init_fn=worker_init_fn if num_workers > 0 else None,
+        generator=g,
+    )
+
+    val_loader = DataLoader(
+        val_ds,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=max(0, int(num_workers // 2)),
+        pin_memory=pin_memory,
+        persistent_workers=(persistent and num_workers > 0),
+        prefetch_factor=max(1, prefetch // 2),
+        worker_init_fn=worker_init_fn if num_workers > 0 else None,
+        generator=g,
+    )
+
+    test_loader = DataLoader(
+        test_ds,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=max(0, int(num_workers // 2)),
+        pin_memory=pin_memory,
+        persistent_workers=(persistent and num_workers > 0),
+        prefetch_factor=max(1, prefetch // 2),
+        worker_init_fn=worker_init_fn if num_workers > 0 else None,
+        generator=g,
+    )
 
     print(f"Success! ✅")
     return {"train": train_loader, "val": val_loader, "test": test_loader}
@@ -280,18 +359,48 @@ def prepare_data(cfg):
         cfg.model.ignore_index = meta["ignore_index"]
         print(f"Success! ✅")
         return make_dataloaders(cfg, train_pack, val_pack, test_pack)
+    # Profile data creation steps to help diagnose slow preprocessing
+    timings = {}
+
+    t0 = time.time()
     edges = get_edge_list(cfg)
+    timings["get_edge_list"] = time.time() - t0
+
+    t0 = time.time()
     train_set, mask_set, val_set, test_set = split_edges(cfg, edges)
+    timings["split_edges"] = time.time() - t0
+
+    t0 = time.time()
     walks = get_walks(cfg, edges)
+    timings["get_walks"] = time.time() - t0
+
+    t0 = time.time()
     tokenizer = get_tokenizer(cfg, walks, edges)
+    timings["get_tokenizer"] = time.time() - t0
+
     cfg.model.vocab_size = tokenizer.vocab_size
     cfg.model.num_classes = tokenizer.num_edge_tokens
     cfg.model.pad_id = tokenizer.PAD_ID
     cfg.model.ignore_index = tokenizer.UNK_LABEL_ID
+
+    t0 = time.time()
     input_lists, split_lists = encode_walks(
         walks, tokenizer, train_set, mask_set, val_set, test_set
     )
+    timings["encode_walks"] = time.time() - t0
+
+    t0 = time.time()
     train_pack, val_pack, test_pack = pad_and_build_stage_tensors(
         cfg, input_lists, split_lists, tokenizer
     )
+    timings["pad_and_build_stage_tensors"] = time.time() - t0
+
+    # Print a short profile summary for debugging
+    try:
+        print("Data creation profiling (seconds):")
+        for k, v in timings.items():
+            print(f"  {k}: {v:.2f}s")
+    except Exception:
+        pass
+
     return make_dataloaders(cfg, train_pack, val_pack, test_pack)
