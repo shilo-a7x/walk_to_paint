@@ -526,7 +526,7 @@ def main():
         yaml.safe_dump(best_cfg, f, default_flow_style=False)
 
     print(f"\n💾 Saved best configuration to: {out_yaml}")
-    print(f"🎯 Best validation AUC achieved: {-study.best_value:.6f}")
+    print(f"🎯 Best validation AUC achieved: {study.best_value:.6f}")
 
     # ---- Save study for future analysis ----
     import joblib
