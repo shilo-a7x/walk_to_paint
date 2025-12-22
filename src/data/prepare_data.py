@@ -78,19 +78,35 @@ def split_edges(cfg, edges):
 def get_walks(cfg, edges):
     print(f"Sampling random walks from {cfg.dataset.name} dataset...")
     walks_path = os.path.join(cfg.dataset.data_dir, cfg.dataset.walks_file)
+    # Prefer binary torch cache for speed
     if cfg.preprocess.use_cache and os.path.exists(walks_path):
-        with open(walks_path) as f:
-            walks = json.load(f)
-            print(f"Success! ✅")
+        try:
+            walks = torch.load(walks_path)
+            print(f"Success! ✅ (loaded cached walks)")
             return walks
+        except Exception:
+            pass  # fall back to regenerate
+
+    walk_workers = int(getattr(cfg.preprocess, "walk_num_workers", 1))
+    walk_seed = getattr(cfg.preprocess, "walk_seed", getattr(cfg.training, "seed", None))
+
     walks = sample_random_walks(
         edges,
         num_walks=int(cfg.dataset.num_walks),
         max_walk_length=cfg.dataset.max_walk_length,
+        num_workers=walk_workers,
+        seed=walk_seed,
     )
     if cfg.preprocess.save:
-        with open(walks_path, "w") as f:
-            json.dump(walks, f)
+        try:
+            torch.save(walks, walks_path)
+            print(f"Cached walks to {walks_path}")
+        except Exception:
+            try:
+                with open(walks_path, "w") as f:
+                    json.dump(walks, f)
+            except Exception:
+                pass
     print(f"Success! ✅")
     return walks
 

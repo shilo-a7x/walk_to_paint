@@ -249,16 +249,14 @@ def objective_factory(base_cfg, device, enable_pruning=True):
         cfg.training.epochs = trial.suggest_int("training.epochs", int(e_lo), int(e_hi))
 
         # Set seeds for reproducibility (per-trial)
-        base_seed = getattr(base_cfg.training, "seed", None) or 42
-        trial_seed = int(base_seed) + int(trial.number)
-        seed_everything(trial_seed, workers=True)
-        random.seed(trial_seed)
-        np.random.seed(trial_seed)
-        # Record the seed for this trial so we can reproduce later
+        base_seed = getattr(base_cfg.training, "seed", 42)
+        seed_everything(int(base_seed), workers=True)
+        random.seed(int(base_seed))
+        np.random.seed(int(base_seed))
+        # Record the seed used so runs are reproducible
         try:
-            trial.set_user_attr("seed", int(trial_seed))
+            trial.set_user_attr("seed", int(base_seed))
         except Exception:
-            # Non-fatal if Optuna API differs
             pass
 
         # Ensure CUDA device selection
@@ -344,6 +342,17 @@ def main():
         base_cfg.training.exp_name = auto_name
         print(f"Auto-generated exp_name: {base_cfg.training.exp_name}")
 
+    # Global seed (single seed for all components)
+    base_seed = getattr(base_cfg.training, "seed", 42)
+    try:
+        from pytorch_lightning import seed_everything
+        seed_everything(int(base_seed), workers=True)
+        random.seed(int(base_seed))
+        np.random.seed(int(base_seed))
+        print(f"Using global seed={base_seed}")
+    except Exception:
+        pass
+
     # Resolve outputs dirs early so Optuna and Trainer write into namespaced locations
     resolved = resolve_outputs_dirs(base_cfg)
     print(f"Outputs -> exp_dir: {resolved['exp_dir']}")
@@ -366,8 +375,11 @@ def main():
     # ---- Create study with Optuna journal file storage (per-experiment) ----
     optuna_log = os.path.join(resolved.get("optuna_dir", "."), "optuna_study.log")
     storage = JournalStorage(JournalFileStorage(optuna_log))
+    base_seed = getattr(base_cfg.training, "seed", 42)
+    sampler = optuna.samplers.TPESampler(seed=int(base_seed))
     study = optuna.create_study(
         direction="maximize",
+        sampler=sampler,
         pruner=optuna.pruners.MedianPruner(
             n_startup_trials=5,
             n_warmup_steps=5,
@@ -455,9 +467,32 @@ def main():
                 keep_top_n=10,
             )
 
+    # Study-level early stop if plateau
+    es_patience = int(getattr(getattr(base_cfg, "optuna", {}), "study_early_stop_patience", 25))
+    es_min_delta = float(getattr(getattr(base_cfg, "optuna", {}), "study_early_stop_min_delta", 1e-4))
+    best_seen = {
+        "value": None,
+        "since": 0,
+    }
+
+    def early_stop_callback(study, trial):
+        nonlocal best_seen
+        if study.best_value is None:
+            return
+        if best_seen["value"] is None or study.best_value > best_seen["value"] + es_min_delta:
+            best_seen["value"] = study.best_value
+            best_seen["since"] = 0
+        else:
+            best_seen["since"] += 1
+            if best_seen["since"] >= es_patience:
+                print(
+                    f"⏹️  Study early-stopping: no improvement > {es_min_delta} for {es_patience} trials. Stopping study."
+                )
+                study.stop()
+
     # ---- Optimize ----
     objective = objective_factory(base_cfg, args.device, enable_pruning=True)
-    study.optimize(objective, n_trials=args.n_trials, callbacks=[cleanup_callback])
+    study.optimize(objective, n_trials=args.n_trials, callbacks=[cleanup_callback, early_stop_callback])
 
     # ---- Final cleanup ----
     cleanup_old_checkpoints_and_logs(

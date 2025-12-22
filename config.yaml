@@ -1,6 +1,8 @@
 preprocess:
-    save: false
-    use_cache: false
+    save: true
+    use_cache: true
+    walk_num_workers: 8
+    walk_seed: 42
 
 dataset:
     name: bitcoin-alpha-binary
