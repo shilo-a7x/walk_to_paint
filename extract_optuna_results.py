@@ -7,6 +7,7 @@ Handles both old format (nhead_emb_combo) and new format (separate nhead/embeddi
 import argparse
 import glob
 import joblib
+import optuna
 import pandas as pd
 from pathlib import Path
 
@@ -33,23 +34,38 @@ def decode_nhead_emb_combo(combo_idx):
 
 
 def extract_trial_data(study, top_n=10):
-    """Extract trial data with proper nhead/embedding_dim decoding."""
+    """Extract trial data with proper nhead/embedding_dim decoding.
+    
+    Respects study.direction: if MAXIMIZE, sort descending; if MINIMIZE, sort ascending.
+    For MINIMIZE studies that stored negative AUC, negate the value back to positive.
+    """
+    import optuna
 
-    # Get completed trials sorted by value (best first)
+    # Get completed trials
     completed_trials = [t for t in study.trials if t.state.name == "COMPLETE"]
+    
+    # Sort by value, respecting direction
+    # Direction 2 = MAXIMIZE (higher is better)
+    # Direction 1 = MINIMIZE (lower is better)
+    is_maximize = study.direction == optuna.study.StudyDirection.MAXIMIZE
     completed_trials.sort(
-        key=lambda t: t.value if t.value is not None else float("inf")
+        key=lambda t: t.value if t.value is not None else (float("-inf") if is_maximize else float("inf")),
+        reverse=is_maximize  # Reverse for maximize, normal for minimize
     )
 
     trials_data = []
 
     for i, trial in enumerate(completed_trials[:top_n]):
+        # For MINIMIZE studies, the value is typically -AUC; for MAXIMIZE, it's +AUC
+        # Check if we need to negate (heuristic: if study stored negative values for MINIMIZE)
+        val_auc = trial.value if trial.value is not None else None
+        if val_auc is not None and not is_maximize and val_auc < 0:
+            val_auc = -val_auc  # Convert back from negative
+        
         data = {
             "rank": i + 1,
             "trial_number": trial.number,
-            "val_auc": (
-                -trial.value if trial.value is not None else None
-            ),  # Convert back from negative
+            "val_auc": val_auc,
         }
 
         # Extract parameters
@@ -202,12 +218,25 @@ def main():
             print(f"   Completed trials: {len(completed_trials)}")
 
             if completed_trials:
-                best_trial = min(
-                    completed_trials,
-                    key=lambda t: t.value if t.value is not None else float("inf"),
+                is_maximize = study.direction == optuna.study.StudyDirection.MAXIMIZE
+                best_trial = (
+                    max(completed_trials, key=lambda t: t.value)
+                    if is_maximize
+                    else min(
+                        completed_trials,
+                        key=lambda t: t.value if t.value is not None else float("inf"),
+                    )
                 )
-                best_auc = -best_trial.value if best_trial.value is not None else 0
-                print(f"   Best AUC: {best_auc:.6f} (Trial #{best_trial.number})")
+
+                best_value = best_trial.value if best_trial.value is not None else 0
+                if not is_maximize and best_value < 0:
+                    best_auc = -best_value
+                else:
+                    best_auc = best_value
+
+                print(
+                    f"   Best AUC: {best_auc:.6f} (Trial #{best_trial.number})"
+                )
 
             # Extract trial data
             trials_data = extract_trial_data(study, args.top_n)

@@ -1,0 +1,307 @@
+[1/3] Extracting edge scores for slashdot090221...
+Using device: cuda:2
+Loading tokenizer from data/slashdot090221/tokenizer.json...
+Tokenizer loaded: vocab_size=82145, num_classes=2
+
+Preparing data...
+Loading preprocessed data from data/slashdot090221/encoded.pt...
+Success! ✅
+Creating DataLoaders for slashdot090221 dataset...
+Success! ✅
+
+Loading model from /home/dsi/shilo_avital/yolo_lab/walk_to_paint/outputs/slashdot090221/slashdot090221-run_20251224-214709/checkpoints/slashdot090221-slashdot090221-run-epoch=06-val_loss=2.22.ckpt...
+Model loaded successfully
+
+Extracting from transformer val and test splits...
+
+Extracting scores from transformer_val split...
+Collected scores for 53902 unique edges in transformer_val
+
+Extracting scores from transformer_test split...
+Collected scores for 53987 unique edges in transformer_test
+
+Computing aggregated features...
+
+Splitting transformer val into aggregator train (80%) and val (20%)...
+
+Saving features to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_features/slashdot090221_features.pkl...
+
+Summary:
+  Agg train edges: 43121
+  Agg val edges: 10781
+  Agg test edges: 53987
+  Feature dimension: 10
+
+Features saved to: /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_features/slashdot090221_features.pkl
+✓ Features saved to: /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_features/slashdot090221_features.pkl
+
+[2/3] Training logistic aggregator for slashdot090221...
+
+============================================================
+AGGREGATOR CONFIGURATION
+============================================================
+Model: logistic
+
+Shared:
+  class_weight: balanced
+
+Logistic Regression:
+  max_iter: 1000
+  C (regularization): 1.0
+============================================================
+
+Loading features from /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_features/slashdot090221_features.pkl...
+Dataset: slashdot090221
+Num classes: 2
+Feature names: ['p5', 'p10', 'p25', 'p50', 'p75', 'p90', 'p95', 'mean', 'std', 'count']
+
+Preparing agg train dataset...
+Agg train: 43121 edges, 10 features
+
+Preparing agg val dataset...
+Agg val: 10781 edges
+
+Preparing agg test dataset...
+Agg test: 53987 edges
+
+Class distribution:
+  Agg train: [33344  9777]
+  Agg val: [8478 2303]
+  Agg test: [42044 11943]
+
+Training Logistic Regression...
+  class_weight: balanced
+  max_iter: 1000
+  C (regularization): 1.0
+Val Accuracy: 0.7964
+Val F1: 0.7369
+Val AUC: 0.8515
+
+============================================================
+Evaluating on Agg Train set
+============================================================
+
+Metrics:
+  Accuracy: 0.7933
+  F1 Score: 0.7387
+  AUC: 0.8480
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.9143    0.8085    0.8581     33344
+           1     0.5316    0.7415    0.6193      9777
+
+    accuracy                         0.7933     43121
+   macro avg     0.7230    0.7750    0.7387     43121
+weighted avg     0.8275    0.7933    0.8040     43121
+
+
+Confusion Matrix:
+[[26957  6387]
+ [ 2527  7250]]
+
+============================================================
+Evaluating on Agg Val set
+============================================================
+
+Metrics:
+  Accuracy: 0.7964
+  F1 Score: 0.7369
+  AUC: 0.8515
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.9229    0.8087    0.8620      8478
+           1     0.5161    0.7512    0.6118      2303
+
+    accuracy                         0.7964     10781
+   macro avg     0.7195    0.7799    0.7369     10781
+weighted avg     0.8360    0.7964    0.8086     10781
+
+
+Confusion Matrix:
+[[6856 1622]
+ [ 573 1730]]
+
+============================================================
+Evaluating on Agg Test set
+============================================================
+
+Metrics:
+  Accuracy: 0.7977
+  F1 Score: 0.7409
+  AUC: 0.8502
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.9181    0.8127    0.8622     42044
+           1     0.5304    0.7446    0.6195     11943
+
+    accuracy                         0.7977     53987
+   macro avg     0.7242    0.7787    0.7409     53987
+weighted avg     0.8323    0.7977    0.8085     53987
+
+
+Confusion Matrix:
+[[34171  7873]
+ [ 3050  8893]]
+
+Model saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/slashdot090221/logistic/aggregator_logistic.pkl
+Scaler saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/slashdot090221/logistic/scaler.pkl
+Summary saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/slashdot090221/logistic/summary.txt
+Confusion matrix saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/slashdot090221/logistic/train_confusion_matrix.png
+Confusion matrix saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/slashdot090221/logistic/val_confusion_matrix.png
+Confusion matrix saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/slashdot090221/logistic/test_confusion_matrix.png
+
+============================================================
+FINAL RESULTS - slashdot090221
+============================================================
+Agg Test AUC: 0.8502
+Agg Test Accuracy: 0.7977
+Agg Test F1: 0.7409
+
+All results saved to: /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/slashdot090221/logistic
+✓ logistic aggregator saved to: /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/slashdot090221/logistic
+
+[2/3] Training mlp aggregator for slashdot090221...
+
+============================================================
+AGGREGATOR CONFIGURATION
+============================================================
+Model: mlp
+
+Shared:
+  class_weight: balanced
+
+MLP:
+  hidden_layers: (128, 64)
+  learning_rate: 0.001
+  batch_size: 32
+  early_stopping_patience: 20
+============================================================
+
+Loading features from /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_features/slashdot090221_features.pkl...
+Dataset: slashdot090221
+Num classes: 2
+Feature names: ['p5', 'p10', 'p25', 'p50', 'p75', 'p90', 'p95', 'mean', 'std', 'count']
+
+Preparing agg train dataset...
+Agg train: 43121 edges, 10 features
+
+Preparing agg val dataset...
+Agg val: 10781 edges
+
+Preparing agg test dataset...
+Agg test: 53987 edges
+
+Class distribution:
+  Agg train: [33344  9777]
+  Agg val: [8478 2303]
+  Agg test: [42044 11943]
+
+Training MLP Classifier...
+  hidden_layer_sizes: (128, 64)
+  learning_rate_init: 0.001
+  early_stopping_patience: 20
+  batch_size: 32
+  class_weights (inverse frequency): {np.int64(0): np.float64(0.6466080854126679), np.int64(1): np.float64(2.2052265521120997)}
+Val Accuracy: 0.8380
+Val F1: 0.7358
+Val AUC: 0.8485
+
+============================================================
+Evaluating on Agg Train set
+============================================================
+
+Metrics:
+  Accuracy: 0.8332
+  F1 Score: 0.7347
+  AUC: 0.8447
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.8627    0.9328    0.8964     33344
+           1     0.6828    0.4937    0.5731      9777
+
+    accuracy                         0.8332     43121
+   macro avg     0.7728    0.7132    0.7347     43121
+weighted avg     0.8219    0.8332    0.8231     43121
+
+
+Confusion Matrix:
+[[31102  2242]
+ [ 4950  4827]]
+
+============================================================
+Evaluating on Agg Val set
+============================================================
+
+Metrics:
+  Accuracy: 0.8380
+  F1 Score: 0.7358
+  AUC: 0.8485
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.8736    0.9284    0.9002      8478
+           1     0.6573    0.5054    0.5714      2303
+
+    accuracy                         0.8380     10781
+   macro avg     0.7654    0.7169    0.7358     10781
+weighted avg     0.8274    0.8380    0.8299     10781
+
+
+Confusion Matrix:
+[[7871  607]
+ [1139 1164]]
+
+============================================================
+Evaluating on Agg Test set
+============================================================
+
+Metrics:
+  Accuracy: 0.8378
+  F1 Score: 0.7396
+  AUC: 0.8460
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.8690    0.9322    0.8995     42044
+           1     0.6793    0.5055    0.5796     11943
+
+    accuracy                         0.8378     53987
+   macro avg     0.7742    0.7188    0.7396     53987
+weighted avg     0.8271    0.8378    0.8288     53987
+
+
+Confusion Matrix:
+[[39194  2850]
+ [ 5906  6037]]
+
+Model saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/slashdot090221/mlp/aggregator_mlp.pkl
+Scaler saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/slashdot090221/mlp/scaler.pkl
+Summary saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/slashdot090221/mlp/summary.txt
+Confusion matrix saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/slashdot090221/mlp/train_confusion_matrix.png
+Confusion matrix saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/slashdot090221/mlp/val_confusion_matrix.png
+Confusion matrix saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/slashdot090221/mlp/test_confusion_matrix.png
+
+============================================================
+FINAL RESULTS - slashdot090221
+============================================================
+Agg Test AUC: 0.8460
+Agg Test Accuracy: 0.8378
+Agg Test F1: 0.7396
+
+All results saved to: /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/slashdot090221/mlp
+✓ mlp aggregator saved to: /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/slashdot090221/mlp
+
+╔════════════════════════════════════════════════════════════╗
+║  Completed: slashdot090221 (15815s)
+╚════════════════════════════════════════════════════════════╝
+

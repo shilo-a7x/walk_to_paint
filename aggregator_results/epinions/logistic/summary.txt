@@ -1,0 +1,22 @@
+Aggregator Results - epinions
+============================================================
+
+Model: logistic
+Num classes: 2
+Features: ['p5', 'p10', 'p25', 'p50', 'p75', 'p90', 'p95', 'mean', 'std', 'count']
+
+Agg train set (80% of transformer val): 66783 edges
+  Accuracy: 0.8746
+  F1: 0.7910
+  AUC: 0.9079
+
+Agg val set (20% of transformer val): 16696 edges
+  Accuracy: 0.8740
+  F1: 0.7909
+  AUC: 0.9120
+
+Agg test set (transformer test): 83419 edges
+  Accuracy: 0.8753
+  F1: 0.7930
+  AUC: 0.9085
+

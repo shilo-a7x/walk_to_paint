@@ -64,12 +64,13 @@ def main():
     resolved = resolve_outputs_dirs(cfg)
     print(f"Outputs -> exp_dir: {resolved['exp_dir']}")
 
-    # If GPU present, prefer medium float32 matmul precision to utilize Tensor Cores
+    # Set float32 matmul precision based on config
     try:
         if cfg.training.use_cuda and torch.cuda.is_available():
-            torch.set_float32_matmul_precision("medium")
+            precision = getattr(cfg, "float32_precision", "medium")
+            torch.set_float32_matmul_precision(precision)
             print(
-                "Set torch.float32 matmul precision to 'medium' (Tensor Cores enabled)"
+                f"Set torch.float32 matmul precision to '{precision}' (Tensor Cores enabled)"
             )
     except Exception:
         pass

@@ -2,14 +2,27 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from omegaconf import OmegaConf
 from src.model.model import TransformerModel
 from src.model.metrics_helper import MetricsManager, PlottingHelper, WeightedLossHelper
 
 
 class LitEdgeClassifier(pl.LightningModule):
-    def __init__(self, cfg):
+    def __init__(self, cfg=None):
         super().__init__()
-        self.save_hyperparameters(ignore=["cfg"])
+
+        # Allow loading from checkpoint without passing cfg manually
+        if cfg is None:
+            if hasattr(self, "hparams") and "cfg" in self.hparams:
+                cfg = OmegaConf.create(self.hparams["cfg"])
+            else:
+                raise ValueError("cfg is required when not loading from checkpoint")
+
+        if isinstance(cfg, dict):
+            cfg = OmegaConf.create(cfg)
+
+        # Snapshot full resolved config so checkpoints are self-describing
+        self.save_hyperparameters({"cfg": OmegaConf.to_container(cfg, resolve=True)})
         self.model = TransformerModel(cfg)
         self.cfg = cfg
         self.ignore_index = cfg.model.ignore_index
@@ -99,14 +112,15 @@ class LitEdgeClassifier(pl.LightningModule):
         self.log("train_f1_epoch", results["f1"], prog_bar=True)
         self.log("train_auc_epoch", results["auc"], prog_bar=True)
 
-        # Log confusion matrix
-        self.logger.experiment.add_figure(
-            "train_confusion_matrix",
-            self.plotting_helper.plot_confusion_matrix(
-                results["confmat"], "Training", self.num_classes
-            ),
-            self.current_epoch,
-        )
+        # Log confusion matrix (only if logger is available)
+        if self.logger is not None:
+            self.logger.experiment.add_figure(
+                "train_confusion_matrix",
+                self.plotting_helper.plot_confusion_matrix(
+                    results["confmat"], "Training", self.num_classes
+                ),
+                self.current_epoch,
+            )
 
         # Log ROC curve
         targets_list, probs_list = self.metrics_manager.get_roc_data("train")
@@ -114,7 +128,7 @@ class LitEdgeClassifier(pl.LightningModule):
             roc_fig = self.plotting_helper.plot_roc_curve(
                 targets_list, probs_list, "Training", self.num_classes
             )
-            if roc_fig:
+            if roc_fig and self.logger is not None:
                 self.logger.experiment.add_figure(
                     "train_roc_curve",
                     roc_fig,
@@ -132,14 +146,15 @@ class LitEdgeClassifier(pl.LightningModule):
         self.log("val_f1_epoch", results["f1"], prog_bar=True)
         self.log("val_auc_epoch", results["auc"], prog_bar=True)
 
-        # Log confusion matrix
-        self.logger.experiment.add_figure(
-            "val_confusion_matrix",
-            self.plotting_helper.plot_confusion_matrix(
-                results["confmat"], "Validation", self.num_classes
-            ),
-            self.current_epoch,
-        )
+        # Log confusion matrix (only if logger is available)
+        if self.logger is not None:
+            self.logger.experiment.add_figure(
+                "val_confusion_matrix",
+                self.plotting_helper.plot_confusion_matrix(
+                    results["confmat"], "Validation", self.num_classes
+                ),
+                self.current_epoch,
+            )
 
         # Log ROC curve
         targets_list, probs_list = self.metrics_manager.get_roc_data("val")
@@ -147,7 +162,7 @@ class LitEdgeClassifier(pl.LightningModule):
             roc_fig = self.plotting_helper.plot_roc_curve(
                 targets_list, probs_list, "Validation", self.num_classes
             )
-            if roc_fig:
+            if roc_fig and self.logger is not None:
                 self.logger.experiment.add_figure(
                     "val_roc_curve",
                     roc_fig,
@@ -165,10 +180,11 @@ class LitEdgeClassifier(pl.LightningModule):
         self.log("test_f1_epoch", results["f1"], prog_bar=True)
         self.log("test_auc_epoch", results["auc"], prog_bar=True)
 
-        # Log confusion matrix
-        self.logger.experiment.add_figure(
-            "test_confusion_matrix",
-            self.plotting_helper.plot_confusion_matrix(
+        # Log confusion matrix (only if logger is available)
+        if self.logger is not None:
+            self.logger.experiment.add_figure(
+                "test_confusion_matrix",
+                self.plotting_helper.plot_confusion_matrix(
                 results["confmat"], "Test", self.num_classes
             ),
             self.current_epoch,
@@ -180,7 +196,7 @@ class LitEdgeClassifier(pl.LightningModule):
             roc_fig = self.plotting_helper.plot_roc_curve(
                 targets_list, probs_list, "Test", self.num_classes
             )
-            if roc_fig:
+            if roc_fig and self.logger is not None:
                 self.logger.experiment.add_figure(
                     "test_roc_curve",
                     roc_fig,

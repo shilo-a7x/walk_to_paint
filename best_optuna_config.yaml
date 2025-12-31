@@ -1,0 +1,20 @@
+# Best Optuna configuration - Trial #8 (AUC: -0.000000)
+
+dataset:
+  max_walk_length: 16
+  num_walks: 2543744
+
+training:
+  lr: 3.424917663186197e-05
+  weight_decay: 1.9412698299370375e-06
+  batch_size: 128
+  gradient_clip_val: 1.0123322107618138
+  early_stopping_patience: 18
+  epochs: 7
+
+model:
+  embedding_dim: 8
+  hidden_dim: 128
+  nhead: 4
+  nlayers: 4
+  dropout: 0.49248665508646333

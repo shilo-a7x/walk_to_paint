@@ -9,3 +9,5 @@
 nohup.out
 outputs/**/checkpoints
 outputs/**/logs
+# Large log files
+outputs/**/retrain_*_nohup.log

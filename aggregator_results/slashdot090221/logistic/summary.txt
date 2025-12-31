@@ -1,0 +1,22 @@
+Aggregator Results - slashdot090221
+============================================================
+
+Model: logistic
+Num classes: 2
+Features: ['p5', 'p10', 'p25', 'p50', 'p75', 'p90', 'p95', 'mean', 'std', 'count']
+
+Agg train set (80% of transformer val): 43121 edges
+  Accuracy: 0.7933
+  F1: 0.7387
+  AUC: 0.8480
+
+Agg val set (20% of transformer val): 10781 edges
+  Accuracy: 0.7964
+  F1: 0.7369
+  AUC: 0.8515
+
+Agg test set (transformer test): 53987 edges
+  Accuracy: 0.7977
+  F1: 0.7409
+  AUC: 0.8502
+

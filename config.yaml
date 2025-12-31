@@ -1,39 +1,49 @@
+# Base configuration - General defaults for all datasets
+# Dataset-specific configs in configs/<dataset>.yaml will override these
+
 preprocess:
     save: true
     use_cache: true
     walk_num_workers: 8
     walk_seed: 42
 
+# Default dataset structure (overridden by dataset-specific configs)
 dataset:
     name: bitcoin-alpha-binary
     data_dir: data/bitcoin-alpha-binary
     edge_list_file: soc-sign-bitcoinalpha-binary.csv
-    walks_file: walks.json
+    walks_file: walks.pt
     tokenizer_file: tokenizer.json
     encoded_file: encoded.pt
     edge_split_file: splits.json
     meta_file: meta.json
-    max_walk_length: 83
-    num_walks: 219589
+    # Default split ratios
     train_ratio: 0.48
     mask_ratio: 0.32
     val_ratio: 0.1
     test_ratio: 0.1
+    # Default data processing
+    binary: false
+    remove_self_loops: true
+    multiedge_handling: keep
+    seed: 42
 
+# Default model architecture (tunable per dataset)
 model:
     embedding_dim: 32
     hidden_dim: 16
-    dropout: 0.6207573207736868
+    dropout: 0.5
     nhead: 8
     nlayers: 5
 
+# Default training configuration
 training:
     batch_size: 64
     epochs: 25
-    lr: 0.0011990397793339518
-    weight_decay: 0.0026821863636421073
+    lr: 0.001
+    weight_decay: 0.001
     early_stopping_patience: 10
-    gradient_clip_val: 0.5956847053697083
+    gradient_clip_val: 0.5
     use_weighted_loss: true
     log_dir: logs/
     exp_name: walk_to_paint_experiment
@@ -46,5 +56,14 @@ training:
     pin_memory: true
     persistent_workers: true
     prefetch_factor: 2
-    # seed for reproducibility (worker seeding uses base seed + worker id)
+    # Seed for reproducibility (worker seeding uses base seed + worker id)
     seed: 42
+
+# Default paths configuration
+paths:
+    base_outputs_dir: outputs
+    use_dataset_outputs: true
+    append_timestamp: true
+
+# GPU optimization
+float32_precision: "medium"  # "highest" | "high" | "medium" (for matmul speed)

@@ -1,0 +1,22 @@
+Aggregator Results - epinions
+============================================================
+
+Model: mlp
+Num classes: 2
+Features: ['p5', 'p10', 'p25', 'p50', 'p75', 'p90', 'p95', 'mean', 'std', 'count']
+
+Agg train set (80% of transformer val): 66783 edges
+  Accuracy: 0.9159
+  F1: 0.8244
+  AUC: 0.9205
+
+Agg val set (20% of transformer val): 16696 edges
+  Accuracy: 0.9175
+  F1: 0.8288
+  AUC: 0.9191
+
+Agg test set (transformer test): 83419 edges
+  Accuracy: 0.9160
+  F1: 0.8256
+  AUC: 0.9184
+

@@ -1,0 +1,307 @@
+[1/3] Extracting edge scores for wiki-rfa...
+Using device: cuda:0
+Loading tokenizer from data/wiki-RfA/tokenizer.json...
+Tokenizer loaded: vocab_size=11261, num_classes=2
+
+Preparing data...
+Loading preprocessed data from data/wiki-RfA/encoded.pt...
+Success! ✅
+Creating DataLoaders for wiki-rfa dataset...
+Success! ✅
+
+Loading model from /home/dsi/shilo_avital/yolo_lab/walk_to_paint/outputs/wiki-rfa/wiki-rfa-run_20251225-094820/checkpoints/wiki-rfa-wiki-rfa-run-epoch=14-val_loss=1.88.ckpt...
+Model loaded successfully
+
+Extracting from transformer val and test splits...
+
+Extracting scores from transformer_val split...
+Collected scores for 14899 unique edges in transformer_val
+
+Extracting scores from transformer_test split...
+Collected scores for 14951 unique edges in transformer_test
+
+Computing aggregated features...
+
+Splitting transformer val into aggregator train (80%) and val (20%)...
+
+Saving features to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_features/wiki-rfa_features.pkl...
+
+Summary:
+  Agg train edges: 11919
+  Agg val edges: 2980
+  Agg test edges: 14951
+  Feature dimension: 10
+
+Features saved to: /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_features/wiki-rfa_features.pkl
+✓ Features saved to: /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_features/wiki-rfa_features.pkl
+
+[2/3] Training logistic aggregator for wiki-rfa...
+
+============================================================
+AGGREGATOR CONFIGURATION
+============================================================
+Model: logistic
+
+Shared:
+  class_weight: balanced
+
+Logistic Regression:
+  max_iter: 1000
+  C (regularization): 1.0
+============================================================
+
+Loading features from /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_features/wiki-rfa_features.pkl...
+Dataset: wiki-rfa
+Num classes: 2
+Feature names: ['p5', 'p10', 'p25', 'p50', 'p75', 'p90', 'p95', 'mean', 'std', 'count']
+
+Preparing agg train dataset...
+Agg train: 11919 edges, 10 features
+
+Preparing agg val dataset...
+Agg val: 2980 edges
+
+Preparing agg test dataset...
+Agg test: 14951 edges
+
+Class distribution:
+  Agg train: [9279 2640]
+  Agg val: [2346  634]
+  Agg test: [11719  3232]
+
+Training Logistic Regression...
+  class_weight: balanced
+  max_iter: 1000
+  C (regularization): 1.0
+Val Accuracy: 0.7839
+Val F1: 0.7209
+Val AUC: 0.8307
+
+============================================================
+Evaluating on Agg Train set
+============================================================
+
+Metrics:
+  Accuracy: 0.7705
+  F1 Score: 0.7142
+  AUC: 0.8270
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.9125    0.7800    0.8411      9279
+           1     0.4881    0.7371    0.5873      2640
+
+    accuracy                         0.7705     11919
+   macro avg     0.7003    0.7586    0.7142     11919
+weighted avg     0.8185    0.7705    0.7849     11919
+
+
+Confusion Matrix:
+[[7238 2041]
+ [ 694 1946]]
+
+============================================================
+Evaluating on Agg Val set
+============================================================
+
+Metrics:
+  Accuracy: 0.7839
+  F1 Score: 0.7209
+  AUC: 0.8307
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.9151    0.7997    0.8535      2346
+           1     0.4946    0.7256    0.5882       634
+
+    accuracy                         0.7839      2980
+   macro avg     0.7049    0.7626    0.7209      2980
+weighted avg     0.8257    0.7839    0.7971      2980
+
+
+Confusion Matrix:
+[[1876  470]
+ [ 174  460]]
+
+============================================================
+Evaluating on Agg Test set
+============================================================
+
+Metrics:
+  Accuracy: 0.7743
+  F1 Score: 0.7138
+  AUC: 0.8273
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.9128    0.7874    0.8454     11719
+           1     0.4853    0.7271    0.5821      3232
+
+    accuracy                         0.7743     14951
+   macro avg     0.6990    0.7572    0.7138     14951
+weighted avg     0.8204    0.7743    0.7885     14951
+
+
+Confusion Matrix:
+[[9227 2492]
+ [ 882 2350]]
+
+Model saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/wiki-rfa/logistic/aggregator_logistic.pkl
+Scaler saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/wiki-rfa/logistic/scaler.pkl
+Summary saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/wiki-rfa/logistic/summary.txt
+Confusion matrix saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/wiki-rfa/logistic/train_confusion_matrix.png
+Confusion matrix saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/wiki-rfa/logistic/val_confusion_matrix.png
+Confusion matrix saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/wiki-rfa/logistic/test_confusion_matrix.png
+
+============================================================
+FINAL RESULTS - wiki-rfa
+============================================================
+Agg Test AUC: 0.8273
+Agg Test Accuracy: 0.7743
+Agg Test F1: 0.7138
+
+All results saved to: /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/wiki-rfa/logistic
+✓ logistic aggregator saved to: /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/wiki-rfa/logistic
+
+[2/3] Training mlp aggregator for wiki-rfa...
+
+============================================================
+AGGREGATOR CONFIGURATION
+============================================================
+Model: mlp
+
+Shared:
+  class_weight: balanced
+
+MLP:
+  hidden_layers: (128, 64)
+  learning_rate: 0.001
+  batch_size: 32
+  early_stopping_patience: 20
+============================================================
+
+Loading features from /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_features/wiki-rfa_features.pkl...
+Dataset: wiki-rfa
+Num classes: 2
+Feature names: ['p5', 'p10', 'p25', 'p50', 'p75', 'p90', 'p95', 'mean', 'std', 'count']
+
+Preparing agg train dataset...
+Agg train: 11919 edges, 10 features
+
+Preparing agg val dataset...
+Agg val: 2980 edges
+
+Preparing agg test dataset...
+Agg test: 14951 edges
+
+Class distribution:
+  Agg train: [9279 2640]
+  Agg val: [2346  634]
+  Agg test: [11719  3232]
+
+Training MLP Classifier...
+  hidden_layer_sizes: (128, 64)
+  learning_rate_init: 0.001
+  early_stopping_patience: 20
+  batch_size: 32
+  class_weights (inverse frequency): {np.int64(0): np.float64(0.6422567086970579), np.int64(1): np.float64(2.2573863636363636)}
+Val Accuracy: 0.8342
+Val F1: 0.6974
+Val AUC: 0.8296
+
+============================================================
+Evaluating on Agg Train set
+============================================================
+
+Metrics:
+  Accuracy: 0.8179
+  F1 Score: 0.6789
+  AUC: 0.8286
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.8391    0.9479    0.8902      9279
+           1     0.6636    0.3610    0.4676      2640
+
+    accuracy                         0.8179     11919
+   macro avg     0.7514    0.6545    0.6789     11919
+weighted avg     0.8002    0.8179    0.7966     11919
+
+
+Confusion Matrix:
+[[8796  483]
+ [1687  953]]
+
+============================================================
+Evaluating on Agg Val set
+============================================================
+
+Metrics:
+  Accuracy: 0.8342
+  F1 Score: 0.6974
+  AUC: 0.8296
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.8510    0.9569    0.9009      2346
+           1     0.7047    0.3801    0.4939       634
+
+    accuracy                         0.8342      2980
+   macro avg     0.7779    0.6685    0.6974      2980
+weighted avg     0.8199    0.8342    0.8143      2980
+
+
+Confusion Matrix:
+[[2245  101]
+ [ 393  241]]
+
+============================================================
+Evaluating on Agg Test set
+============================================================
+
+Metrics:
+  Accuracy: 0.8238
+  F1 Score: 0.6840
+  AUC: 0.8275
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.8447    0.9498    0.8942     11719
+           1     0.6685    0.3670    0.4738      3232
+
+    accuracy                         0.8238     14951
+   macro avg     0.7566    0.6584    0.6840     14951
+weighted avg     0.8066    0.8238    0.8033     14951
+
+
+Confusion Matrix:
+[[11131   588]
+ [ 2046  1186]]
+
+Model saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/wiki-rfa/mlp/aggregator_mlp.pkl
+Scaler saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/wiki-rfa/mlp/scaler.pkl
+Summary saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/wiki-rfa/mlp/summary.txt
+Confusion matrix saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/wiki-rfa/mlp/train_confusion_matrix.png
+Confusion matrix saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/wiki-rfa/mlp/val_confusion_matrix.png
+Confusion matrix saved to /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/wiki-rfa/mlp/test_confusion_matrix.png
+
+============================================================
+FINAL RESULTS - wiki-rfa
+============================================================
+Agg Test AUC: 0.8275
+Agg Test Accuracy: 0.8238
+Agg Test F1: 0.6840
+
+All results saved to: /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/wiki-rfa/mlp
+✓ mlp aggregator saved to: /home/dsi/shilo_avital/yolo_lab/walk_to_paint/aggregator_results/wiki-rfa/mlp
+
+╔════════════════════════════════════════════════════════════╗
+║  Completed: wiki-rfa (1486s)
+╚════════════════════════════════════════════════════════════╝
+

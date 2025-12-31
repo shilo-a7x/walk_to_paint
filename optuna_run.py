@@ -47,9 +47,9 @@ OPTUNA_RANGES = {
 }
 
 
-def cleanup_old_checkpoints_and_logs(checkpoint_dir, log_dir, keep_top_n=10):
+def cleanup_old_checkpoints_and_logs(checkpoint_dir, log_dir, study=None, keep_top_n=10):
     """
-    Keep only the top N checkpoints based on trial number and clean up old logs.
+    Keep only the top N checkpoints based on trial value (AUC), not date.
     """
     print(f"🧹 Cleaning up old checkpoints and logs (keeping top {keep_top_n})...")
 
@@ -58,23 +58,72 @@ def cleanup_old_checkpoints_and_logs(checkpoint_dir, log_dir, keep_top_n=10):
     checkpoint_files = glob.glob(checkpoint_pattern)
 
     if len(checkpoint_files) > keep_top_n:
-        # Sort by modification time (newest first)
-        checkpoint_files.sort(key=os.path.getmtime, reverse=True)
+        # If study provided, sort by trial value; otherwise fall back to modification time
+        if study is not None:
+            # Extract trial numbers from checkpoint filenames
+            trial_to_checkpoint = {}
+            for ckpt_file in checkpoint_files:
+                # Extract trial number from filename like "trial_123-*.ckpt"
+                basename = os.path.basename(ckpt_file)
+                try:
+                    trial_num = int(basename.split('_')[1].split('-')[0])
+                    trial_to_checkpoint[trial_num] = ckpt_file
+                except (IndexError, ValueError):
+                    continue
+            
+            # Get completed trials (with values) and sort by value descending
+            completed_trials = [t for t in study.trials if t.value is not None]
+            sorted_trials = sorted(completed_trials, key=lambda t: t.value, reverse=True)
+            
+            # Keep checkpoints for top trials
+            top_trial_numbers = {t.number for t in sorted_trials[:keep_top_n]}
+            checkpoints_to_remove = [
+                ckpt for trial_num, ckpt in trial_to_checkpoint.items()
+                if trial_num not in top_trial_numbers
+            ]
+        else:
+            # Fallback: sort by modification time if no study provided
+            checkpoint_files.sort(key=os.path.getmtime, reverse=True)
+            checkpoints_to_remove = checkpoint_files[keep_top_n:]
 
         # Remove old checkpoints
-        for old_checkpoint in checkpoint_files[keep_top_n:]:
+        for old_checkpoint in checkpoints_to_remove:
             try:
                 os.remove(old_checkpoint)
                 print(f"  Removed old checkpoint: {os.path.basename(old_checkpoint)}")
             except OSError:
                 pass
 
-    # Clean up old tensorboard logs (keep only recent trial logs)
+    # Clean up old tensorboard logs (keep only top-value trial logs)
     if os.path.exists(log_dir):
         trial_log_dirs = glob.glob(os.path.join(log_dir, "*", "trial_*"))
         if len(trial_log_dirs) > keep_top_n:
-            trial_log_dirs.sort(key=os.path.getmtime, reverse=True)
-            for old_log_dir in trial_log_dirs[keep_top_n:]:
+            if study is not None:
+                # Extract trial numbers from log dir names
+                log_dir_to_trial = {}
+                for log_dir_path in trial_log_dirs:
+                    dirname = os.path.basename(log_dir_path)
+                    try:
+                        trial_num = int(dirname.split('_')[1])
+                        log_dir_to_trial[trial_num] = log_dir_path
+                    except (IndexError, ValueError):
+                        continue
+                
+                # Keep logs for top trials
+                completed_trials = [t for t in study.trials if t.value is not None]
+                sorted_trials = sorted(completed_trials, key=lambda t: t.value, reverse=True)
+                top_trial_numbers = {t.number for t in sorted_trials[:keep_top_n]}
+                
+                log_dirs_to_remove = [
+                    log_dir_path for trial_num, log_dir_path in log_dir_to_trial.items()
+                    if trial_num not in top_trial_numbers
+                ]
+            else:
+                # Fallback: sort by modification time
+                trial_log_dirs.sort(key=os.path.getmtime, reverse=True)
+                log_dirs_to_remove = trial_log_dirs[keep_top_n:]
+            
+            for old_log_dir in log_dirs_to_remove:
                 try:
                     shutil.rmtree(old_log_dir)
                     print(f"  Removed old log dir: {os.path.basename(old_log_dir)}")
@@ -346,6 +395,7 @@ def main():
     base_seed = getattr(base_cfg.training, "seed", 42)
     try:
         from pytorch_lightning import seed_everything
+
         seed_everything(int(base_seed), workers=True)
         random.seed(int(base_seed))
         np.random.seed(int(base_seed))
@@ -464,12 +514,17 @@ def main():
             cleanup_old_checkpoints_and_logs(
                 base_cfg.training.checkpoint_dir,
                 base_cfg.training.log_dir,
+                study=study,
                 keep_top_n=10,
             )
 
     # Study-level early stop if plateau
-    es_patience = int(getattr(getattr(base_cfg, "optuna", {}), "study_early_stop_patience", 25))
-    es_min_delta = float(getattr(getattr(base_cfg, "optuna", {}), "study_early_stop_min_delta", 1e-4))
+    es_patience = int(
+        getattr(getattr(base_cfg, "optuna", {}), "study_early_stop_patience", 25)
+    )
+    es_min_delta = float(
+        getattr(getattr(base_cfg, "optuna", {}), "study_early_stop_min_delta", 1e-4)
+    )
     best_seen = {
         "value": None,
         "since": 0,
@@ -479,7 +534,10 @@ def main():
         nonlocal best_seen
         if study.best_value is None:
             return
-        if best_seen["value"] is None or study.best_value > best_seen["value"] + es_min_delta:
+        if (
+            best_seen["value"] is None
+            or study.best_value > best_seen["value"] + es_min_delta
+        ):
             best_seen["value"] = study.best_value
             best_seen["since"] = 0
         else:
@@ -492,11 +550,15 @@ def main():
 
     # ---- Optimize ----
     objective = objective_factory(base_cfg, args.device, enable_pruning=True)
-    study.optimize(objective, n_trials=args.n_trials, callbacks=[cleanup_callback, early_stop_callback])
+    study.optimize(
+        objective,
+        n_trials=args.n_trials,
+        callbacks=[cleanup_callback, early_stop_callback],
+    )
 
     # ---- Final cleanup ----
     cleanup_old_checkpoints_and_logs(
-        base_cfg.training.checkpoint_dir, base_cfg.training.log_dir, keep_top_n=10
+        base_cfg.training.checkpoint_dir, base_cfg.training.log_dir, study=study, keep_top_n=10
     )
 
     # ---- Print results ----
@@ -578,7 +640,9 @@ def main():
         import plot_metrics
 
         top_k = min(3, len(study.trials))
-        sorted_trials = sorted(study.trials, key=lambda t: t.value, reverse=True)
+        # Filter out trials with None values (pruned trials) before sorting
+        completed_trials = [t for t in study.trials if t.value is not None]
+        sorted_trials = sorted(completed_trials, key=lambda t: t.value, reverse=True)
         top_trials = sorted_trials[:top_k]
 
         top_ckpt_dir = os.path.join(resolved.get("optuna_dir", "."), "top_checkpoints")

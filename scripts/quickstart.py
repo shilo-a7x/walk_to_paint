@@ -6,13 +6,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+
 def run_command(cmd, description):
     """Run a command and print output."""
     print(f"\n{'='*80}")
     print(f"📍 {description}")
     print(f"{'='*80}")
     print(f"$ {cmd}\n")
-    
+
     result = subprocess.run(cmd, shell=True)
     if result.returncode != 0:
         print(f"⚠️  Command failed with code {result.returncode}")
@@ -21,7 +22,8 @@ def run_command(cmd, description):
 
 
 def main():
-    print(f"""
+    print(
+        f"""
 ╔════════════════════════════════════════════════════════════════════════════╗
 ║           WALK-TO-PAINT: SETUP FOR FAST EVALUATION & ITERATION            ║
 ╚════════════════════════════════════════════════════════════════════════════╝
@@ -33,42 +35,44 @@ This script will:
 4. ✅ Load best models for each dataset
 
 Let's go! 🚀
-""")
-    
+"""
+    )
+
     venv_python = Path(".venv/bin/python")
     if not venv_python.exists():
         print("❌ Virtual environment not found. Please activate it first:")
         print("   source .venv/bin/activate")
         sys.exit(1)
-    
+
     all_success = True
-    
+
     # 1. Analyze studies
     all_success &= run_command(
         f"{venv_python} scripts/analyze_optuna_studies.py",
-        "STEP 1: Analyze your Optuna studies"
+        "STEP 1: Analyze your Optuna studies",
     )
-    
+
     # 2. Extract top trials for each dataset
     for dataset in ["wiki-rfa", "epinions", "slashdot090221"]:
         all_success &= run_command(
             f"{venv_python} scripts/extract_top_trials.py {dataset} --metric num_walks --tolerance 3",
-            f"STEP 2a: Find {dataset} trials with fewer walks (within 3% of best)"
+            f"STEP 2a: Find {dataset} trials with fewer walks (within 3% of best)",
         )
-    
+
     # 3. Load best models
     for dataset in ["wiki-rfa", "epinions", "slashdot090221"]:
         all_success &= run_command(
             f"{venv_python} scripts/load_best_model.py {dataset}",
-            f"STEP 2b: Load best model for {dataset}"
+            f"STEP 2b: Load best model for {dataset}",
         )
-    
+
     # 4. Print final summary
     print(f"\n{'='*80}")
     print(f"✅ SETUP COMPLETE!")
     print(f"{'='*80}\n")
-    
-    print("""
+
+    print(
+        """
 Next Steps:
 
 1. ENABLE CACHING (huge speedup):
@@ -122,7 +126,8 @@ Current Status:
   ✅ Evaluation pipeline ready
   
 Your next focus: Edge score aggregation (see OPTIMIZATION_GUIDE.md)
-""")
+"""
+    )
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ dataset:
     name: bitcoin-alpha-binary
     data_dir: data/bitcoin-alpha-binary
     edge_list_file: soc-sign-bitcoinalpha-binary.csv
-    walks_file: walks.json
+    walks_file: walks.pt
     tokenizer_file: tokenizer.json
     encoded_file: encoded.pt
     edge_split_file: splits.json

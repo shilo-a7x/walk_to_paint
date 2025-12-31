@@ -15,7 +15,7 @@ from src.data.walk_sampler import sample_random_walks
 
 class SplitID(IntEnum):
     TRAIN = 0  # context in train
-    MASK = 1  # train targets (10%)
+    MASK = 1  # train targets (32%)
     VAL = 2  # val targets (10%)
     TEST = 3  # test targets (10%)
     BAD = -1  # non-edge positions (nodes)
@@ -88,7 +88,9 @@ def get_walks(cfg, edges):
             pass  # fall back to regenerate
 
     walk_workers = int(getattr(cfg.preprocess, "walk_num_workers", 1))
-    walk_seed = getattr(cfg.preprocess, "walk_seed", getattr(cfg.training, "seed", None))
+    walk_seed = getattr(
+        cfg.preprocess, "walk_seed", getattr(cfg.training, "seed", None)
+    )
 
     walks = sample_random_walks(
         edges,

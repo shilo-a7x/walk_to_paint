@@ -1,0 +1,22 @@
+Aggregator Results - wiki-rfa
+============================================================
+
+Model: logistic
+Num classes: 2
+Features: ['p5', 'p10', 'p25', 'p50', 'p75', 'p90', 'p95', 'mean', 'std', 'count']
+
+Agg train set (80% of transformer val): 11919 edges
+  Accuracy: 0.7705
+  F1: 0.7142
+  AUC: 0.8270
+
+Agg val set (20% of transformer val): 2980 edges
+  Accuracy: 0.7839
+  F1: 0.7209
+  AUC: 0.8307
+
+Agg test set (transformer test): 14951 edges
+  Accuracy: 0.7743
+  F1: 0.7138
+  AUC: 0.8273
+

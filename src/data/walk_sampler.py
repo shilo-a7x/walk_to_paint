@@ -26,7 +26,9 @@ def _build_adj(edges):
     return nodes, nbrs, lbls
 
 
-def _sample_chunk(nodes, nbrs, lbls, num_walks, max_walk_length, start_idx, end_idx, seed):
+def _sample_chunk(
+    nodes, nbrs, lbls, num_walks, max_walk_length, start_idx, end_idx, seed
+):
     """Sample a chunk of walks [start_idx, end_idx) using NumPy RNG (fast)."""
     rng = np.random.default_rng(seed)
     walks = []
@@ -51,7 +53,9 @@ def _sample_chunk(nodes, nbrs, lbls, num_walks, max_walk_length, start_idx, end_
     return walks
 
 
-def sample_random_walks(edges, num_walks=100, max_walk_length=16, num_workers=1, seed=None):
+def sample_random_walks(
+    edges, num_walks=100, max_walk_length=16, num_workers=1, seed=None
+):
     """
     Fast random-walk sampler with optional multiprocessing.
 
@@ -71,7 +75,9 @@ def sample_random_walks(edges, num_walks=100, max_walk_length=16, num_workers=1,
     base_seed = 42 if seed is None else int(seed)
 
     if num_workers == 1:
-        return _sample_chunk(nodes, nbrs, lbls, num_walks, max_walk_length, 0, num_walks, base_seed)
+        return _sample_chunk(
+            nodes, nbrs, lbls, num_walks, max_walk_length, 0, num_walks, base_seed
+        )
 
     # Split work evenly
     chunk = math.ceil(num_walks / num_workers)

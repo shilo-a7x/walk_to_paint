@@ -1,45 +1,52 @@
+# Wiki-RfA dataset-specific configuration
+# Merges with base config.yaml - only overrides dataset-specific values
+# Best Optuna trial: #87 (AUC=0.7779, maximized)
+
 dataset:
     name: wiki-rfa
     data_dir: data/wiki-RfA
     edge_list_file: wiki-RfA.txt.gz
-    # If binary=true, VOT==0 entries are skipped and votes are mapped to {0,1}
-    binary: false
-    # Remove self-loops and pick most recent entry when multiple votes exist
+    # Wiki-RfA specific processing
+    binary: true
     remove_self_loops: true
     multiedge_handling: most_recent
-    # Reproducibility
-    seed: 42
+    # Best trial hyperparams (trial #87)
+    max_walk_length: 82
+    num_walks: 434857
 
-# Optuna starting point (useful as an initial trial/seed)
+model:
+    # Best trial hyperparams (trial #87)
+    embedding_dim: 64
+    hidden_dim: 64
+    nhead: 2
+    nlayers: 5
+    dropout: 0.14736239940786994
+
+training:
+    # Best trial hyperparams (trial #87)
+    batch_size: 256
+    epochs: 20
+    lr: 0.0016135042002810406
+    weight_decay: 2.9866739870000337e-05
+    gradient_clip_val: 0.5394002549968298
+    early_stopping_patience: 5
+
+# Optuna configuration for this dataset
 optuna:
     initial_params:
         dataset:
-            max_walk_length: 83
-            num_walks: 219589
+            max_walk_length: 86
+            num_walks: 589237
         training:
-            lr: 0.0011990397793339518
-            weight_decay: 0.0026821863636421073
-            batch_size: 64
-            gradient_clip_val: 0.5956847053697083
-            early_stopping_patience: 10
-            epochs: 25
+            lr: 0.0005329354306421037
+            weight_decay: 7.3773042780674434e-06
+            batch_size: 256
+            gradient_clip_val: 0.7679076155943955
+            early_stopping_patience: 5
+            epochs: 12
         model:
-            embedding_dim: 32
-            hidden_dim: 16
-            nhead: 8
+            embedding_dim: 64
+            hidden_dim: 256
+            nhead: 2
             nlayers: 5
-            dropout: 0.6207573207736868
-    # Optional filters example:
-    # filter:
-    #   min_year: 2005
-    #   max_year: 2015
-    #   allowed_votes: ["1", "-1"]
-
-preprocess:
-    save: false
-    use_cache: false
-
-paths:
-    base_outputs_dir: outputs
-    use_dataset_outputs: true
-    append_timestamp: true
+            dropout: 0.2046254436963964
