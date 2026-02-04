@@ -19,7 +19,7 @@ from pytorch_lightning import seed_everything
 from src.data.prepare_data import prepare_data
 from src.model.lit_model import LitEdgeClassifier
 from src.utils.paths import resolve_outputs_dirs
-from src.utils.config import load_config
+from src.utils.config import load_config, get_seed
 import random
 import numpy as np
 import shutil
@@ -298,13 +298,13 @@ def objective_factory(base_cfg, device, enable_pruning=True):
         cfg.training.epochs = trial.suggest_int("training.epochs", int(e_lo), int(e_hi))
 
         # Set seeds for reproducibility (per-trial)
-        base_seed = getattr(base_cfg.training, "seed", 42)
-        seed_everything(int(base_seed), workers=True)
-        random.seed(int(base_seed))
-        np.random.seed(int(base_seed))
+        base_seed = get_seed(base_cfg)
+        seed_everything(base_seed, workers=True)
+        random.seed(base_seed)
+        np.random.seed(base_seed)
         # Record the seed used so runs are reproducible
         try:
-            trial.set_user_attr("seed", int(base_seed))
+            trial.set_user_attr("seed", base_seed)
         except Exception:
             pass
 
@@ -392,16 +392,11 @@ def main():
         print(f"Auto-generated exp_name: {base_cfg.training.exp_name}")
 
     # Global seed (single seed for all components)
-    base_seed = getattr(base_cfg.training, "seed", 42)
-    try:
-        from pytorch_lightning import seed_everything
-
-        seed_everything(int(base_seed), workers=True)
-        random.seed(int(base_seed))
-        np.random.seed(int(base_seed))
-        print(f"Using global seed={base_seed}")
-    except Exception:
-        pass
+    base_seed = get_seed(base_cfg)
+    seed_everything(base_seed, workers=True)
+    random.seed(base_seed)
+    np.random.seed(base_seed)
+    print(f"✅ Using global seed={base_seed}")
 
     # Resolve outputs dirs early so Optuna and Trainer write into namespaced locations
     resolved = resolve_outputs_dirs(base_cfg)
@@ -425,8 +420,9 @@ def main():
     # ---- Create study with Optuna journal file storage (per-experiment) ----
     optuna_log = os.path.join(resolved.get("optuna_dir", "."), "optuna_study.log")
     storage = JournalStorage(JournalFileStorage(optuna_log))
-    base_seed = getattr(base_cfg.training, "seed", 42)
-    sampler = optuna.samplers.TPESampler(seed=int(base_seed))
+    from src.utils.config import get_seed
+    base_seed = get_seed(base_cfg)
+    sampler = optuna.samplers.TPESampler(seed=base_seed)
     study = optuna.create_study(
         direction="maximize",
         sampler=sampler,

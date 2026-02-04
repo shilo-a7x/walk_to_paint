@@ -2,6 +2,19 @@
 
 ## Task A1: Config System Overhaul & Full Reproducibility
 
+### Status: ✅ COMPLETE
+
+This task has been completed. See the following documentation files for details:
+- [TASK_A1_FINAL_STATUS.md](TASK_A1_FINAL_STATUS.md) - Complete status report with all changes
+- [WALK_REPRODUCIBILITY_EXPLAINED.md](WALK_REPRODUCIBILITY_EXPLAINED.md) - Technical explanation of walk algorithm
+- [CONFIG_GUIDE.md](CONFIG_GUIDE.md) - Configuration system documentation
+
+**Key achievement**: Single unified seed (`reproducibility.seed`) with per-walk deterministic seeding guarantees bit-for-bit identical walk files regardless of worker count.
+
+---
+
+## Task A1: Config System Overhaul & Full Reproducibility (ORIGINAL DETAILS)
+
 ### Current Problem
 The configuration system is inconsistent across the codebase:
 - Seed values scattered: `walk_seed`, `worker_seed`, `training.seed` (different names, same purpose)

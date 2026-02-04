@@ -3,6 +3,38 @@ from typing import List, Optional
 from omegaconf import OmegaConf
 
 
+def get_seed(cfg) -> int:
+    """
+    Get the canonical seed from config.
+    
+    This is the ONLY way to access the seed value in the codebase.
+    Fails loudly if seed is not configured - no silent defaults.
+    
+    Args:
+        cfg: OmegaConf configuration object
+        
+    Returns:
+        int: The seed value
+        
+    Raises:
+        ValueError: If reproducibility.seed is not set in config
+    """
+    try:
+        seed = cfg.reproducibility.seed
+        if seed is None:
+            raise ValueError(
+                "reproducibility.seed is None. "
+                "Please set a valid integer seed in your config file."
+            )
+        return int(seed)
+    except (AttributeError, KeyError):
+        raise ValueError(
+            "reproducibility.seed is not set in config. "
+            "Please add 'reproducibility:\\n  seed: 42' to your config.yaml "
+            "or set it via CLI: --reproducibility.seed=42"
+        )
+
+
 def load_config(
     config_path: str = "config.yaml", overrides: Optional[List[str]] = None
 ):

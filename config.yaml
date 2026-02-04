@@ -1,11 +1,28 @@
 # Base configuration - General defaults for all datasets
 # Dataset-specific configs in configs/<dataset>.yaml will override these
 
+# ============================================================================
+# Reproducibility Configuration
+# ============================================================================
+# Single canonical seed for ALL randomness sources:
+# - PyTorch (model initialization, DataLoader shuffling, dropout)
+# - NumPy (walk sampling, data splitting)
+# - Python random (edge shuffling)
+# - Worker processes (deterministic seeding per worker)
+# 
+# CRITICAL: This seed MUST be set. No silent defaults.
+# All scripts (run.py, extract_edge_scores.py, train_aggregator.py, etc.)
+# will fail loudly if this is not present.
+reproducibility:
+    seed: 42
+
+# ============================================================================
+# Preprocessing Configuration
+# ============================================================================
 preprocess:
-    save: true
-    use_cache: true
-    walk_num_workers: 8
-    walk_seed: 42
+    save: true              # Save preprocessed data (walks, tokenizer, encodings)
+    use_cache: true         # Use cached preprocessed data if available
+    num_workers: 8          # Number of parallel workers for walk sampling
 
 # Default dataset structure (overridden by dataset-specific configs)
 dataset:
@@ -26,7 +43,6 @@ dataset:
     binary: false
     remove_self_loops: true
     multiedge_handling: keep
-    seed: 42
 
 # Default model architecture (tunable per dataset)
 model:
@@ -36,8 +52,11 @@ model:
     nhead: 8
     nlayers: 5
 
-# Default training configuration
+# ============================================================================
+# Training Configuration
+# ============================================================================
 training:
+    # Training hyperparameters
     batch_size: 64
     epochs: 25
     lr: 0.001
@@ -45,19 +64,21 @@ training:
     early_stopping_patience: 10
     gradient_clip_val: 0.5
     use_weighted_loss: true
+    
+    # Experiment tracking
     log_dir: logs/
     exp_name: walk_to_paint_experiment
     checkpoint_dir: checkpoints/
     resume_from_checkpoint: null
     eval_only: false
     use_cuda: true
-    # DataLoader / performance tuning
-    num_workers: 16
-    pin_memory: true
-    persistent_workers: true
-    prefetch_factor: 2
-    # Seed for reproducibility (worker seeding uses base seed + worker id)
-    seed: 42
+    
+    # DataLoader performance configuration
+    # These settings control parallel data loading and GPU transfer
+    num_workers: 16          # Parallel workers for data loading (0 = main process only)
+    pin_memory: true         # Pin memory for faster GPU transfer
+    persistent_workers: true # Keep workers alive between epochs (faster with num_workers > 0)
+    prefetch_factor: 2       # Batches prefetched per worker
 
 # Default paths configuration
 paths:

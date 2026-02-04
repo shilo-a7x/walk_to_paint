@@ -1,12 +1,17 @@
 # run.py
 import os
-import torch
+import sys
+import random
 import argparse
+import torch
+import numpy as np
 from omegaconf import OmegaConf
+from pytorch_lightning import seed_everything
+
 from src.data.prepare_data import prepare_data
 from src.training.train import train_model
 from src.utils.paths import resolve_outputs_dirs
-from src.utils.config import load_config
+from src.utils.config import load_config, get_seed
 
 
 def parse_args():
@@ -45,20 +50,17 @@ def main():
         )
         print(f"Auto-generated exp_name: {cfg.training.exp_name}")
 
-    # Set global seeds for reproducibility (if provided in config)
-    seed = getattr(cfg.training, "seed", None)
-    if seed is not None:
-        try:
-            seed = int(seed)
-            from pytorch_lightning import seed_everything
-            import random, numpy as np
-
-            seed_everything(seed, workers=True)
-            random.seed(seed)
-            np.random.seed(seed)
-            print(f"Using seed={seed}")
-        except Exception:
-            pass
+    # Set global seeds for reproducibility using canonical config.reproducibility.seed
+    try:
+        seed = get_seed(cfg)
+        seed_everything(seed, workers=True)
+        random.seed(seed)
+        np.random.seed(seed)
+        print(f"✅ Reproducibility enabled: seed={seed}")
+    except ValueError as e:
+        print(f"❌ ERROR: {e}")
+        print("Cannot proceed without a valid seed.")
+        sys.exit(1)
 
     # Resolve outputs directories (namespaced by dataset and exp_name)
     resolved = resolve_outputs_dirs(cfg)

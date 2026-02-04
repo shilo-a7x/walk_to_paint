@@ -17,28 +17,43 @@ Output: A pickle file with structure:
     'agg_test': {(u, v, label): {'features': array, 'ground_truth': label}, ...},
     'feature_names': ['p5', 'p10', 'p25', 'p50', 'p75', 'p90', 'p95', 'mean', 'std', 'count']
 }
+
+USAGE:
+  For new checkpoints (with embedded config):
+    python scripts/extract_edge_scores.py \\
+      --checkpoint <path.ckpt> \\
+      --output <output.pkl>
+
+  For old checkpoints (without embedded config):
+    python scripts/extract_edge_scores.py \\
+      --checkpoint <path.ckpt> \\
+      --config config.yaml \\
+      --output <output.pkl> \\
+      [dataset.name=wiki-rfa ...]
+
+Key behavior:
+  - Checkpoint config is automatically extracted and used
+  - Data is prepared with the exact config used during training
+  - All params (ignore_index, pad_id, vocab_size, etc.) are aligned
+  - Seed is read from checkpoint's config for reproducibility
 """
+
 
 import os
 import sys
+import random
 import argparse
 import pickle
 from collections import defaultdict
 import numpy as np
 import torch
 from tqdm import tqdm
+from omegaconf import OmegaConf
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Set seeds for reproducibility
-SEED = 42
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-if torch.cuda.is_available():
-    torch.cuda.manual_seed_all(SEED)
-
-from src.utils.config import load_config
+from src.utils.config import load_config, get_seed
 from src.data.prepare_data import prepare_data
 from src.data.tokenizer import Tokenizer
 from src.model.lit_model import LitEdgeClassifier
@@ -137,21 +152,65 @@ def extract_edge_scores_from_dataloader(model, dataloader, tokenizer, device, st
 
 def main():
     parser = argparse.ArgumentParser(description="Extract edge score features from checkpoint")
-    parser.add_argument("--config", type=str, required=True, help="Path to config file")
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to checkpoint file")
     parser.add_argument("--output", type=str, required=True, help="Output pickle file path")
     parser.add_argument("--device", type=int, default=0, help="CUDA device")
-    parser.add_argument("overrides", nargs="*", help="Config overrides in dotlist format")
+    parser.add_argument("--config", type=str, default=None, help="[OPTIONAL] Path to config file (only needed for old checkpoints without embedded cfg)")
+    parser.add_argument("overrides", nargs="*", help="[OPTIONAL] Config overrides in dotlist format")
     
     args = parser.parse_args()
-    
-    # Load config
-    overrides = args.overrides if args.overrides else []
-    cfg = load_config(args.config, overrides=overrides)
     
     # Set device
     device = torch.device(f"cuda:{args.device}" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
+    
+    # Try to load model and extract embedded config
+    print(f"\nLoading model from checkpoint: {args.checkpoint}")
+    try:
+        # Try loading without cfg (works for new checkpoints with embedded cfg)
+        model = LitEdgeClassifier.load_from_checkpoint(args.checkpoint)
+        print("✅ Checkpoint has embedded config (new format)")
+        
+        # Extract config from model's hyperparameters
+        if hasattr(model, "hparams") and "cfg" in model.hparams:
+            cfg = OmegaConf.create(model.hparams["cfg"])
+            print("✅ Extracted config from checkpoint")
+        else:
+            raise ValueError("Checkpoint missing embedded 'cfg' in hparams")
+    
+    except (TypeError, ValueError) as e:
+        # Fall back to CLI config for old checkpoints
+        if args.config is None:
+            raise ValueError(
+                f"Checkpoint missing embedded config and no --config provided.\n"
+                f"For old checkpoints, provide: --config <config_file> [overrides...]\n"
+                f"Error: {e}"
+            )
+        
+        print(f"⚠️  Checkpoint missing embedded config, using CLI config: {args.config}")
+        overrides = args.overrides if args.overrides else []
+        cfg = load_config(args.config, overrides=overrides)
+        
+        # Reload model with explicit cfg for old checkpoints
+        model = LitEdgeClassifier.load_from_checkpoint(args.checkpoint, cfg=cfg)
+    
+    # Set seeds for reproducibility from config
+    try:
+        seed = get_seed(cfg)
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+        print(f"✅ Reproducibility enabled: seed={seed}")
+    except ValueError as e:
+        print(f"❌ ERROR: {e}")
+        print("Cannot proceed without a valid seed.")
+        sys.exit(1)
+    
+    model = model.to(device)
+    model.eval()
+    print("Model loaded successfully")
     
     # Load tokenizer
     tokenizer_path = os.path.join(cfg.dataset.data_dir, cfg.dataset.tokenizer_file)
@@ -159,16 +218,9 @@ def main():
     tokenizer = Tokenizer.load(tokenizer_path)
     print(f"Tokenizer loaded: vocab_size={tokenizer.vocab_size}, num_classes={tokenizer.num_edge_tokens}")
     
-    # Prepare data
-    print("\nPreparing data...")
+    # Prepare data with checkpoint's config (ensures alignment)
+    print("\nPreparing data with checkpoint's config...")
     data_module = prepare_data(cfg)
-    
-    # Load model from checkpoint
-    print(f"\nLoading model from {args.checkpoint}...")
-    model = LitEdgeClassifier.load_from_checkpoint(args.checkpoint, cfg=cfg)
-    model = model.to(device)
-    model.eval()
-    print("Model loaded successfully")
     
     # Extract scores from transformer val and test (only these have labels)
     print("\nExtracting from transformer val and test splits...")

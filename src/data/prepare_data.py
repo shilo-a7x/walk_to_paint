@@ -7,10 +7,12 @@ import numpy as np
 from enum import IntEnum
 from torch.utils.data import TensorDataset, DataLoader
 from torch.nn.utils.rnn import pad_sequence
+from sklearn.model_selection import train_test_split
 
 from src.data.datasets import get_loader
 from src.data.tokenizer import Tokenizer
 from src.data.walk_sampler import sample_random_walks
+from src.utils.config import get_seed
 
 
 class SplitID(IntEnum):
@@ -36,9 +38,10 @@ def split_edges(cfg, edges):
         with open(split_path) as f:
             split = json.load(f)
     else:
-        edges_copy = list(edges)
-        random.shuffle(edges_copy)
-        n_total = len(edges_copy)
+        # Get seed for reproducibility
+        seed = get_seed(cfg)
+
+        # Validate ratios sum to 1.0
         train_ratio = float(cfg.dataset.train_ratio)
         mask_ratio = float(cfg.dataset.mask_ratio)
         val_ratio = float(cfg.dataset.val_ratio)
@@ -48,25 +51,106 @@ def split_edges(cfg, edges):
             raise ValueError(
                 f"Train, mask, val, and test ratios must sum to 1. Got {total:.6f}."
             )
+
         print(
             f"Ratios: train={train_ratio:.3f}, mask={mask_ratio:.3f}, val={val_ratio:.3f}, test={test_ratio:.3f}"
         )
-        n_train = int(train_ratio * n_total)
-        n_mask = int(mask_ratio * n_total)
-        n_val = int(val_ratio * n_total)
-        n_test = n_total - n_train - n_mask - n_val
-        if n_test < 0:
-            raise ValueError("Ratios result in negative test split. Adjust ratios.")
+
+        # Extract labels for stratification (3rd element of each edge tuple)
+        edges_array = np.array(edges)
+        labels = np.array([e[2] for e in edges])
+
+        # HIERARCHICAL STRATIFIED SPLITTING: Three levels to maintain class balance
+        # Each split preserves the original class distribution
+
+        print(f"Performing stratified edge split with seed={seed}...")
+
+        # Original class balance for validation
+        original_pos_count = np.sum(labels == 1)
+        original_pos_pct = 100.0 * original_pos_count / len(labels)
+        print(
+            f"Original class balance: {original_pos_count}/{len(labels)} positive ({original_pos_pct:.2f}%)"
+        )
+
+        # Step 1: Split TRAIN from remaining (train_ratio vs (1 - train_ratio))
+        train_edges, remaining_edges, _, remaining_labels = train_test_split(
+            edges_array,
+            labels,
+            train_size=train_ratio,
+            stratify=labels,
+            random_state=seed,
+        )
+
+        # Step 2: Split MASK from temp
+        # Recalculate mask ratio relative to remaining edges
+        mask_ratio_of_remaining = mask_ratio / (1.0 - train_ratio)
+        mask_edges, temp_edges, _, temp_labels = train_test_split(
+            remaining_edges,
+            remaining_labels,
+            train_size=mask_ratio_of_remaining,
+            stratify=remaining_labels,
+            random_state=seed,
+        )
+
+        # Step 3: Split VAL from TEST
+        # Recalculate test ratio relative to remaining edges
+        test_ratio_of_temp = test_ratio / (val_ratio + test_ratio)
+        val_edges, test_edges, _, _ = train_test_split(
+            temp_edges,
+            temp_labels,
+            test_size=test_ratio_of_temp,
+            stratify=temp_labels,
+            random_state=seed,
+        )
+
+        # Convert numpy arrays back to list of tuples
         split = {
-            "train": edges_copy[:n_train],
-            "mask": edges_copy[n_train : n_train + n_mask],
-            "val": edges_copy[n_train + n_mask : n_train + n_mask + n_val],
-            "test": edges_copy[n_train + n_mask + n_val :],
+            "train": [tuple(e) for e in train_edges],
+            "mask": [tuple(e) for e in mask_edges],
+            "val": [tuple(e) for e in val_edges],
+            "test": [tuple(e) for e in test_edges],
         }
+
+        # Validate split sizes
+        n_total = len(edges)
+        n_train = len(split["train"])
+        n_mask = len(split["mask"])
+        n_val = len(split["val"])
+        n_test = len(split["test"])
+
+        actual_train_ratio = n_train / n_total
+        actual_mask_ratio = n_mask / n_total
+        actual_val_ratio = n_val / n_total
+        actual_test_ratio = n_test / n_total
+
+        print(
+            f"Split sizes: train={n_train}, mask={n_mask}, val={n_val}, test={n_test}"
+        )
+        print(
+            f"Actual ratios: train={actual_train_ratio:.4f}, mask={actual_mask_ratio:.4f}, "
+            f"val={actual_val_ratio:.4f}, test={actual_test_ratio:.4f}"
+        )
+
+        # Verify class balance in each split
+        for split_name in ["train", "mask", "val", "test"]:
+            split_edges_list = split[split_name]
+            split_labels = [e[2] for e in split_edges_list]
+            split_pos_count = sum(1 for l in split_labels if l == 1)
+            split_pos_pct = 100.0 * split_pos_count / len(split_labels)
+            diff_pct = abs(split_pos_pct - original_pos_pct)
+            status = "✓" if diff_pct <= 2.0 else "✗"
+            print(
+                f"  {split_name:6s}: {split_pos_count:7d}/{len(split_labels):7d} positive ({split_pos_pct:6.2f}%) "
+                f"diff={diff_pct:.2f}% {status}"
+            )
+
         if cfg.preprocess.save:
             with open(split_path, "w") as f:
                 json.dump(split, f)
-    # lookup sets for fast membership
+
+        print(f"Stratified splitting complete! ✅")
+
+    # Lookup sets for fast membership
     train_set = {tuple(t) for t in split["train"]}
     mask_set = {tuple(t) for t in split["mask"]}
     val_set = {tuple(t) for t in split["val"]}
@@ -87,10 +171,17 @@ def get_walks(cfg, edges):
         except Exception:
             pass  # fall back to regenerate
 
-    walk_workers = int(getattr(cfg.preprocess, "walk_num_workers", 1))
-    walk_seed = getattr(
-        cfg.preprocess, "walk_seed", getattr(cfg.training, "seed", None)
+    # Get worker count - support both old and new config keys
+    walk_workers = int(
+        getattr(
+            cfg.preprocess,
+            "num_workers",
+            getattr(cfg.preprocess, "walk_num_workers", 1),
+        )
     )
+
+    # Use canonical seed from reproducibility config (imported at top)
+    walk_seed = get_seed(cfg)
 
     walks = sample_random_walks(
         edges,
@@ -291,32 +382,20 @@ def make_dataloaders(cfg, train_pack, val_pack, test_pack):
     except Exception:
         prefetch = 2
 
-    # seeded generator for reproducible shuffling when needed
-    base_seed = getattr(cfg.training, "seed", None)
-    if base_seed is not None:
-        try:
-            base_seed = int(base_seed)
-            g = torch.Generator()
-            g.manual_seed(base_seed)
-        except Exception:
-            g = None
-    else:
-        g = None
+    # seeded generator for reproducible shuffling
+    # get_seed is imported at top of file
+    base_seed = get_seed(cfg)
+    g = torch.Generator()
+    g.manual_seed(base_seed)
 
     def worker_init_fn(worker_id):
         # seed python, numpy and torch in each worker deterministically
-        seed = None
-        if base_seed is not None:
-            seed = base_seed + worker_id
-        else:
-            # fall back to time-based seed (still better than identical seeds)
-            seed = int(time.time()) + worker_id
+        if base_seed is None:
+            return
+        seed = base_seed + worker_id
         random.seed(seed)
-        np.random.seed(seed % (2**32 - 1))
-        try:
-            torch.manual_seed(seed)
-        except Exception:
-            pass
+        np.random.seed(seed)
+        torch.manual_seed(seed)
 
     train_loader = DataLoader(
         train_ds,

@@ -18,9 +18,14 @@ Configuration:
 """
 
 import os
+import sys
+import random
 import argparse
 import pickle
+import warnings
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
@@ -31,16 +36,13 @@ from sklearn.metrics import (
     classification_report,
     confusion_matrix
 )
-import matplotlib.pyplot as plt
-import seaborn as sns
-import warnings
+
 warnings.filterwarnings('ignore')
 
-# Set seeds for reproducibility
-SEED = 42
-np.random.seed(SEED)
-import random
-random.seed(SEED)
+# Add parent directory to path for config loading
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from src.utils.config import load_config, get_seed
 
 
 def load_features(pickle_path):
@@ -247,6 +249,7 @@ def main():
     parser = argparse.ArgumentParser(description="Train aggregator classifier")
     parser.add_argument("--features", type=str, required=True, help="Path to features pickle file")
     parser.add_argument("--output_dir", type=str, required=True, help="Output directory for models and results")
+    parser.add_argument("--config", type=str, default="config.yaml", help="Path to config file (for reproducibility seed)")
     parser.add_argument("--model", type=str, default="logistic", choices=["logistic", "mlp"],
                         help="Classifier type")
     
@@ -273,6 +276,18 @@ def main():
                         help="Early stopping patience for MLP (n_iter_no_change)")
     
     args = parser.parse_args()
+    
+    # Load config to get seed
+    try:
+        cfg_obj = load_config(args.config, overrides=[])
+        seed = get_seed(cfg_obj)
+        np.random.seed(seed)
+        random.seed(seed)
+        print(f"✅ Reproducibility enabled: seed={seed}")
+    except ValueError as e:
+        print(f"❌ ERROR: {e}")
+        print("Cannot proceed without a valid seed.")
+        sys.exit(1)
     
     # Parse MLP hidden layers
     mlp_hidden_layers = tuple(map(int, args.mlp_hidden_layers.split(',')))
