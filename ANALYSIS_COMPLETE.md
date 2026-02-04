@@ -10,7 +10,7 @@ I've thoroughly analyzed all 5 JSON chat files in your `/chats` directory and cr
 
 You've done **excellent foundational work** across multiple dimensions over several chat sessions:
 
-### What's ✅ COMPLETE:
+### What's ✅ COMPLETE
 
 1. **Task A1: Config System Overhaul**
    - Unified all seed configuration to single `reproducibility.seed` parameter
@@ -42,7 +42,7 @@ You've done **excellent foundational work** across multiple dimensions over seve
    - All seeding traced back to main seed
    - Status: REVIEWED & VALIDATED
 
-### What's 🚫 NOT DONE (But Identified):
+### What's 🚫 NOT DONE (But Identified)
 
 1. **Stratified Splitting** (NEW REQUIREMENT FOUND)
    - Current code uses simple random split
@@ -68,6 +68,7 @@ You've done **excellent foundational work** across multiple dimensions over seve
 To help you get back to work, I created 4 comprehensive planning documents:
 
 ### 1. **QUICK_START.md** ⚡ (Read this FIRST!)
+
 - 30-second summary
 - Immediate 4-step action plan
 - Troubleshooting guide
@@ -75,6 +76,7 @@ To help you get back to work, I created 4 comprehensive planning documents:
 - **Best for**: Jumping in quickly
 
 ### 2. **CHAT_HISTORY_SUMMARY.md** 📊 (Visual Overview)
+
 - Breakdown of each chat session
 - What you achieved in each
 - Before/after comparisons
@@ -83,6 +85,7 @@ To help you get back to work, I created 4 comprehensive planning documents:
 - **Best for**: Understanding the big picture
 
 ### 3. **GET_BACK_TO_WORK_PLAN.md** 🗺️ (Complete Plan)
+
 - Detailed 5-phase implementation plan
 - Each phase with clear steps
 - Success criteria
@@ -91,6 +94,7 @@ To help you get back to work, I created 4 comprehensive planning documents:
 - **Best for**: Understanding full scope
 
 ### 4. **EXECUTION_ROADMAP.md** 🧭 (Step-by-Step Guide)
+
 - Hour-by-hour execution guide
 - Phase-by-phase details
 - Code snippets and examples
@@ -102,14 +106,16 @@ To help you get back to work, I created 4 comprehensive planning documents:
 
 ## 🎯 YOUR IMMEDIATE NEXT STEPS
 
-### Right Now (30 minutes):
+### Right Now (30 minutes)
+
 ```
 1. Read QUICK_START.md
 2. Run the reproducibility test to verify A1 works
 3. Decide if everything is working or if debugging needed
 ```
 
-### Next 6-8 Hours:
+### Next 6-8 Hours
+
 ```
 Phase 1 (1-2h):  Verify A1 implementation
 Phase 2 (2-3h):  Implement stratified splitting
@@ -122,19 +128,22 @@ Phase 5 (1h):    Document & archive results
 
 ## ✨ KEY FINDINGS FROM YOUR CHATS
 
-### The Good News:
+### The Good News
+
 - ✅ Your A1 work is complete and well-designed
 - ✅ Seeding system is sound (per-walk seeding is brilliant)
 - ✅ Multiprocessing is safe (sorting guarantees correctness)
 - ✅ DataLoader tuning is optimal
 - ✅ You've identified all the critical issues
 
-### The "Nice to Have":
+### The "Nice to Have"
+
 - Stratified splitting for fair evaluation (identified, design ready)
 - Standalone script seed initialization (minor cleanup)
 - Full test coverage (builds confidence)
 
-### The Reality:
+### The Reality
+
 - You're ~85% done with foundation
 - Main remaining work: Implement stratified splitting + test everything
 - Total time to complete: 6-8 hours of focused work
@@ -184,25 +193,32 @@ IF YOU WANT REFERENCE:
 ## 💡 KEY INSIGHTS FROM ANALYSIS
 
 ### Insight 1: Reproducibility is Solved ✅
+
 You've already implemented the core solution (A1). Just need to verify it works in practice.
 
 ### Insight 2: Stratified Splitting is Important 🎯
+
 Your random splitting creates class imbalance. With 10% positive edges, splits might be 8%, 12%, 9%, 11% instead of ~10% each. Stratified splitting fixes this for fair evaluation.
 
 ### Insight 3: Your Code is Well-Designed 🏗️
+
 - Clean config hierarchy (base + per-dataset)
 - Clever per-walk seeding (base_seed + walk_idx)
 - Smart multiprocessing safety (sort by task_id)
 - These are production-quality solutions
 
 ### Insight 4: Testing Confirms Theory 🧪
+
 The design looks good on paper, but you need to:
+
 - Run reproducibility tests (confirm same seed → same output)
 - Test multiprocessing (different workers → same results)
 - Validate stratification (check ±2% class balance)
 
 ### Insight 5: Documentation is Your Superpower 📚
+
 Your comprehensive chats make it easy to:
+
 - Understand what was tried
 - Know why decisions were made
 - Fix issues when they arise
@@ -282,7 +298,7 @@ These are advanced ML engineering topics. You're clearly thinking deeply about r
 
 ## 🤔 BEFORE YOU START
 
-### Questions to Ask Yourself:
+### Questions to Ask Yourself
 
 1. **Do you want to test A1 first before implementing new features?**
    → Answer: YES - Phase 1 is critical
@@ -323,17 +339,20 @@ Each phase builds on the previous, so you can stop at any point and resume later
 ## 📞 HOW TO USE THESE DOCUMENTS
 
 **For Your First Run** (today):
+
 1. Read QUICK_START.md
 2. Run the reproducibility test
 3. Read CHAT_HISTORY_SUMMARY.md if test passes
 
 **For Implementation** (next session):
+
 1. Open EXECUTION_ROADMAP.md
 2. Follow Phase-by-Phase guide
 3. Refer to QUICK_REFERENCE.md for code snippets
 4. Check IMPLEMENTATION_CHECKLIST.md for progress
 
 **For Debugging** (if issues):
+
 1. See QUICK_START.md troubleshooting section
 2. Read relevant deep-dive (WALK_REPRODUCIBILITY_EXPLAINED.md, CONFIG_GUIDE.md, etc.)
 3. Check code snippets in QUICK_REFERENCE.md
@@ -343,6 +362,7 @@ Each phase builds on the previous, so you can stop at any point and resume later
 ## 🎉 YOU'RE IN GREAT SHAPE
 
 You have:
+
 - ✅ Solid foundational work (A1 complete)
 - ✅ Comprehensive documentation (6+ guides created)
 - ✅ Clear understanding of issues (stratified splitting identified)
@@ -350,6 +370,7 @@ You have:
 - ✅ Execution roadmap (step-by-step guide)
 
 All you need to do is:
+
 1. Verify what's there
 2. Implement what's missing
 3. Test to confirm everything works
@@ -374,25 +395,29 @@ In `/home/dsi/shilo_avital/yolo_lab/walk_to_paint/`:
 
 ## 🎯 WHAT TO DO NOW
 
-### Right This Second:
+### Right This Second
+
 ```
 Read: QUICK_START.md (10 minutes)
 ```
 
-### Within the Hour:
+### Within the Hour
+
 ```
 Run: reproducibility test (20 minutes)
 Review: CHAT_HISTORY_SUMMARY.md (15 minutes)
 Decide: Which phase to start with
 ```
 
-### Within 24 Hours:
+### Within 24 Hours
+
 ```
 Execute: Phase 1 (verification) - 1-2 hours
 Result: Confirm A1 is working
 ```
 
-### Within 48 Hours:
+### Within 48 Hours
+
 ```
 Execute: Phase 2 (stratified splitting) - 2-3 hours
 Result: Fair class distribution in splits

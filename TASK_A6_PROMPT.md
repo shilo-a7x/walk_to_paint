@@ -13,6 +13,7 @@ Currently, edges are split randomly into train/mask/val/test sets without mainta
 ### The Four Splits and Their Roles
 
 #### TRAIN Split (48% of edges)
+
 - **Semantic Role**: Context edges - always visible context to the model
 - **Visibility**:
   - Train stage: ✓ Visible in attention
@@ -23,6 +24,7 @@ Currently, edges are split randomly into train/mask/val/test sets without mainta
 - **Why**: Provide stable context for the model to learn from
 
 #### MASK Split (32% of edges)
+
 - **Semantic Role**: Training targets - what the model learns to predict
 - **Visibility**:
   - Train stage: ✗ Replaced with [MASK] token → **Model predicts these**
@@ -33,6 +35,7 @@ Currently, edges are split randomly into train/mask/val/test sets without mainta
 - **Why**: Model learns on MASK edges, so they become known context afterward
 
 #### VAL Split (10% of edges)
+
 - **Semantic Role**: Validation targets - what the model predicts during validation
 - **Visibility**:
   - Train stage: ✓ Visible but not used as target (context)
@@ -43,6 +46,7 @@ Currently, edges are split randomly into train/mask/val/test sets without mainta
 - **Why**: New prediction task (different from training)
 
 #### TEST Split (10% of edges)
+
 - **Semantic Role**: Test targets - final held-out test set
 - **Visibility**:
   - Train stage: ✗ Hidden - NOT in walk data at all
@@ -61,6 +65,7 @@ TEST stage:  Can see TRAIN + MASK + VAL + TEST (48% + 32% + 10% + 10% = 100%)
 ```
 
 This is **intentional and fair**:
+
 - During training: model learns with limited context
 - During validation: model uses what it learned during training (MASK is now visible context)
 - During testing: model has full context from all previous stages
@@ -75,6 +80,7 @@ This is **intentional and fair**:
 Original dataset: **10.5% positive, 89.5% negative edges**
 
 Random shuffle might produce:
+
 ```
 TRAIN (48%):  8.2% positive  ← Model trained on fewer positive examples
 MASK (32%):   12.8% positive ← Model learns to predict more positive
@@ -130,6 +136,7 @@ def split_edges(cfg, edges):
 A 4-way stratified split cannot be done with a single `train_test_split()`. Instead, use **nested (hierarchical) splits**:
 
 #### Step 1: Separate TRAIN from the rest (48% vs 52%)
+
 ```python
 train_edges, remaining_edges, _, remaining_labels = train_test_split(
     edges_array, labels,
@@ -140,6 +147,7 @@ train_edges, remaining_edges, _, remaining_labels = train_test_split(
 ```
 
 #### Step 2: Separate MASK from temp (32/52% ≈ 61.5% of remaining)
+
 ```python
 mask_ratio_of_remaining = cfg.dataset.mask_ratio / (1 - cfg.dataset.train_ratio)
 mask_edges, temp_edges, _, temp_labels = train_test_split(
@@ -151,6 +159,7 @@ mask_edges, temp_edges, _, temp_labels = train_test_split(
 ```
 
 #### Step 3: Separate VAL from TEST (50/50 of remaining)
+
 ```python
 test_ratio_of_temp = cfg.dataset.test_ratio / (cfg.dataset.val_ratio + cfg.dataset.test_ratio)
 val_edges, test_edges, _, _ = train_test_split(
@@ -162,6 +171,7 @@ val_edges, test_edges, _, _ = train_test_split(
 ```
 
 ### Key Points
+
 1. **Three stratified splits** (not one random shuffle)
 2. **Recalculate ratios** at each step based on remaining proportion
 3. **Use same seed** throughout for reproducibility
@@ -186,6 +196,7 @@ val_edges, test_edges, _, _ = train_test_split(
 ## Validation Checklist
 
 ### Edge Count Validation
+
 - [ ] `len(train) / total ≈ 0.48` (within ±0.5%)
 - [ ] `len(mask) / total ≈ 0.32` (within ±0.5%)
 - [ ] `len(val) / total ≈ 0.10` (within ±0.5%)
@@ -193,21 +204,26 @@ val_edges, test_edges, _, _ = train_test_split(
 - [ ] `len(train) + len(mask) + len(val) + len(test) == len(edges)`
 
 ### Class Balance Validation
+
 For each split (train, mask, val, test):
+
 - [ ] Count positive edges (label == 1): `pos = sum(1 for e in split if e[2] == 1)`
 - [ ] Calculate percentage: `pos_pct = pos / len(split) * 100`
 - [ ] Compare to original: `original_pct = sum(1 for e in edges if e[2] == 1) / len(edges) * 100`
 - [ ] Verify: `|split_pct - original_pct| <= 2.0%` (within ±2%)
 
 ### No Overlap Validation
+
 - [ ] Verify no edge appears in multiple splits
 - [ ] Convert splits to sets of tuples and check intersections are empty
 
 ### Reproducibility Validation
+
 - [ ] Run twice with same seed → get identical splits
 - [ ] Run with different seed → get different splits
 
 ### End-to-End Validation
+
 - [ ] Prepare data with new stratified splits
 - [ ] Train model with new splits
 - [ ] Model training completes without errors
@@ -235,6 +251,7 @@ Test implementation on all three datasets:
    - Class balance: ~0.8% positive
 
 For each dataset:
+
 - Prepare data with new splits
 - Run training
 - Verify all metrics are computed
@@ -245,6 +262,7 @@ For each dataset:
 ## Example: What Changed
 
 ### Before (Random, Unfair)
+
 ```python
 edges_copy = list(edges)
 random.shuffle(edges_copy)  # Random order, no class balance
@@ -257,6 +275,7 @@ random.shuffle(edges_copy)  # Random order, no class balance
 ```
 
 ### After (Stratified, Fair)
+
 ```python
 from sklearn.model_selection import train_test_split
 
@@ -286,11 +305,13 @@ val, test, _, _ = train_test_split(
 ## Files to Modify
 
 **Primary File**: `src/data/prepare_data.py`
+
 - Function: `split_edges(cfg, edges)`
 - Current lines: Look for random shuffle approach
 - Replace with: Hierarchical stratified splitting
 
 **Testing**: No new test files needed
+
 - Use existing training pipeline
 - Validate with real training runs
 - Check class balance in output metrics
@@ -310,6 +331,5 @@ val, test, _, _ = train_test_split(
 ## References
 
 - **Split Semantics**: See TASK_A6_SPLIT_SEMANTICS.md for detailed walkthrough
-- **sklearn Documentation**: https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
-- **Class Imbalance**: https://imbalanced-learn.org/stable/
-
+- **sklearn Documentation**: <https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html>
+- **Class Imbalance**: <https://imbalanced-learn.org/stable/>

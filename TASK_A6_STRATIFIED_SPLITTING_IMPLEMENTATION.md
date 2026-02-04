@@ -9,6 +9,7 @@ Stratified edge splitting has been successfully implemented to ensure fair model
 ## What Changed
 
 ### Before: Random Shuffling (Unfair)
+
 ```python
 # Old implementation
 edges_copy = list(edges)
@@ -20,6 +21,7 @@ random.shuffle(edges_copy)  # No stratification!
 ```
 
 ### After: Hierarchical Stratified Splitting (Fair)
+
 ```python
 # New implementation
 from sklearn.model_selection import train_test_split
@@ -58,6 +60,7 @@ val_edges, test_edges, _, _ = train_test_split(
 ## File Modified
 
 **[src/data/prepare_data.py](src/data/prepare_data.py)**
+
 - Added import: `from sklearn.model_selection import train_test_split`
 - Completely rewrote `split_edges(cfg, edges)` function
 - Implemented hierarchical stratified splitting (3 levels)
@@ -66,13 +69,14 @@ val_edges, test_edges, _, _ = train_test_split(
 ### Key Changes in split_edges()
 
 1. **Extract labels** for stratification:
+
    ```python
    labels = np.array([e[2] for e in edges])
    ```
 
 2. **Three stratified splits** with recalculated ratios:
    - Step 1: train_ratio vs (1 - train_ratio)
-   - Step 2: mask_ratio / (1 - train_ratio) 
+   - Step 2: mask_ratio / (1 - train_ratio)
    - Step 3: test_ratio / (val_ratio + test_ratio)
 
 3. **Enhanced logging** showing:
@@ -129,21 +133,25 @@ No overlaps:
 The implementation maintains the original split semantics:
 
 ### TRAIN Split (48%)
+
 - **Role**: Context edges (always visible)
 - **Target**: No (never predicted)
 - **Class balance**: ~10.5% positive
 
 ### MASK Split (32%)
+
 - **Role**: Training targets (replaced with [MASK] during training)
 - **Target**: Yes (training targets)
 - **Class balance**: ~10.5% positive
 
 ### VAL Split (10%)
+
 - **Role**: Validation targets (replaced with [MASK] during validation)
 - **Target**: Yes (validation targets)
 - **Class balance**: ~10.5% positive
 
 ### TEST Split (10%)
+
 - **Role**: Test targets (hidden until test time)
 - **Target**: Yes (test targets)
 - **Class balance**: ~10.5% positive
@@ -208,6 +216,7 @@ train_loader, val_loader, test_loader = prepare_data(cfg)
 ```
 
 For each dataset (wiki-rfa, epinions, slashdot):
+
 - Class balance maintained to ±2%
 - All splits created correctly
 - Training pipeline works normally
@@ -217,12 +226,14 @@ For each dataset (wiki-rfa, epinions, slashdot):
 ## Scientific Impact
 
 ### Before (Problematic)
+
 - Train on 8.2% positive
 - Evaluate on 11-13% positive
 - Different class distributions → **Invalid comparison**
 - Models optimized for wrong distribution
 
 ### After (Fair)
+
 - Train on ~10.5% positive
 - Evaluate on ~10.5% positive
 - Same class distributions → **Valid comparison**
@@ -258,6 +269,7 @@ Step 3: Split VAL/TEST from remaining (which is now 20%)
 ### Seed Increment Strategy
 
 Using `seed`, `seed+1`, `seed+2` ensures:
+
 - Different random splits at each step (not correlated)
 - Deterministic given starting seed
 - Easy to debug (know exact step that produced split)

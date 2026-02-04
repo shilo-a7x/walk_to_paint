@@ -3,13 +3,15 @@
 ## 🎯 TL;DR - 30 Second Version
 
 You've done **substantial work** across 5 chat sessions:
+
 - ✅ **A1 Config System**: Complete (unified `reproducibility.seed`)
 - ✅ **Walk Reproducibility**: Complete (deterministic seeding verified)
 - ✅ **DataLoader Tuning**: Complete (all settings validated)
 - ✅ **Repo Design**: Complete (multi-dataset structure designed)
 - 🚫 **Stratified Splitting**: Identified but NOT done
 
-**Next**: 
+**Next**:
+
 1. **Verify A1 works** (30 min)
 2. **Implement stratified splitting** (2-3 hours)
 3. **Test everything** (2 hours)
@@ -21,11 +23,13 @@ You've done **substantial work** across 5 chat sessions:
 ## 🚀 Step-by-Step: What To Do RIGHT NOW
 
 ### Step 1: Read the Summary (5 minutes)
+
 - [ ] Read this file (you're doing it!)
 - [ ] Skim `CHAT_HISTORY_SUMMARY.md` for visual overview
 - [ ] Read `WALK_REPRODUCIBILITY_EXPLAINED.md` for understanding
 
 ### Step 2: Verify A1 Implementation (20 minutes)
+
 ```bash
 # Check that key files have the changes
 grep -n "reproducibility.seed" config.yaml  # Should exist
@@ -38,6 +42,7 @@ python run.py --config config.yaml dataset.name=toy seed=42 2>&1 | grep -i "seed
 ```
 
 ### Step 3: Run Reproducibility Test (10 minutes)
+
 ```bash
 # Run 1
 cd /home/dsi/shilo_avital/yolo_lab/walk_to_paint
@@ -55,7 +60,9 @@ diff run1.md5 run2.md5
 ```
 
 ### Step 4: Plan Next Steps (5 minutes)
+
 Based on test result:
+
 - **If test PASSES**: Proceed to "Stratified Splitting Implementation" below
 - **If test FAILS**: Debug using `WALK_REPRODUCIBILITY_EXPLAINED.md`
 
@@ -79,9 +86,11 @@ From your 5 chat sessions:
 ## 🎯 Top 3 Priority Items
 
 ### Priority 1: Stratified Splitting (2-3 hours)
+
 **Why**: Fair evaluation requires balanced class distributions
 
 **What to do**:
+
 ```python
 # In src/data/prepare_data.py, replace:
 train, rest = train_test_split(edges, test_size=0.75, random_state=seed)
@@ -98,6 +107,7 @@ train, rest = train_test_split(
 ```
 
 **Test**:
+
 ```python
 # Verify class balance in each split
 for split_name, split_edges in [('train', train), ('mask', mask), ('val', val), ('test', test)]:
@@ -108,9 +118,11 @@ for split_name, split_edges in [('train', train), ('mask', mask), ('val', val), 
 ```
 
 ### Priority 2: Full Reproducibility Test (1 hour)
+
 **Why**: Confirm seed system works across all cases
 
 **Test script** to run:
+
 ```bash
 #!/bin/bash
 # Test 1: Same seed produces identical walks
@@ -141,14 +153,17 @@ diff check_w2.md5 check_w4.md5 && echo "✅ PASS" || echo "❌ FAIL"
 ```
 
 ### Priority 3: Standalone Script Updates (1 hour)
+
 **Why**: Prevent bugs when scripts run outside main pipeline
 
 **Scripts to check**:
+
 - `extract_edge_scores.py`
 - `scripts/train_aggregator.py`
 - `optuna_run.py`
 
 **For each, add**:
+
 ```python
 import sys
 from src.utils.config import get_seed
@@ -205,7 +220,8 @@ random.seed(seed)
 
 ## 🎬 Immediate Action Plan
 
-### Today (1-2 hours):
+### Today (1-2 hours)
+
 ```
 1. [ ] Read CHAT_HISTORY_SUMMARY.md (15 min)
 2. [ ] Skim WALK_REPRODUCIBILITY_EXPLAINED.md (15 min)
@@ -213,14 +229,16 @@ random.seed(seed)
 4. [ ] Check if A1 implementation is complete (10 min)
 ```
 
-### Tomorrow (3-4 hours):
+### Tomorrow (3-4 hours)
+
 ```
 1. [ ] Implement stratified splitting (2 hours)
 2. [ ] Write test to verify class balance (30 min)
 3. [ ] Run on all datasets (1 hour)
 ```
 
-### Day 3 (2-3 hours):
+### Day 3 (2-3 hours)
+
 ```
 1. [ ] Update standalone scripts (1 hour)
 2. [ ] Run full reproducibility test suite (1 hour)
@@ -232,12 +250,15 @@ random.seed(seed)
 ## 🐛 Troubleshooting: If Things Go Wrong
 
 ### Issue: Reproducibility test fails (walks differ)
+
 **Possible causes**:
+
 1. A1 not fully implemented - Check all files for `get_seed()` usage
 2. Different seed being used - Check config loading
 3. Non-deterministic operation - Search for `random.` without seed setup
 
 **Debug steps**:
+
 ```bash
 # Check if get_seed is being called
 grep -rn "get_seed" src/
@@ -253,9 +274,11 @@ grep -A5 "for.*walk" src/data/walk_sampler.py
 ```
 
 ### Issue: Stratified splitting fails
+
 **Possible cause**: Labels not properly extracted
 
 **Debug**:
+
 ```python
 # In prepare_data.py, add debug output
 labels = np.array([edge_label[e] for e in edges])
@@ -264,9 +287,11 @@ print(f"Positive ratio: {np.mean(labels):.2%}")
 ```
 
 ### Issue: Different worker counts produce different results
+
 **Possible cause**: Missing sort by task_id
 
 **Check**:
+
 ```python
 # In walk_sampler.py, look for:
 results.sort(key=lambda x: x[0])  # Sort by task_id
@@ -278,18 +303,21 @@ results.sort(key=lambda x: x[0])  # Sort by task_id
 ## 📊 Success Criteria
 
 ### A1 Complete ✅
+
 - [ ] `reproducibility.seed` in `config.yaml`
 - [ ] `get_seed()` function in `src/utils/config.py`
 - [ ] Reproducibility test passes (same seed → same walks)
 - [ ] Different seeds → different walks
 
 ### Stratified Splitting Complete ✅
+
 - [ ] Class distribution in train/mask/val/test within ±1-2%
 - [ ] Works on all datasets
 - [ ] Labels properly extracted
 - [ ] Test cases created
 
 ### Full Pipeline Works ✅
+
 - [ ] Run 2x with same seed → identical results
 - [ ] Different workers → identical results
 - [ ] All standalone scripts initialize seeds
@@ -347,6 +375,7 @@ results.sort(key=lambda x: x[0])  # Sort by task_id
 ## ✨ Final Thought
 
 You've done excellent foundational work across multiple dimensions. The main remaining items are:
+
 1. Verify everything works (fast - 1 hour)
 2. Implement stratified splitting (medium - 2-3 hours)
 3. Test the full pipeline (fast - 2 hours)

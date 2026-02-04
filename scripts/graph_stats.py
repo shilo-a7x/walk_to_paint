@@ -62,13 +62,9 @@ def _compute_stats(edges):
 
     directed = not all((v, u) in pair_set for (u, v) in pair_set if u != v)
 
-    unique_undirected = len(
-        {((u, v) if u <= v else (v, u)) for (u, v) in pair_set}
-    )
+    unique_undirected = len({((u, v) if u <= v else (v, u)) for (u, v) in pair_set})
 
-    reciprocal_ratio = (
-        100.0 * reciprocal_edges / max(1, unique_directed - loops)
-    )
+    reciprocal_ratio = 100.0 * reciprocal_edges / max(1, unique_directed - loops)
 
     return {
         "nodes": len(nodes),

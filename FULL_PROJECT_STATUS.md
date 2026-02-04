@@ -23,14 +23,17 @@ Your project has **7 major task families** (A-G) spanning from foundational infr
 ## ✅ COMPLETED TASKS (With Evidence)
 
 ### Task A1: Unified Seed Configuration ✅ COMPLETE
+
 **Status**: Fully implemented and tested  
 **Chat**: Chat A (Config Reproducibility)  
-**Documentation**: 
+**Documentation**:
+
 - WALK_SOLUTION_COMPLETE.md
 - WALK_REPRODUCIBILITY_EXPLAINED.md
 - CONFIG_GUIDE.md
 
 **What Was Done**:
+
 1. ✅ Unified all seed usage under `reproducibility.seed: 42` config
 2. ✅ Created `get_seed(cfg)` utility function (used everywhere)
 3. ✅ Fixed edge split seeding with `random.seed(seed)`
@@ -39,12 +42,14 @@ Your project has **7 major task families** (A-G) spanning from foundational infr
 6. ✅ Comprehensive testing and documentation
 
 **Implementation Files**:
+
 - `src/utils/config.py` — `get_seed()` function
 - `src/data/prepare_data.py` — Edge splitting + walk sampling
 - `src/utils/walk_sampler.py` — Per-walk deterministic seeding
 - `run.py` — Seeded Optuna studies
 
 **Verification**:
+
 - ✅ Same seed → identical edge splits
 - ✅ Same seed → identical walks (byte-for-byte)
 - ✅ Reproducible across worker counts
@@ -53,13 +58,16 @@ Your project has **7 major task families** (A-G) spanning from foundational infr
 ---
 
 ### Task A6: Stratified Edge Splitting ✅ COMPLETE
+
 **Status**: Fully implemented and integrated  
 **Chat**: This Chat (A6 Stratified Splits)  
-**Documentation**: 
+**Documentation**:
+
 - TASK_A6_SPLIT_SEMANTICS.md
 - TASK_A6_PROMPT.md
 
 **What Was Done**:
+
 1. ✅ Identified problem: Random shuffle creates class imbalance across splits
    - Example: Original 10.5% positive → train:8.2%, mask:12.8%, val:9.5%, test:11.3%
 2. ✅ Designed hierarchical stratified splitting solution
@@ -69,9 +77,11 @@ Your project has **7 major task families** (A-G) spanning from foundational infr
 6. ✅ Created comprehensive documentation with semantics
 
 **Implementation Files**:
+
 - `src/data/prepare_data.py` — `split_edges()` function (UPDATED)
 
 **Key Insight - Split Semantics**:
+
 ```
 TRAIN (48%):  Always visible context, never masked, never predicted
 MASK (32%):   Training targets, masked during training only
@@ -85,6 +95,7 @@ Progressive disclosure:
 ```
 
 **Verification**:
+
 - ✅ Edge counts accurate (±0.5%)
 - ✅ Class balance maintained (±2%) in all splits
 - ✅ No overlap between splits
@@ -96,6 +107,7 @@ Progressive disclosure:
 ## 🟡 TASKS READY TO START (With Prompt Files)
 
 ### Task B: Test Metrics & Evaluation ✓ Ready
+
 **Status**: Prompt prepared, not started  
 **Chat**: Chat B (Test Metrics)  
 **Prompt File**: CHAT_B_TEST_METRICS.md  
@@ -103,6 +115,7 @@ Progressive disclosure:
 **Priority**: 🔴 High (blocks evaluation reporting)
 
 **What It Involves**:
+
 - Define evaluation metrics for edge classification (beyond standard loss/accuracy)
 - Implement AUC-ROC, Precision-Recall curves, F1-scores
 - Handle class imbalance appropriately
@@ -110,6 +123,7 @@ Progressive disclosure:
 - Document metric interpretation
 
 **Key Questions**:
+
 - Should we use AUC-weighted averages or micro/macro?
 - How to handle highly imbalanced datasets (slashdot: 0.8% positive)?
 - What metrics matter for the downstream application?
@@ -117,6 +131,7 @@ Progressive disclosure:
 ---
 
 ### Task C: Prediction Caching System ✓ Ready
+
 **Status**: Prompt prepared, not started  
 **Chat**: Chat C (Prediction Caching)  
 **Prompt File**: CHAT_C_PREDICTION_CACHING.md  
@@ -124,17 +139,20 @@ Progressive disclosure:
 **Priority**: 🟠 Medium-High (enables fast iteration)
 
 **What It Involves**:
+
 - Cache model predictions for each dataset
 - Implement fast reload without recomputation
 - Support cache versioning and invalidation
 - Measure speedup from caching
 
 **Current Status**:
+
 - Raw data caching exists and works (5-10 min first run, <1 sec after)
 - Walk generation can be cached
 - Model predictions NOT yet cached
 
 **Expected Improvement**:
+
 ```
 Without caching:  ~15-30 min per evaluation run
 With caching:     ~1-2 sec per evaluation run (100x+ speedup)
@@ -143,6 +161,7 @@ With caching:     ~1-2 sec per evaluation run (100x+ speedup)
 ---
 
 ### Task D: Data Pipeline Verification ✓ Ready
+
 **Status**: Prompt prepared, simplified scope, not started  
 **Chat**: Chat D (Data Pipeline)  
 **Prompt File**: CHAT_D_DATA_PIPELINE_UPDATED.md  
@@ -150,6 +169,7 @@ With caching:     ~1-2 sec per evaluation run (100x+ speedup)
 **Priority**: 🟠 Medium (verify A1 solution works well)
 
 **What It Involves**:
+
 - **D1**: Verify A1's walk determinism solution + benchmark
   - Not: Re-analyze from scratch (already done)
   - Yes: Confirm reproducibility works, measure overhead
@@ -159,6 +179,7 @@ With caching:     ~1-2 sec per evaluation run (100x+ speedup)
   - Optimize storage if needed
 
 **Why Simplified**:
+
 - A1 already completed the reproducibility analysis
 - This task now verifies/benchmarks A1's solution
 - Reference: WALK_REPRODUCIBILITY_EXPLAINED.md (authoritative)
@@ -166,6 +187,7 @@ With caching:     ~1-2 sec per evaluation run (100x+ speedup)
 ---
 
 ### Task E: Seed System Verification ✓ Ready
+
 **Status**: Prompt prepared, simplified scope, not started  
 **Chat**: Chat E (Seed Cleanup)  
 **Prompt File**: CHAT_E_SEED_CLEANUP_UPDATED.md  
@@ -173,12 +195,14 @@ With caching:     ~1-2 sec per evaluation run (100x+ speedup)
 **Priority**: 🟡 Low-Medium (polish/validation)
 
 **What It Involves**:
+
 - Audit codebase for any "weird" random patterns
 - Verify A1's seed cleanup is complete
 - Test reproducibility end-to-end
 - Document findings
 
 **Why Simplified**:
+
 - A1 already fixed most issues (unified config, get_seed(), fixed seeding)
 - This task now verifies the cleanup is complete
 - Scope: Audit + verify + test (not major overhaul)
@@ -186,6 +210,7 @@ With caching:     ~1-2 sec per evaluation run (100x+ speedup)
 ---
 
 ### Task F: Aggregator Integration ✓ Ready
+
 **Status**: Prompt prepared, not started  
 **Chat**: Chat F (Aggregator Integration)  
 **Prompt File**: CHAT_F_AGGREGATOR_INTEGRATION.md  
@@ -193,12 +218,14 @@ With caching:     ~1-2 sec per evaluation run (100x+ speedup)
 **Priority**: 🟠 Medium (connect components)
 
 **What It Involves**:
+
 - Integrate model predictions with edge score aggregation
 - Build pipeline: Model → Predictions → Aggregation → Final Scores
 - Test on all 3 datasets
 - Measure impact of aggregation
 
 **Depends On**:
+
 - Task C (prediction caching) - optional but recommended
 - Task G (edge aggregation strategy) - critical
 
@@ -207,6 +234,7 @@ With caching:     ~1-2 sec per evaluation run (100x+ speedup)
 ## 🟠 CRITICAL RESEARCH TASK (Design Ready)
 
 ### Task G: Edge Score Aggregation Strategy 🔴 CRITICAL
+
 **Status**: Problem well-defined, multiple strategies documented, ready to implement  
 **Documentation**: EDGE_AGGREGATION_GUIDE.md  
 **Estimated Time**: 5-8 hours (first strategy), iterative improvement  
@@ -214,6 +242,7 @@ With caching:     ~1-2 sec per evaluation run (100x+ speedup)
 
 **The Core Problem**:
 Each edge appears in multiple walks with potentially different predictions.
+
 ```
 Edge (u, v) appears in:
   Walk #1: POSITIVE (0.92)
@@ -236,12 +265,14 @@ Question: How do we combine into ONE final score?
 | **7. Learned MLP** | ⭐⭐⭐ | Slow | Best | SOTA approach |
 
 **Recommended Roadmap**:
+
 1. **Phase 1 (Week 1)**: Implement strategies 1-4 (baseline)
 2. **Phase 2 (Week 2)**: Try strategies 5-6 (better)
 3. **Phase 3 (Week 3)**: Design learned aggregation (SOTA)
 4. **Phase 4 (Ongoing)**: A/B test with downstream task
 
 **Expected Impact**:
+
 - Strategy 1 (Mean) alone might improve metrics by 2-5%
 - Strategy 5-6 might improve by 5-10%
 - Strategy 7 (Learned) could improve by 10-20%
@@ -281,6 +312,7 @@ Workflow Suggestion:
 ## 📊 CURRENT SYSTEM STATE
 
 ### Optuna Studies (Complete)
+
 ```
 ├── wiki-rfa: 200 trials completed
 │   ├── Best Score: 0.7779 (Trial #87)
@@ -299,6 +331,7 @@ Workflow Suggestion:
 ```
 
 ### Data Infrastructure
+
 ```
 ✅ A1 Applied:     Reproducible seed system active
 ✅ A6 Applied:     Stratified edge splitting verified
@@ -308,6 +341,7 @@ Workflow Suggestion:
 ```
 
 ### Ready for Next Phase
+
 ```
 ✅ Models trained and saved
 ✅ Hyperparameters optimized
@@ -324,35 +358,42 @@ Workflow Suggestion:
 ## 🗂️ PROMPT FILES ORGANIZED BY CHAT
 
 ### Chat A: Config & Reproducibility (A1, A6)
+
 - ✅ **CHAT_A_CONFIG_REPRODUCIBILITY_UPDATED.md**
 - Status: A1 COMPLETE, A6 COMPLETE
 
 ### Chat B: Test Metrics & Evaluation
+
 - 📋 **CHAT_B_TEST_METRICS.md**
 - Status: READY TO START
 - Estimate: 4-6h
 
 ### Chat C: Prediction Caching
+
 - 📋 **CHAT_C_PREDICTION_CACHING.md**
 - Status: READY TO START
 - Estimate: 3-5h
 
 ### Chat D: Data Pipeline Verification
+
 - 📋 **CHAT_D_DATA_PIPELINE_UPDATED.md**
 - Status: READY TO START (simplified)
 - Estimate: 2-3h
 
 ### Chat E: Seed System Verification
+
 - 📋 **CHAT_E_SEED_CLEANUP_UPDATED.md**
 - Status: READY TO START (simplified)
 - Estimate: 1-2h
 
 ### Chat F: Aggregator Integration
+
 - 📋 **CHAT_F_AGGREGATOR_INTEGRATION.md**
 - Status: READY TO START
 - Estimate: 2-3h
 
 ### Chat G: Edge Score Aggregation (CRITICAL)
+
 - 📋 **EDGE_AGGREGATION_GUIDE.md**
 - Status: DESIGN READY, strategy selection needed
 - Estimate: 5-8h (iterative)
@@ -385,6 +426,7 @@ Phase 4 (Week 3+) — Integration
 ## 🎯 RECOMMENDED NEXT STEPS (Priority Order)
 
 ### Immediate (Next 1-2 Hours)
+
 1. ✅ Verify A6 implementation works correctly
    - Check class balance in train/mask/val/test splits
    - Verify reproducibility with same seed
@@ -396,25 +438,27 @@ Phase 4 (Week 3+) — Integration
    - Understand impact on metrics
 
 ### Short Term (Next 2-3 Days)
+
 3. 🔄 **Parallel Track A**: Infrastructure
    - Task B (Test Metrics) - write evaluator with proper metrics
    - Task C (Pred Caching) - cache model predictions
-   
-4. 🔄 **Parallel Track B**: Verification
+
+2. 🔄 **Parallel Track B**: Verification
    - Task D (Data Verify) - benchmark A1 solution
    - Task E (Seed Verify) - audit for edge cases
 
-5. ⚙️ **Task G** (Edge Aggregation Implementation)
+3. ⚙️ **Task G** (Edge Aggregation Implementation)
    - Implement strategy 1 (Mean)
    - Test on all 3 datasets
    - Measure impact
 
 ### Medium Term (Week 2-3)
+
 6. 📊 **Iterate on Task G**
    - Try strategies 5-6 (position-weighted, length-stratified)
    - Compare results
 
-7. 🔗 **Task F** (Aggregator Integration)
+2. 🔗 **Task F** (Aggregator Integration)
    - Integrate G's aggregation into evaluation pipeline
    - End-to-end testing
 
@@ -434,6 +478,7 @@ Phase 4 (Week 3+) — Integration
 ## 📚 DOCUMENTATION REFERENCE
 
 ### Complete Task Prompts (Ready to Use)
+
 ```
 ├── CHAT_A_CONFIG_REPRODUCIBILITY_UPDATED.md  ← A1 ✅ A6 ✅
 ├── CHAT_B_TEST_METRICS.md
@@ -445,6 +490,7 @@ Phase 4 (Week 3+) — Integration
 ```
 
 ### Supporting Documentation
+
 ```
 ├── COMPLETE_ANALYSIS.md              ← Comprehensive reference
 ├── QUICK_REFERENCE.md                ← Quick facts
@@ -456,6 +502,7 @@ Phase 4 (Week 3+) — Integration
 ```
 
 ### Scripts Available
+
 ```
 scripts/
 ├── analyze_optuna_studies.py    ← See all results
@@ -471,27 +518,36 @@ scripts/
 ## 📞 Quick Answers
 
 ### Q: What happened before this chat?
+
 **A**: Tasks A1 (seed unification) and A6 (stratified splitting) were completed across previous chats. All infrastructure is ready.
 
 ### Q: What should I do now?
-**A**: 
+
+**A**:
+
 1. Quick verify A6 works (15 min)
 2. Start Task G (edge aggregation) - it's critical and blocks everything else
 3. In parallel, Tasks B, C, D, E (1-2 hours each)
 
 ### Q: Why is Task G critical?
+
 **A**: Without aggregating edge predictions across walks, you can't produce final edge scores. This blocks evaluation and downstream applications.
 
 ### Q: Which tasks are easiest to start?
-**A**: 
+
+**A**:
+
 1. Task B (Test Metrics) - straightforward implementation
 2. Task E (Seed Verify) - mostly validation, 1-2h
 
 ### Q: What's the expected time to complete all tasks?
+
 **A**: ~30-40 hours total (Tasks B-G), can be done in 1-2 weeks with 4-5h daily work.
 
 ### Q: Where are the best results?
-**A**: 
+
+**A**:
+
 - wiki-rfa: 0.7779 (Trial #87, 200 trials)
 - epinions: 0.9133 (Trial #31, 63 trials)
 - slashdot: 0.8529 (Trial #12, 21 trials)

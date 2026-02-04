@@ -47,7 +47,9 @@ OPTUNA_RANGES = {
 }
 
 
-def cleanup_old_checkpoints_and_logs(checkpoint_dir, log_dir, study=None, keep_top_n=10):
+def cleanup_old_checkpoints_and_logs(
+    checkpoint_dir, log_dir, study=None, keep_top_n=10
+):
     """
     Keep only the top N checkpoints based on trial value (AUC), not date.
     """
@@ -66,19 +68,22 @@ def cleanup_old_checkpoints_and_logs(checkpoint_dir, log_dir, study=None, keep_t
                 # Extract trial number from filename like "trial_123-*.ckpt"
                 basename = os.path.basename(ckpt_file)
                 try:
-                    trial_num = int(basename.split('_')[1].split('-')[0])
+                    trial_num = int(basename.split("_")[1].split("-")[0])
                     trial_to_checkpoint[trial_num] = ckpt_file
                 except (IndexError, ValueError):
                     continue
-            
+
             # Get completed trials (with values) and sort by value descending
             completed_trials = [t for t in study.trials if t.value is not None]
-            sorted_trials = sorted(completed_trials, key=lambda t: t.value, reverse=True)
-            
+            sorted_trials = sorted(
+                completed_trials, key=lambda t: t.value, reverse=True
+            )
+
             # Keep checkpoints for top trials
             top_trial_numbers = {t.number for t in sorted_trials[:keep_top_n]}
             checkpoints_to_remove = [
-                ckpt for trial_num, ckpt in trial_to_checkpoint.items()
+                ckpt
+                for trial_num, ckpt in trial_to_checkpoint.items()
                 if trial_num not in top_trial_numbers
             ]
         else:
@@ -104,25 +109,28 @@ def cleanup_old_checkpoints_and_logs(checkpoint_dir, log_dir, study=None, keep_t
                 for log_dir_path in trial_log_dirs:
                     dirname = os.path.basename(log_dir_path)
                     try:
-                        trial_num = int(dirname.split('_')[1])
+                        trial_num = int(dirname.split("_")[1])
                         log_dir_to_trial[trial_num] = log_dir_path
                     except (IndexError, ValueError):
                         continue
-                
+
                 # Keep logs for top trials
                 completed_trials = [t for t in study.trials if t.value is not None]
-                sorted_trials = sorted(completed_trials, key=lambda t: t.value, reverse=True)
+                sorted_trials = sorted(
+                    completed_trials, key=lambda t: t.value, reverse=True
+                )
                 top_trial_numbers = {t.number for t in sorted_trials[:keep_top_n]}
-                
+
                 log_dirs_to_remove = [
-                    log_dir_path for trial_num, log_dir_path in log_dir_to_trial.items()
+                    log_dir_path
+                    for trial_num, log_dir_path in log_dir_to_trial.items()
                     if trial_num not in top_trial_numbers
                 ]
             else:
                 # Fallback: sort by modification time
                 trial_log_dirs.sort(key=os.path.getmtime, reverse=True)
                 log_dirs_to_remove = trial_log_dirs[keep_top_n:]
-            
+
             for old_log_dir in log_dirs_to_remove:
                 try:
                     shutil.rmtree(old_log_dir)
@@ -421,6 +429,7 @@ def main():
     optuna_log = os.path.join(resolved.get("optuna_dir", "."), "optuna_study.log")
     storage = JournalStorage(JournalFileStorage(optuna_log))
     from src.utils.config import get_seed
+
     base_seed = get_seed(base_cfg)
     sampler = optuna.samplers.TPESampler(seed=base_seed)
     study = optuna.create_study(
@@ -554,7 +563,10 @@ def main():
 
     # ---- Final cleanup ----
     cleanup_old_checkpoints_and_logs(
-        base_cfg.training.checkpoint_dir, base_cfg.training.log_dir, study=study, keep_top_n=10
+        base_cfg.training.checkpoint_dir,
+        base_cfg.training.log_dir,
+        study=study,
+        keep_top_n=10,
     )
 
     # ---- Print results ----

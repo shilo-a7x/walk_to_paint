@@ -58,6 +58,7 @@ TOTAL: 6-8 hours
 ## 🔍 PHASE 1: Verify A1 Implementation (1-2 hours)
 
 ### Goal
+
 Confirm that the seed unification work from Task A1 is complete and working.
 
 ### Step 1.1: Check File Modifications (15 minutes)
@@ -89,6 +90,7 @@ grep -B2 -A2 "base_seed + " src/data/walk_sampler.py
 ```
 
 **Expected Results**:
+
 - ✅ config.yaml has `reproducibility.seed: 42`
 - ✅ get_seed() function exists in src/utils/config.py
 - ✅ run.py calls seed initialization
@@ -164,6 +166,7 @@ fi
 ```
 
 **Expected Results**:
+
 ```
 ✅ Test 1: Run succeeds
 ✅ Test 2: Checksums match (same seed = same walks)
@@ -214,6 +217,7 @@ EOF
 ## ✂️ PHASE 2: Implement Stratified Splitting (2-3 hours)
 
 ### Goal
+
 Implement hierarchical stratified splitting to ensure fair class balance across train/mask/val/test splits.
 
 ### Step 2.1: Understand Current Code (15 minutes)
@@ -233,6 +237,7 @@ sed -n '140,180p' src/data/prepare_data.py
 ### Step 2.2: Implement Stratified Splitting (45 minutes)
 
 Create a backup first:
+
 ```bash
 cp src/data/prepare_data.py src/data/prepare_data.py.backup
 ```
@@ -333,6 +338,7 @@ grep -A10 "Class Balance Validation" /tmp/phase2_test_toy.log
 ```
 
 **Expected Output**:
+
 ```
 Original dataset: 150/1000 positive (15.00%)
 Train split: 112/750 positive (14.93%)     ✅ Within tolerance
@@ -385,6 +391,7 @@ EOF
 ## 🔧 PHASE 3: Verify Standalone Scripts (1 hour)
 
 ### Goal
+
 Ensure all standalone scripts properly load config and initialize seeds.
 
 ### Step 3.1: Identify Standalone Scripts (10 minutes)
@@ -396,6 +403,7 @@ find . -name "*.py" -path "*/scripts/*" -o -name "extract*.py" -o -name "*aggreg
 ```
 
 Key scripts to check:
+
 - [ ] `extract_edge_scores.py`
 - [ ] `scripts/train_aggregator.py` (if exists)
 - [ ] `optuna_run.py`
@@ -403,6 +411,7 @@ Key scripts to check:
 ### Step 3.2: For Each Script, Check/Add (20 minutes each)
 
 **Check if script has**:
+
 ```python
 # 1. Config loading
 import sys
@@ -421,6 +430,7 @@ print(f"Using seed: {seed}")
 ```
 
 **If missing any of above**:
+
 ```bash
 # Backup
 cp scripts/train_aggregator.py scripts/train_aggregator.py.backup
@@ -482,6 +492,7 @@ EOF
 ## 🧪 PHASE 4: Full Reproducibility Testing (2 hours)
 
 ### Goal
+
 Comprehensive testing to confirm the entire pipeline is reproducible.
 
 ### Step 4.1: Test Multi-Worker Safety (30 minutes)
@@ -618,6 +629,7 @@ EOF
 ## 📚 PHASE 5: Documentation & Archive (1 hour)
 
 ### Goal
+
 Document the work and clean up for multi-dataset experiments.
 
 ### Step 5.1: Create Final Documentation (20 minutes)
@@ -719,19 +731,23 @@ reproducibility:
 ```
 
 ### Guarantee
+
 - Same seed → identical walks, identical training
 - Different seeds → different walks, reproducible differences
 - Works across different worker counts
 - Validated on all datasets
 
 ### How It Works
+
 1. `run.py` initializes torch/numpy/random with the seed
 2. `prepare_data.py` uses `get_seed()` utility to get centralized seed
 3. Walk sampling uses per-walk seeding (base_seed + walk_idx)
 4. Results are deterministic regardless of multiprocessing
 
 ### Testing
+
 Run reproducibility test:
+
 ```bash
 python run.py dataset.name=toy seed=42 max_epochs=1
 md5sum data/toy/walks.pkl > run1.md5
@@ -745,6 +761,7 @@ diff run1.md5 run2.md5  # No output = success
 ```
 
 See QUICK_START.md for more details.
+
 ```
 
 ### Step 5.4: Create Final Checklist (5 minutes)
@@ -824,27 +841,32 @@ echo "Happy experimenting! 🚀"
 ## 🎯 Success Criteria
 
 ### Phase 1: Complete ✅
+
 - [ ] All file modifications verified
 - [ ] Reproducibility test passes
 - [ ] Different seeds produce different results
 
 ### Phase 2: Complete ✅
+
 - [ ] Stratified splitting implemented
 - [ ] Class balance validation shows ±2% across all splits
 - [ ] Works on all datasets
 
 ### Phase 3: Complete ✅
+
 - [ ] All standalone scripts have config loading
 - [ ] All standalone scripts initialize seeds
 - [ ] Scripts are deterministic
 
 ### Phase 4: Complete ✅
+
 - [ ] Multi-worker test passes
 - [ ] Cross-dataset test passes
 - [ ] Class balance maintained
 - [ ] Full pipeline reproducible
 
 ### Phase 5: Complete ✅
+
 - [ ] Documentation updated
 - [ ] Old results archived
 - [ ] Final checklist completed
@@ -855,6 +877,7 @@ echo "Happy experimenting! 🚀"
 ## ⚠️ Common Issues & Fixes
 
 ### Issue: Import Error (get_seed not found)
+
 ```bash
 # Check import path
 grep -n "from.*get_seed\|import.*get_seed" *.py src/**/*.py
@@ -862,6 +885,7 @@ grep -n "from.*get_seed\|import.*get_seed" *.py src/**/*.py
 ```
 
 ### Issue: Stratification fails with error
+
 ```python
 # Add debug code:
 labels = np.array([...])
@@ -871,6 +895,7 @@ print(f"Has NaN: {np.isnan(labels).any()}")
 ```
 
 ### Issue: Reproducibility test fails
+
 ```bash
 # Check if walks.pkl is being saved
 ls -la data/toy/walks.pkl
@@ -897,6 +922,7 @@ TOTAL:   6-8 hours   (Actual: 4-6 hours if smooth)
 ```
 
 Actual time depends on:
+
 - How much A1 is already done (saves Phase 1 time)
 - Any unexpected bugs (add contingency)
 - How thoroughly you test (adds time but gives confidence)
@@ -906,6 +932,7 @@ Actual time depends on:
 ## 🎓 What You'll Learn
 
 By completing this roadmap, you'll:
+
 1. Understand your reproducibility system deeply
 2. Learn how to validate data pipelines
 3. Master stratified splitting for fair ML evaluation
@@ -917,6 +944,7 @@ By completing this roadmap, you'll:
 ## 📞 Still Need Help?
 
 Reference files:
+
 - **Getting started**: QUICK_START.md
 - **Deep understanding**: WALK_REPRODUCIBILITY_EXPLAINED.md
 - **Config details**: CONFIG_GUIDE.md

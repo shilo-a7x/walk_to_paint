@@ -15,6 +15,7 @@
 ## 📊 Chat Breakdown
 
 ### 1️⃣ Checkpoint Config Loading and Saving (63.6K lines)
+
 ```
 📝 Topic: How configs + checkpoints interact in PyTorch Lightning
 ✅ Status: ANALYZED & UNDERSTOOD
@@ -23,6 +24,7 @@
 ```
 
 **What You Learned**:
+
 - PyTorch Lightning's `save_hyperparameters()` mechanism
 - Config-checkpoint interaction patterns
 - Need for explicit config snapshots
@@ -32,6 +34,7 @@
 ---
 
 ### 2️⃣ Config System Overhaul for Reproducibility (111.5K lines)
+
 ```
 📝 Task: A1 - Unify seed configuration across entire codebase
 ✅ Status: COMPLETE
@@ -40,6 +43,7 @@
 ```
 
 **What You Did**:
+
 1. ✅ Audited entire codebase for seed usage
 2. ✅ Created `get_seed(cfg)` utility function
 3. ✅ Updated `run.py`, `prepare_data.py`, `walk_sampler.py`
@@ -47,7 +51,8 @@
 5. ✅ Fixed multiprocessing with task_id sorting
 6. ✅ Documented extensively in 3 guide files
 
-**Output**: 
+**Output**:
+
 - Reproducible seed system
 - CONFIG_GUIDE.md
 - WALK_REPRODUCIBILITY_EXPLAINED.md
@@ -56,6 +61,7 @@
 ---
 
 ### 3️⃣ DataLoader Configuration and Precision Settings (20.8K lines)
+
 ```
 📝 Topic: Understanding PyTorch DataLoader tuning + torch precision
 ✅ Status: ANALYZED & VALIDATED
@@ -64,12 +70,14 @@
 ```
 
 **What You Analyzed**:
+
 - DataLoader settings: pin_memory, persistent_workers, prefetch_factor
 - PyTorch precision: float32 vs bfloat16 vs float16
 - Walk generation optimization: numpy vs networkx vs GPU
 - File I/O methods: torch.save performance
 
 **Conclusions**:
+
 - ✅ All DataLoader settings are beneficial (not overhead)
 - ✅ torch bfloat16 is recommended (you use float32 - also fine)
 - ✅ Numpy + multiprocessing is optimal for walk generation
@@ -80,6 +88,7 @@
 ---
 
 ### 4️⃣ Organizing Dataset Artifacts in a Repository (635.9K lines - LARGE!)
+
 ```
 📝 Task: Design repo structure for multi-dataset experiments
 ✅ Status: DESIGNED & READY
@@ -88,6 +97,7 @@
 ```
 
 **What You Designed**:
+
 ```
 BEFORE (Messy):
 ├── best_trials.yaml          # Which dataset?
@@ -107,6 +117,7 @@ AFTER (Organized):
 ```
 
 **Key Mechanism**:
+
 ```yaml
 # Base config
 dataset:
@@ -120,6 +131,7 @@ dataset:
 ---
 
 ### 5️⃣ Reproducibility Review of Data Building (25.5K lines)
+
 ```
 📝 Topic: Full audit - is data building fully reproducible?
 ✅ Status: COMPLETE & VERIFIED
@@ -141,6 +153,7 @@ dataset:
 | Hidden randomness | ✅ NONE | All RNG traces back to main seed |
 
 **What You Discovered**:
+
 - Current `split_edges()` uses simple random shuffle
 - Results in imbalanced class distributions across splits
 - Example: 10% positive edges → train:8%, val:12%, test:11%
@@ -170,6 +183,7 @@ Documentation           ✅ EXTENSIVE    90%         Add final guides
 ## 🎓 Key Achievements Summary
 
 ### Reproducibility (SOLVED)
+
 ```
 BEFORE:
 ├── walk_seed: 42            (where?)
@@ -188,6 +202,7 @@ AFTER:
 ```
 
 ### Data Organization (DESIGNED)
+
 ```
 BEFORE:
 outputs/
@@ -204,6 +219,7 @@ outputs/
 ```
 
 ### Validation Done
+
 ```
 ✅ Config system: Full audit + unification
 ✅ Walk sampling: Per-walk seeding verified
@@ -218,7 +234,8 @@ outputs/
 
 ## 🚧 What's Next
 
-### Must Complete:
+### Must Complete
+
 ```
 1. Stratified Splitting Implementation
    - Modify split_edges() in prepare_data.py
@@ -236,7 +253,8 @@ outputs/
    - optuna_run.py: same
 ```
 
-### Nice to Have:
+### Nice to Have
+
 ```
 - Config snapshots in checkpoints
 - Performance benchmarking (DataLoader gains)
@@ -247,7 +265,8 @@ outputs/
 
 ## 📋 Files Created/Modified in Chats
 
-### Created:
+### Created
+
 - ✅ `src/utils/config.py` - `get_seed()` utility
 - ✅ `CONFIG_GUIDE.md` - Config system documentation
 - ✅ `WALK_REPRODUCIBILITY_EXPLAINED.md` - Detailed walk explanation
@@ -257,13 +276,15 @@ outputs/
 - ✅ `IMPLEMENTATION_CHECKLIST.md` - Detailed checklist
 - ✅ (+ 3 more updated task descriptions)
 
-### Modified:
+### Modified
+
 - ✅ `run.py` - Added seed initialization
 - ✅ `prepare_data.py` - Uses `get_seed()`, fixed worker seeding
 - ✅ `walk_sampler.py` - Per-walk deterministic seeding, sorting
 - ✅ `config.yaml` - Added `reproducibility:` section
 
-### Analyzed (Not Modified):
+### Analyzed (Not Modified)
+
 - `optuna_run.py` - Reviewed, identified standalone script pattern
 - `extract_edge_scores.py` - Reviewed, noted seed issue
 - `src/data/tokenizer.py` - Reviewed, confirmed no seeding needed
@@ -317,28 +338,33 @@ The solution you implemented guarantees identical walks:
 ## 🎯 Implementation Phases
 
 ### Phase 1: Verify A1 (1-2 hours)
+
 - Confirm seed unification in place
 - Run reproducibility test (same seed 2x)
 - Check all files use `get_seed()`
 
 ### Phase 2: Implement Stratified Splitting (2-3 hours)
+
 - Modify `prepare_data.py` split_edges()
 - Use sklearn hierarchical stratification
 - Test on all datasets
 - Validate ±1-2% class balance
 
 ### Phase 3: Verify Standalone Scripts (1 hour)
+
 - extract_edge_scores.py: Add config loading + seeding
 - train_aggregator.py: Same
 - optuna_run.py: Same
 
 ### Phase 4: Test Full Reproducibility (2 hours)
+
 - Run pipeline 2x with same seed
 - Compare checksums (should match)
 - Test with different worker counts
 - Test on all datasets
 
 ### Phase 5: Documentation & Archive (1 hour)
+
 - Create REPRODUCIBILITY_VALIDATED.md
 - Archive old results if needed
 - Update README
@@ -365,24 +391,31 @@ The solution you implemented guarantees identical walks:
 ## ❓ Questions Answered by Your Chats
 
 ### "How do configs and checkpoints interact?"
+
 ✅ Lightning's save_hyperparameters() stores them; explicit config snapshots recommended
 
 ### "Is reproducibility broken with multiprocessing?"
+
 ✅ No! Sorting by task_id guarantees correct order regardless of worker timing
 
 ### "Do I need to worry about file write order?"
+
 ✅ No! Walks sorted before saving; write order irrelevant
 
 ### "Are DataLoader settings helpful or overhead?"
+
 ✅ Helpful! pin_memory and persistent_workers give 8-15% speedup
 
 ### "Is my precision setting good?"
+
 ✅ Yes! float32 default is safe; bfloat16 would be slightly better on modern GPUs
 
 ### "How do I organize multiple datasets?"
+
 ✅ Per-dataset config files + output directories = clean separation
 
 ### "Why are there so many seed mechanisms?"
+
 ✅ Old code had unnecessary complexity; now simplified to single seed
 
 ---

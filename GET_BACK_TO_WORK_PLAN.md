@@ -25,60 +25,68 @@ You have completed **significant foundational work** on your random walk-based e
 ## 🗂️ WHAT YOU'VE ACHIEVED IN EACH CHAT
 
 ### Chat 1: "Checkpoint Config Loading and Saving Explained"
+
 **Focus**: Config system behavior during checkpoint save/load  
 **Status**: ✅ ANALYZED
 
 **Key Learnings**:
+
 - PyTorch Lightning's `save_hyperparameters()` stores all init params in checkpoint
 - Configs are NOT automatically saved; you rely on Lightning's mechanism
 - When loading from checkpoint, Lightning restores hparams but you need explicit config loading
 - Missing: Explicit config persistence in checkpoints
 
 **What You Discovered**:
-- Config loading happens in `run.py` 
+
+- Config loading happens in `run.py`
 - Checkpoint saving happens via Lightning's callback
 - Need to understand interaction between config files and checkpoint restoration
 
 **Implications**:
+
 - When resuming from checkpoint, need to ensure config compatibility
 - Consider adding explicit config saving alongside checkpoints
 
 ---
 
 ### Chat 2: "Config System Overhaul for Reproducibility" (Task A1)
+
 **Focus**: Unified seed configuration across entire pipeline  
 **Status**: ✅ COMPLETE
 
 **Problem Identified**:
+
 - Multiple seed keys: `walk_seed`, `worker_seed`, `training.seed` (scattered naming)
 - Silent defaults when keys missing (no validation)
 - Scripts like `extract_edge_scores.py` don't inherit seeds properly from `run.py`
 - No single source of truth for reproducibility
 
 **Solutions Implemented**:
+
 1. ✅ **Unified Config Structure**
    - Single canonical key: `reproducibility.seed: 42`
    - All subsystems reference this one key
-   
+
 2. ✅ **Utility Function Created**
    - `get_seed(cfg)` in `src/utils/config.py`
    - Centralized seed retrieval with validation
-   
+
 3. ✅ **Fixed Seed Usage**
    - `run.py`: Sets torch/numpy/random seeds globally
    - `prepare_data.py`: Uses `get_seed()` for walk sampling
    - `walk_sampler.py`: Per-walk deterministic seeding (base_seed + walk_idx)
-   
+
 4. ✅ **Guarantee**: Identical walk files regardless of worker count
    - Sort by task_id to ensure order preservation
    - Each walk uses deterministic seed (base + i)
-   
+
 5. ✅ **Documentation Created**
    - `CONFIG_GUIDE.md` explaining reproducibility model
    - `WALK_REPRODUCIBILITY_EXPLAINED.md` with full details
    - `WALK_SOLUTION_COMPLETE.md` with verification
 
 **Worker Configuration Also Fixed**:
+
 - `training.num_workers`: Properly documented
 - `training.persistent_workers`: Explained and set correctly
 - `preprocess.walk_num_workers`: Synchronized with training config
@@ -88,10 +96,12 @@ You have completed **significant foundational work** on your random walk-based e
 ---
 
 ### Chat 3: "DataLoader Configuration and Precision Settings Explained"
+
 **Focus**: Understanding PyTorch DataLoader tuning and torch precision  
 **Status**: ✅ ANALYZED
 
 **Questions You Had**:
+
 1. Why are there so many DataLoader settings? (pin_memory, persistent_workers, etc.)
 2. Are seed mechanisms overly complex? (time-based seeds, seed%2**32-1 patterns)
 3. What's the recommended torch precision setting?
@@ -99,6 +109,7 @@ You have completed **significant foundational work** on your random walk-based e
 5. Are file save methods optimal? (torch.save vs alternatives)
 
 **Key Findings**:
+
 1. **DataLoader Settings - NOT Overhead**:
    - `pin_memory=True`: GPU transfer optimization (8-15% speedup on large batches)
    - `persistent_workers=True`: Avoids worker restart overhead (5-10% speedup)
@@ -134,16 +145,20 @@ You have completed **significant foundational work** on your random walk-based e
 ---
 
 ### Chat 4: "Organizing Dataset Artifacts in a Repository"
+
 **Focus**: Repository structure for multi-dataset experiments  
 **Status**: ✅ DESIGNED
 
 **Problem You Had**:
+
 - After returning after a long time, unsure how to organize new dataset experiments
 - Don't want to delete previous results (bitcoin-alpha-binary Optuna results, etc.)
 - Need robust config mechanism for easy dataset switching
 
 **Solution Designed**:
+
 1. **Artifact Organization by Dataset**:
+
    ```
    outputs/
    ├── bitcoin-alpha-binary/
@@ -162,7 +177,7 @@ You have completed **significant foundational work** on your random walk-based e
    - Base config: `config.yaml` (shared defaults)
    - Per-dataset: `configs/<dataset>.yaml` (dataset-specific params)
    - CLI override: `python run.py dataset.name=wiki-rfa`
-   
+
 3. **Entry Point Scripts**:
    - `run.py`: Single training run
    - `optuna_run.py`: Hyperparameter optimization (saves to dataset-specific folder)
@@ -180,10 +195,12 @@ You have completed **significant foundational work** on your random walk-based e
 ---
 
 ### Chat 5: "Reproducibility Review of Data Building Process"
+
 **Focus**: Full reproducibility audit of walk sampling and data pipeline  
 **Status**: ✅ COMPLETE
 
 **Your Concern**:
+
 - Is data building fully reproducible?
 - Does multiprocessing affect reproducibility?
 - Does write order of walks influence data?
@@ -195,23 +212,24 @@ You have completed **significant foundational work** on your random walk-based e
    - Each walk[i] uses seed: `base_seed + i`
    - Starting node selection: Deterministic via seeded RNG
    - Walk generation algorithm: Deterministic (same sequence of random choices)
-   
+
 2. **✅ Multiprocessing is Safe**
    - Workers process tasks in parallel (non-deterministic order)
    - Results include task_id and are **sorted by task_id** before concatenation
    - Result: Walks in correct order regardless of worker completion order
-   
+
 3. **✅ Write Order Does NOT Affect Data**
    - Walks sorted before saving (removes any worker-order effects)
    - `torch.save()` produces identical bytes for same walk sequences
    - File hash will be identical across multiple runs
-   
+
 4. **✅ No Hidden Non-Deterministic Operations**
    - Random seed set in `run.py`: `torch.manual_seed()`, `np.random.seed()`, `random.seed()`
    - All RNG operations trace back to these seeds
    - No use of non-seeded operations (e.g., torch.rand without manual_seed)
 
 5. **Key Implementation Details**:
+
    ```python
    # Deterministic per-walk seeding:
    for edge_idx in edges:
@@ -230,6 +248,7 @@ You have completed **significant foundational work** on your random walk-based e
 You also discovered (in documentation review) that simple random splitting creates **imbalanced class distributions**:
 
 **Current Issue**:
+
 ```
 Dataset: 10% positive edges
 Random split: train 8%, mask 12%, val 9%, test 11%
@@ -238,6 +257,7 @@ Random split: train 8%, mask 12%, val 9%, test 11%
 ```
 
 **Solution**: Hierarchical stratified splitting
+
 ```python
 # Step 1: Stratify by edge label
 train, rest = train_test_split(edges, test_size=0.75, stratify=labels)
@@ -255,6 +275,7 @@ val, test = train_test_split(val_test, test_size=0.5, stratify=labels[val_test])
 ## 🎯 WHAT'S COMPLETE vs WHAT NEEDS WORK
 
 ### ✅ COMPLETE & VERIFIED
+
 1. **Config System (A1)**: Unified seed config, all references fixed
 2. **Walk Reproducibility**: Fully deterministic, no randomness
 3. **Seed Management**: Centralized via `get_seed()`, no hidden seeds
@@ -263,6 +284,7 @@ val, test = train_test_split(val_test, test_size=0.5, stratify=labels[val_test])
 6. **Repository Design**: Multi-dataset structure designed
 
 ### 🚫 NOT DONE (But Identified)
+
 1. **Stratified Splitting**: Need to implement hierarchical stratification for fair evaluation
 2. **Config Persistence**: Consider explicit config snapshots in checkpoints
 3. **Standalone Scripts**: Ensure scripts like `extract_edge_scores.py` properly initialize config
@@ -275,6 +297,7 @@ val, test = train_test_split(val_test, test_size=0.5, stratify=labels[val_test])
 Based on your chat history, here's what you should do next:
 
 ### Phase 1: Verify A1 Implementation (1-2 hours)
+
 **Goal**: Confirm all A1 changes are in place and working
 
 - [ ] Check `src/utils/config.py` has `get_seed()` function
@@ -282,6 +305,7 @@ Based on your chat history, here's what you should do next:
 - [ ] Confirm `prepare_data.py` uses `get_seed()` for walk sampling
 - [ ] Check `walk_sampler.py` has per-walk seeding (base_seed + walk_idx)
 - [ ] Run reproducibility test:
+
   ```bash
   python run.py --config config.yaml dataset.name=toy seed=42
   # Save checksum of walks.pkl
@@ -290,9 +314,11 @@ Based on your chat history, here's what you should do next:
   ```
 
 ### Phase 2: Implement Stratified Splitting (2-3 hours)
+
 **Goal**: Ensure fair evaluation by balancing class distributions
 
 **Changes Needed**:
+
 - [ ] Modify `src/data/prepare_data.py` `split_edges()` function
 - [ ] Replace simple random split with hierarchical stratified split
 - [ ] Add validation: print class distribution in each split
@@ -302,23 +328,29 @@ Based on your chat history, here's what you should do next:
 **Code Location**: `src/data/prepare_data.py` around line 140-160
 
 ### Phase 3: Verify Standalone Scripts (1 hour)
+
 **Goal**: Ensure all scripts properly load config and initialize seeds
 
 **Scripts to Check**:
+
 - [ ] `extract_edge_scores.py`
 - [ ] `scripts/train_aggregator.py`
 - [ ] `optuna_run.py`
 
 **For Each**:
+
 - [ ] Verify config loading (load config.yaml + dataset-specific yaml)
 - [ ] Check seed initialization (call seed setup before any RNG operations)
 - [ ] Test: Run twice with same seed, verify identical results
 
 ### Phase 4: Test Full Reproducibility (2 hours)
+
 **Goal**: Full end-to-end reproducibility validation
 
 **Test Plan**:
+
 1. **Full Pipeline Test**:
+
    ```bash
    # Run 1: Fresh
    rm -rf data/toy/* && python run.py --config config.yaml dataset.name=toy seed=42
@@ -332,6 +364,7 @@ Based on your chat history, here's what you should do next:
    ```
 
 2. **Multi-Worker Test** (already verified in chat 5, but test anyway):
+
    ```bash
    # With 2 workers
    python run.py dataset.name=toy seed=42 training.num_workers=2
@@ -345,6 +378,7 @@ Based on your chat history, here's what you should do next:
    ```
 
 3. **Cross-Dataset Test**:
+
    ```bash
    # All datasets with same seed produce different but reproducible results
    for dataset in toy wiki-rfa epinions slashdot090221; do
@@ -354,6 +388,7 @@ Based on your chat history, here's what you should do next:
    ```
 
 ### Phase 5: Documentation & Archive (1 hour)
+
 **Goal**: Document findings and create reference materials
 
 - [ ] Create `REPRODUCIBILITY_VALIDATED.md` documenting test results
@@ -365,18 +400,21 @@ Based on your chat history, here's what you should do next:
 
 ## 🚀 IMPLEMENTATION PRIORITIES
 
-### Must Do (Blocks downstream work):
+### Must Do (Blocks downstream work)
+
 1. **Stratified Splitting** - Essential for fair evaluation
 2. **Verify A1 Implementation** - Ensure foundation is solid
 3. **Full Reproducibility Test** - Confirm seed guarantees hold
 
-### Should Do (Important but not blocking):
-4. **Standalone Script Verification** - Prevent hidden bugs
-5. **Documentation & Archive** - Enable smooth multi-dataset work
+### Should Do (Important but not blocking)
 
-### Nice to Have:
+4. **Standalone Script Verification** - Prevent hidden bugs
+2. **Documentation & Archive** - Enable smooth multi-dataset work
+
+### Nice to Have
+
 6. **Config Persistence in Checkpoints** - Improves checkpoint portability
-7. **Performance Benchmarking** - Quantify DataLoader gains
+2. **Performance Benchmarking** - Quantify DataLoader gains
 
 ---
 

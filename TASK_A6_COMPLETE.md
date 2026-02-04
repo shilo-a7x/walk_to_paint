@@ -9,6 +9,7 @@ Successfully implemented **stratified edge splitting** in `src/data/prepare_data
 ## Key Change: From Random to Stratified
 
 ### Before: Random Shuffling (Unfair ✗)
+
 ```python
 # Old approach - NO class balance control
 random.seed(seed)
@@ -23,6 +24,7 @@ test = edges_copy[n_train+n_mask+n_val:]
 ```
 
 ### After: Hierarchical Stratified Splitting (Fair ✓)
+
 ```python
 # New approach - MAINTAINS class balance
 from sklearn.model_selection import train_test_split
@@ -55,7 +57,9 @@ val, test, _, _ = train_test_split(
 ## Implementation Details
 
 ### File Modified
+
 **[src/data/prepare_data.py](src/data/prepare_data.py)**
+
 - Line 10: Added `from sklearn.model_selection import train_test_split`
 - Lines 34-123: Rewrote `split_edges(cfg, edges)` function
 
@@ -64,6 +68,7 @@ val, test, _, _ = train_test_split(
 The function now performs **3-step hierarchical stratification**:
 
 #### Step 1: TRAIN | Remaining
+
 ```python
 train_edges, remaining_edges, _, remaining_labels = train_test_split(
     edges_array, labels,
@@ -72,9 +77,11 @@ train_edges, remaining_edges, _, remaining_labels = train_test_split(
     random_state=seed
 )
 ```
+
 **Result**: train = 48% of edges, maintaining original class % ✓
 
 #### Step 2: MASK | Temp
+
 ```python
 mask_ratio_of_remaining = mask_ratio / (1.0 - train_ratio)  # 0.32 / 0.52 ≈ 0.615
 mask_edges, temp_edges, _, temp_labels = train_test_split(
@@ -84,9 +91,11 @@ mask_edges, temp_edges, _, temp_labels = train_test_split(
     random_state=seed + 1
 )
 ```
+
 **Result**: mask = 32% of original, maintaining original class % ✓
 
 #### Step 3: VAL | TEST
+
 ```python
 test_ratio_of_temp = test_ratio / (val_ratio + test_ratio)  # 0.10 / 0.20 = 0.5
 val_edges, test_edges, _, _ = train_test_split(
@@ -96,6 +105,7 @@ val_edges, test_edges, _, _ = train_test_split(
     random_state=seed + 2
 )
 ```
+
 **Result**: val = 10%, test = 10% of original, both maintaining original class % ✓
 
 ### Key Insights
@@ -283,6 +293,7 @@ train, mask, val, test = split_edges(cfg, edges)  # Different splits
 ## Implementation Checklist
 
 ✅ **Required Components**
+
 - [x] Import `train_test_split` from sklearn
 - [x] Extract labels from edges
 - [x] Implement Step 1: TRAIN | remaining (stratify by labels)
@@ -293,6 +304,7 @@ train, mask, val, test = split_edges(cfg, edges)  # Different splits
 - [x] Each value is list of edge tuples
 
 ✅ **Validation**
+
 - [x] Edge count validation (size matches ratios ±0.5%)
 - [x] Class balance validation (±2% tolerance)
 - [x] No overlap validation (all sets disjoint)
@@ -301,6 +313,7 @@ train, mask, val, test = split_edges(cfg, edges)  # Different splits
 - [x] Import validation (sklearn available)
 
 ✅ **Enhancement**
+
 - [x] Enhanced logging showing class balance
 - [x] Detailed progress messages
 - [x] Validation output in log
@@ -313,23 +326,29 @@ train, mask, val, test = split_edges(cfg, edges)  # Different splits
 To verify on your datasets:
 
 1. **wiki-rfa**
+
    ```bash
    python run.py dataset=wiki-rfa
    ```
+
    - Watch for stratified split output
    - Verify class balance ±2%
 
 2. **epinions**  
+
    ```bash
    python run.py dataset=epinions
    ```
+
    - Different class balance (~5% positive)
    - Verify stratification maintains it
 
 3. **slashdot**
+
    ```bash
    python run.py dataset=slashdot
    ```
+
    - Very imbalanced (~0.8% positive)
    - Stratification most critical here!
 

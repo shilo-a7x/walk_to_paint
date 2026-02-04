@@ -13,11 +13,13 @@ Implemented **hierarchical stratified edge splitting** to replace random shuffli
 ### The Problem We Solved
 
 **Random splitting (unfair)**: Different splits could have different class balances
+
 - Example: train=8.2% positive, mask=12.8%, val=9.5%, test=11.3%
 - Model trained on one distribution, evaluated on different ones
 - **Result**: Invalid scientific comparison
 
 **Stratified splitting (fair)**: All splits maintain original class balance
+
 - Example: train=10.6%, mask=10.4%, val=10.7%, test=10.3%
 - Model trained and evaluated on same distribution
 - **Result**: Valid, reproducible scientific comparison
@@ -27,11 +29,13 @@ Implemented **hierarchical stratified edge splitting** to replace random shuffli
 ## What Changed
 
 ### 1 Line Added: Import
+
 ```python
 from sklearn.model_selection import train_test_split  # Line 11
 ```
 
 ### 90 Lines Modified: split_edges() Function
+
 **Before**: 40 lines with random shuffle  
 **After**: 130 lines with hierarchical stratified splitting
 
@@ -40,6 +44,7 @@ from sklearn.model_selection import train_test_split  # Line 11
 ## Implementation: 3-Step Stratification
 
 ### Step 1: TRAIN | Remaining (stratify by labels)
+
 ```python
 train_edges, remaining_edges, _, remaining_labels = train_test_split(
     edges_array, labels,
@@ -51,6 +56,7 @@ train_edges, remaining_edges, _, remaining_labels = train_test_split(
 ```
 
 ### Step 2: MASK | Temp (stratify by remaining_labels)
+
 ```python
 mask_ratio_of_remaining = mask_ratio / (1.0 - train_ratio)  # 0.32/0.52
 mask_edges, temp_edges, _, temp_labels = train_test_split(
@@ -63,6 +69,7 @@ mask_edges, temp_edges, _, temp_labels = train_test_split(
 ```
 
 ### Step 3: VAL | TEST (stratify by temp_labels)
+
 ```python
 test_ratio_of_temp = test_ratio / (val_ratio + test_ratio)  # 0.10/0.20
 val_edges, test_edges, _, _ = train_test_split(
@@ -79,18 +86,23 @@ val_edges, test_edges, _, _ = train_test_split(
 ## Why This Works
 
 ### 1. Ratio Recalculation
+
 Each step recalculates ratios as fractions of remaining edges:
+
 - Step 1: `train_ratio` vs `(1 - train_ratio)`
 - Step 2: `mask_ratio / (1 - train_ratio)` → ensures 32% of original
 - Step 3: `test_ratio / (val_ratio + test_ratio)` → ensures 10% each
 
 ### 2. Stratification Preserves Class Distribution
+
 sklearn's `train_test_split` with `stratify` parameter ensures:
+
 - Each split inherits the class distribution of the pool it was split from
 - Three hierarchical applications → 4-way stratified split
 - ±2% tolerance on class balance
 
 ### 3. Reproducibility via Seeding
+
 - Each split uses `random_state=seed`, `seed+1`, `seed+2`
 - Same seed → identical splits every run
 - Different seed → different (but still stratified) splits
@@ -100,6 +112,7 @@ sklearn's `train_test_split` with `stratify` parameter ensures:
 ## Validation Results
 
 ### Algorithm Correctness (1000 edges, 10% positive)
+
 ```
 ✓ Size accuracy: train=48%, mask=32%, val=10%, test=10% (±0.01%)
 ✓ Class balance: all splits = 10.00% positive (±0.00%)
@@ -107,6 +120,7 @@ sklearn's `train_test_split` with `stratify` parameter ensures:
 ```
 
 ### Code Quality
+
 ```
 ✓ Syntax: No errors
 ✓ Imports: sklearn.model_selection.train_test_split available
@@ -115,7 +129,9 @@ sklearn's `train_test_split` with `stratify` parameter ensures:
 ```
 
 ### Enhanced Logging Output
+
 When preparing data, you now see:
+
 ```
 Splitting edges for wiki-rfa dataset...
 Ratios: train=0.4800, mask=0.3200, val=0.1000, test=0.1000
@@ -151,18 +167,21 @@ The implementation maintains the original split semantics while ensuring fair ev
 ## Integration with Existing System
 
 ### Backward Compatibility
+
 - **Function signature**: `split_edges(cfg, edges)` - **unchanged**
 - **Return type**: `(train_set, mask_set, val_set, test_set)` - **unchanged**
 - **Cache format**: JSON with `train`, `mask`, `val`, `test` keys - **unchanged**
 - **Existing code**: Works without modification - **unchanged**
 
 ### Forward Compatibility
+
 - Works with any dataset configuration
 - Respects `cfg.reproducibility.seed` from Task A1
 - Works with dataset-specific ratio overrides
 - Caching still works: checks for existing splits before computing
 
 ### Usage Example
+
 ```python
 from omegaconf import OmegaConf
 from src.data.prepare_data import prepare_data
@@ -179,6 +198,7 @@ train_loader, val_loader, test_loader = prepare_data(cfg)
 ## Scientific Impact
 
 ### Before (Problematic)
+
 ```
 Dataset: 10.5% positive (original)
 
@@ -190,6 +210,7 @@ Random split produces:
 ```
 
 ### After (Fair)
+
 ```
 Dataset: 10.5% positive (original)
 
@@ -207,24 +228,31 @@ Stratified split produces:
 ### Test on All Datasets
 
 1. **wiki-rfa** (balanced, ~9.5% positive)
+
    ```bash
    python run.py dataset=wiki-rfa
    ```
+
    Watch for class balance output
 
 2. **epinions** (less balanced, ~5% positive)
+
    ```bash
    python run.py dataset=epinions
    ```
+
    Verify stratification maintains ~5%
 
 3. **slashdot** (highly imbalanced, ~0.8% positive)
+
    ```bash
    python run.py dataset=slashdot
    ```
+
    Stratification most critical here
 
 ### Validation Checklist
+
 - [ ] Preparation completes without errors
 - [ ] Class balance within ±2% for all splits
 - [ ] Training starts and progresses normally

@@ -13,26 +13,31 @@ This document clarifies **what each split is for** and **when edges are visible*
 **Semantic Role**: Context edges - background information for the model
 
 **Always Visible**:
+
 - ✓ Train stage: Visible in walk attention
 - ✓ Validation stage: Visible in walk attention
 - ✓ Test stage: Visible in walk attention
 
 **Ever Masked**: No
+
 - Never replaced with [MASK] token
 - Never predicted by model
 - Always available as context
 
 **Labels Used As Targets**: ✗ Never
+
 - These edges are context, not targets
 - Model doesn't learn to predict TRAIN edges
 - They provide stable background signal
 
 **Why This Split Exists**:
+
 - Provides stable context throughout model lifecycle
 - Edges the model can always rely on
 - Grounds all predictions in common knowledge
 
 **Class Balance Requirement**: **CRITICAL**
+
 - If TRAIN has different class distribution than original
 - Model learns biased patterns
 - Evaluation becomes unfair
@@ -44,6 +49,7 @@ This document clarifies **what each split is for** and **when edges are visible*
 **Semantic Role**: Training targets - what the model learns to predict during training
 
 **Visibility Timeline**:
+
 - ❌ Train stage: **HIDDEN** - Replaced with [MASK] token
   - Model tries to predict what MASK token represents
   - This is what drives learning
@@ -57,16 +63,19 @@ This document clarifies **what each split is for** and **when edges are visible*
   - What model learned to predict during training
 
 **Labels Used As Targets**: ✓ **Yes, but only during training**
+
 - During training: `loss = predict_MASK_edges(TRAIN+visible_part_of_MASK)`
 - After training: MASK edges are just context
 - Not targets during validation or testing
 
 **Why This Split Exists**:
+
 - Training objective: predict these edges given context
 - Model learns representations from predicting MASK
 - MASK edges become known context afterward
 
 **Progressive Disclosure**:
+
 ```
 Training:     MASK is hidden  → Model learns what it means
 Validation:   MASK is visible → Model has more context
@@ -74,6 +83,7 @@ Test:         MASK is visible → Even more context available
 ```
 
 **Class Balance Requirement**: **CRITICAL**
+
 - If MASK has different class distribution than original
 - Model learns biased decision boundaries
 - Validation/test evaluation is unfair (different problem)
@@ -85,6 +95,7 @@ Test:         MASK is visible → Even more context available
 **Semantic Role**: Validation targets - unseen during training, predicted during validation
 
 **Visibility Timeline**:
+
 - ✓ Train stage: **VISIBLE** (as context, not as target)
   - VAL edges visible in walks during training
   - But not predicted (not targets)
@@ -100,17 +111,20 @@ Test:         MASK is visible → Even more context available
   - Provide context for final test task
 
 **Labels Used As Targets**: ✓ **Yes, but only during validation**
+
 - During validation: `loss = predict_VAL_edges(TRAIN+MASK+visible_part_of_VAL)`
 - Unseen during training: VAL is new prediction task
 - Tests generalization to new edges
 
 **Why This Split Exists**:
+
 - **New prediction task** (different from training)
 - Tests if model learned generalizable patterns
 - Not training targets (prevents overfitting)
 - Tests on distribution same as training
 
 **Progressive Disclosure**:
+
 ```
 Training:     VAL is visible  → No info leakage, just context
 Validation:   VAL is masked   → Measure generalization to new edges
@@ -118,6 +132,7 @@ Test:         VAL is visible  → Context for final evaluation
 ```
 
 **Class Balance Requirement**: **CRITICAL**
+
 - If VAL has different class distribution
 - Validates on different problem than trained on
 - Results meaningless
@@ -129,6 +144,7 @@ Test:         VAL is visible  → Context for final evaluation
 **Semantic Role**: Test targets - held-out final evaluation set
 
 **Visibility Timeline**:
+
 - ❌ Train stage: **COMPLETELY HIDDEN** - Not in data at all
   - Not visible anywhere
   - Not in walks
@@ -145,17 +161,20 @@ Test:         VAL is visible  → Context for final evaluation
   - **This is the final evaluation**
 
 **Labels Used As Targets**: ✓ **Yes, but only during testing**
+
 - During testing: `loss = predict_TEST_edges(TRAIN+MASK+VAL+visible_part_of_TEST)`
 - Completely held-out until test time
 - Final rigorous test of model performance
 
 **Why This Split Exists**:
+
 - **Final held-out test** - strictest evaluation
 - Completely hidden until needed
 - Tests true generalization
 - Prevents any training/tuning bias
 
 **Progressive Disclosure**:
+
 ```
 Training:     TEST is hidden   → No information at all
 Validation:   TEST is hidden   → Still hidden
@@ -164,6 +183,7 @@ Test:         TEST is masked   → Predict using all context
 ```
 
 **Class Balance Requirement**: **CRITICAL**
+
 - If TEST has different class distribution
 - Final evaluation is on different problem
 - Results cannot be trusted
@@ -173,6 +193,7 @@ Test:         TEST is masked   → Predict using all context
 ## Information Availability at Each Stage
 
 ### Training Stage
+
 ```
 Visible edges:     TRAIN + MASK (80%)
 Hidden edges:      VAL + TEST (20%)
@@ -181,6 +202,7 @@ What we evaluate:  Training loss on MASK prediction
 ```
 
 ### Validation Stage
+
 ```
 Visible edges:     TRAIN + MASK + VAL (90%)
 Hidden edges:      TEST (10%)
@@ -190,6 +212,7 @@ What we evaluate:  Validation loss/metrics on VAL prediction
 ```
 
 ### Test Stage
+
 ```
 Visible edges:     TRAIN + MASK + VAL + TEST (100%)
 Hidden edges:      None
@@ -203,23 +226,27 @@ What we evaluate:  Test loss/metrics on TEST prediction
 ## Why This Progressive Disclosure is Fair and Scientific
 
 ### 1. No Data Leakage
+
 - TEST completely hidden until test time
 - Model cannot optimize for TEST
 - Prevents overfitting to test distribution
 
 ### 2. Incremental Difficulty
+
 - Train: Model learns with 80% context
 - Val: Model generalizes with 90% context (unseen edges)
 - Test: Model evaluated with 100% context (held-out edges)
 - More context at each stage makes sense (more information available)
 
 ### 3. Fair Comparison
+
 - **CRITICAL**: If TRAIN/MASK/VAL/TEST have same class distribution as original
   - Model trained on same distribution as evaluated
   - No bias from different class balances
   - Valid scientific comparison
 
 ### 4. Prevents Multiple Testing Issues
+
 - VAL not used during training (prevents overfitting)
 - TEST hidden until test time (prevents tuning)
 - Independent evaluation metrics at each stage
@@ -229,6 +256,7 @@ What we evaluate:  Test loss/metrics on TEST prediction
 ## Class Balance Requirement: Why It Matters
 
 ### Without Stratification (Unfair)
+
 ```
 Original: 10.5% positive
 
@@ -246,6 +274,7 @@ Problem:
 ```
 
 ### With Stratification (Fair)
+
 ```
 Original: 10.5% positive
 
@@ -267,6 +296,7 @@ Benefit:
 ## Example: Imbalanced Dataset (wiki-rfa, 9.5% positive)
 
 ### What Changes?
+
 ```
 Original: 9.5% positive
 
@@ -281,6 +311,7 @@ Same class distribution throughout!
 ```
 
 ### What If We Didn't Stratify?
+
 ```
 Original: 9.5% positive
 
@@ -299,6 +330,7 @@ Random split might produce:
 ## Example: Highly Imbalanced Dataset (slashdot, 0.8% positive)
 
 ### What Changes?
+
 ```
 Original: 0.8% positive (very rare!)
 
@@ -313,6 +345,7 @@ Even with extreme imbalance, all splits are identical!
 ```
 
 ### Stratification is Most Critical Here
+
 - With 0.8% positive, random chunks could have 0-3%
 - Huge variations in class balance
 - Stratification **prevents this**
@@ -332,12 +365,14 @@ Even with extreme imbalance, all splits are identical!
 | 10% | TEST | Final held-out test, same size as VAL |
 
 **Design Philosophy**:
+
 - TRAIN: Large foundation (48%)
 - MASK: Main learning targets (32%)
 - VAL + TEST: Equal held-out (10% each)
 - Total: 100% of edges
 
 **Why not 50-25-12.5-12.5?**
+
 - 48-32 provides clear separation
 - 10-10 is symmetric and simple
 - Easy to remember: ~half train, ~third mask, ~fifth test

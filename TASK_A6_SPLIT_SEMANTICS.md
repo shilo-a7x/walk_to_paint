@@ -1,6 +1,7 @@
 # Task A6 Verification: Understanding Split Semantics
 
 ## Current Split Configuration
+
 ```yaml
 train_ratio: 0.48  # 48% of edges
 mask_ratio: 0.32   # 32% of edges
@@ -14,6 +15,7 @@ Total:      1.00
 ## Split Semantics: What Each Split Contains
 
 ### TRAIN Split (48% of edges)
+
 - **Role**: Context edges - known to the model during ALL stages
 - **Used during**:
   - Train: Always in attention (visible context)
@@ -24,18 +26,20 @@ Total:      1.00
 - **Attention Mask**: Always 1 (always visible to model)
 
 ### MASK Split (32% of edges)
+
 - **Role**: Training targets - edges for model to predict DURING TRAINING
 - **Used during**:
   - Train: **TARGET** (model predicts these) ← Replaced with [MASK] token
   - Val: Context (visible, used for prediction context but not trained on)
   - Test: Context (visible, used for prediction context)
-- **Representation in Walk**: 
+- **Representation in Walk**:
   - Train stage: Replaced with [MASK] token, receive labels from original tokens
   - Val/Test stages: Unchanged (nodes only), no labels
 - **Receives Labels**: YES (during training only)
 - **Attention Mask**: During train: target (1 in attn); During val/test: context (1 in attn)
 
 ### VAL Split (10% of edges)
+
 - **Role**: Validation targets - edges for model to predict at VALIDATION TIME
 - **Used during**:
   - Train: Context (visible for walks but not trained on)
@@ -49,6 +53,7 @@ Total:      1.00
 - **Attention Mask**: During val: target (1 in attn); Others: context (1 in attn) or hidden
 
 ### TEST Split (10% of edges)
+
 - **Role**: Test targets - edges for model to predict at TEST TIME
 - **Used during**:
   - Train: Hidden (NOT visible to model)
@@ -188,6 +193,7 @@ Output:
 ## Key Insight: Attention Visibility Rule
 
 ### Progressive Disclosure of Information
+
 ```
 TRAIN stage:
   Can see: TRAIN + MASK edges
@@ -205,6 +211,7 @@ TEST stage:
 ```
 
 ### Why This Design?
+
 - During training: model learns to predict MASK edges
 - During val: model tries to predict VAL edges (different from training!)
 - During test: model predicts TEST edges (most difficult, least seen)
@@ -218,6 +225,7 @@ TEST stage:
 ### Why Stratification Matters
 
 **Without Stratification (Current)**:
+
 ```
 Original edges: 10.5% positive, 89.5% negative
 
@@ -235,6 +243,7 @@ Problem:
 ```
 
 **With Stratification (Required)**:
+
 ```
 Original edges: 10.5% positive, 89.5% negative
 
@@ -303,6 +312,7 @@ Result: train, mask, val, test
 ## Current Code (What Needs to Change)
 
 ### Before (in src/data/prepare_data.py)
+
 ```python
 def split_edges(cfg, edges):
     edges_copy = list(edges)
@@ -322,6 +332,7 @@ def split_edges(cfg, edges):
 ```
 
 ### After (What We Need)
+
 ```python
 def split_edges(cfg, edges):
     from sklearn.model_selection import train_test_split
@@ -371,6 +382,7 @@ def split_edges(cfg, edges):
 ## Summary: Updated A6 Task Requirements
 
 ### Understanding ✓
+
 - TRAIN (48%): Context, always visible, never masked, never target
 - MASK (32%): Training targets, hidden in VAL/TEST walks, masked during training
 - VAL (10%): Validation targets, visible in VAL/TEST walks, masked during validation
@@ -378,14 +390,15 @@ def split_edges(cfg, edges):
 - Class balance is CRITICAL for fair evaluation across all stages
 
 ### Implementation ✓
+
 - Use hierarchical stratified `train_test_split()` (3 steps, 3 stratify calls)
 - Maintain ±1-2% class balance in all 4 splits vs original
 - Ensure reproducibility with `random_state=seed`
 - Support both binary and multiclass labels
 
 ### Validation ✓
+
 - Verify edge counts: train + mask + val + test = total
 - Verify class distribution for each split
 - Test on all 3 datasets (wiki-rfa, epinions, slashdot)
 - Verify model training completes successfully
-
