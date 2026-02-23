@@ -1,21 +1,22 @@
 from pathlib import Path
 from typing import List, Optional
 from omegaconf import OmegaConf
+import torch
 
 
 def get_seed(cfg) -> int:
     """
     Get the canonical seed from config.
-    
+
     This is the ONLY way to access the seed value in the codebase.
     Fails loudly if seed is not configured - no silent defaults.
-    
+
     Args:
         cfg: OmegaConf configuration object
-        
+
     Returns:
         int: The seed value
-        
+
     Raises:
         ValueError: If reproducibility.seed is not set in config
     """
@@ -75,3 +76,203 @@ def load_config(
     merged = OmegaConf.merge(merged, cli_cfg)
 
     return merged
+
+
+def validate_config(cfg, context: str = "train") -> None:
+    """
+    Validate config values and fail fast on invalid or inconsistent settings.
+
+    Args:
+        cfg: OmegaConf configuration object
+        context: Validation context ("train", "optuna", "posthoc")
+
+    Raises:
+        ValueError: On missing required fields, invalid types/ranges, or inconsistent config.
+    """
+
+    def _fmt_value(value):
+        if value is _MISSING:
+            return "<missing>"
+        return repr(value)
+
+    def _invalid(path: str, value, expected: str) -> None:
+        raise ValueError(
+            f"Invalid config: {path}={_fmt_value(value)} (expected {expected})"
+        )
+
+    def _get(path: str, default=None):
+        return OmegaConf.select(cfg, path, default=default)
+
+    def _is_int(value) -> bool:
+        return isinstance(value, int) and not isinstance(value, bool)
+
+    def _is_number(value) -> bool:
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+    def _require(path: str, expected: str):
+        value = _get(path, _MISSING)
+        if value is _MISSING or value is None:
+            _invalid(path, value, expected)
+        return value
+
+    def _check_int(path: str, min_value: int = None, allow_zero: bool = False):
+        value = _require(path, "integer")
+        if not _is_int(value):
+            _invalid(path, value, "integer")
+        if min_value is not None and value < min_value:
+            op = f">= {min_value}" if allow_zero else f"> {min_value - 1}"
+            _invalid(path, value, f"integer {op}")
+        return value
+
+    def _check_number(path: str, predicate, expected: str):
+        value = _require(path, expected)
+        if not _is_number(value):
+            _invalid(path, value, expected)
+        if not predicate(float(value)):
+            _invalid(path, value, expected)
+        return value
+
+    _MISSING = object()
+
+    normalized_context = (context or "train").strip().lower()
+
+    required_common = [
+        "reproducibility.seed",
+        "dataset.name",
+        "dataset.data_dir",
+        "dataset.max_walk_length",
+        "dataset.num_walks",
+        "training.batch_size",
+        "model.embedding_dim",
+        "model.hidden_dim",
+        "model.nhead",
+        "model.nlayers",
+        "model.dropout",
+    ]
+    required_train_only = [
+        "training.epochs",
+        "training.lr",
+        "training.weight_decay",
+    ]
+
+    required_paths = list(required_common)
+    if normalized_context in {"train", "optuna"}:
+        required_paths.extend(required_train_only)
+
+    for path in required_paths:
+        _require(path, "field to be set")
+
+    _check_int("reproducibility.seed")
+
+    _check_number(
+        "dataset.max_walk_length", lambda v: v > 0, "dataset.max_walk_length > 0"
+    )
+    _check_number("dataset.num_walks", lambda v: v > 0, "dataset.num_walks > 0")
+    _check_number("training.batch_size", lambda v: v > 0, "training.batch_size > 0")
+
+    if normalized_context in {"train", "optuna"}:
+        _check_number("training.epochs", lambda v: v > 0, "training.epochs > 0")
+        _check_number("training.lr", lambda v: v > 0, "training.lr > 0")
+        _check_number(
+            "training.weight_decay",
+            lambda v: v >= 0,
+            "training.weight_decay >= 0",
+        )
+
+    _check_number("model.dropout", lambda v: 0.0 <= v < 1.0, "0.0 <= dropout < 1.0")
+    _check_number("model.embedding_dim", lambda v: v > 0, "embedding_dim > 0")
+    _check_number("model.hidden_dim", lambda v: v > 0, "hidden_dim > 0")
+    _check_number("model.nhead", lambda v: v > 0, "nhead > 0")
+    _check_number("model.nlayers", lambda v: v > 0, "nlayers > 0")
+
+    train_ratio = _get("dataset.train_ratio", _MISSING)
+    mask_ratio = _get("dataset.mask_ratio", _MISSING)
+    val_ratio = _get("dataset.val_ratio", _MISSING)
+    test_ratio = _get("dataset.test_ratio", _MISSING)
+    ratios = {
+        "dataset.train_ratio": train_ratio,
+        "dataset.mask_ratio": mask_ratio,
+        "dataset.val_ratio": val_ratio,
+        "dataset.test_ratio": test_ratio,
+    }
+    if any(v is not _MISSING for v in ratios.values()):
+        total = 0.0
+        for path, value in ratios.items():
+            if value is _MISSING:
+                _invalid(
+                    path,
+                    value,
+                    "split ratio field to be set when any ratio is provided",
+                )
+            if not _is_number(value):
+                _invalid(path, value, "numeric split ratio")
+            total += float(value)
+        if abs(total - 1.0) > 1e-6:
+            raise ValueError(
+                "Invalid config: "
+                f"dataset.split_sum={total} "
+                "(expected train_ratio + mask_ratio + val_ratio + test_ratio == 1.0 ± 1e-6)"
+            )
+
+    embedding_dim = int(_get("model.embedding_dim"))
+    nhead = int(_get("model.nhead"))
+    if nhead <= 0 or embedding_dim % nhead != 0:
+        _invalid(
+            "model.embedding_dim",
+            embedding_dim,
+            f"embedding_dim divisible by model.nhead ({nhead})",
+        )
+
+    use_cuda = _get("training.use_cuda", _MISSING)
+    if use_cuda is not _MISSING:
+        if not isinstance(use_cuda, bool):
+            _invalid("training.use_cuda", use_cuda, "boolean")
+        if use_cuda and not torch.cuda.is_available():
+            print(
+                "⚠ Config warning: training.use_cuda=True but CUDA is not available. "
+                "Execution will fall back to CPU."
+            )
+
+    preprocess_use_cache = _get("preprocess.use_cache", _MISSING)
+    if preprocess_use_cache is not _MISSING and not isinstance(
+        preprocess_use_cache, bool
+    ):
+        _invalid("preprocess.use_cache", preprocess_use_cache, "boolean")
+
+    preprocess_save = _get("preprocess.save", _MISSING)
+    if preprocess_save is not _MISSING and not isinstance(preprocess_save, bool):
+        _invalid("preprocess.save", preprocess_save, "boolean")
+
+    class_weights = None
+    class_weights_path = None
+    for candidate in ("training.class_weights", "model.class_weights"):
+        value = _get(candidate, _MISSING)
+        if value is not _MISSING and value is not None:
+            class_weights = value
+            class_weights_path = candidate
+            break
+
+    num_classes = None
+    num_classes_path = None
+    for candidate in (
+        "dataset.num_classes",
+        "model.num_classes",
+        "training.num_classes",
+    ):
+        value = _get(candidate, _MISSING)
+        if value is not _MISSING and value is not None:
+            num_classes = value
+            num_classes_path = candidate
+            break
+
+    if class_weights is not None and num_classes is not None:
+        if not _is_int(num_classes) or int(num_classes) <= 0:
+            _invalid(num_classes_path, num_classes, "positive integer")
+        if not isinstance(class_weights, (list, tuple)):
+            _invalid(class_weights_path, class_weights, "list/tuple of class weights")
+        if len(class_weights) != int(num_classes):
+            raise ValueError(
+                "Invalid config: "
+                f"{class_weights_path}=len({len(class_weights)}) "
+                f"(expected length == {num_classes_path}={int(num_classes)})"
+            )

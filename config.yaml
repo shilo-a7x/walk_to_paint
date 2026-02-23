@@ -9,7 +9,7 @@
 # - NumPy (walk sampling, data splitting)
 # - Python random (edge shuffling)
 # - Worker processes (deterministic seeding per worker)
-# 
+#
 # CRITICAL: This seed MUST be set. No silent defaults.
 # All scripts (run.py, extract_edge_scores.py, train_aggregator.py, etc.)
 # will fail loudly if this is not present.
@@ -20,20 +20,15 @@ reproducibility:
 # Preprocessing Configuration
 # ============================================================================
 preprocess:
-    save: true              # Save preprocessed data (walks, tokenizer, encodings)
-    use_cache: true         # Use cached preprocessed data if available
-    num_workers: 8          # Number of parallel workers for walk sampling
+    save: true # Save preprocessed data (walks, tokenizer, encodings)
+    use_cache: true # Load from cache if available
+    num_workers: 8 # Number of parallel workers for walk sampling
 
 # Default dataset structure (overridden by dataset-specific configs)
 dataset:
     name: bitcoin-alpha-binary
     data_dir: data/bitcoin-alpha-binary
     edge_list_file: soc-sign-bitcoinalpha-binary.csv
-    walks_file: walks.pt
-    tokenizer_file: tokenizer.json
-    encoded_file: encoded.pt
-    edge_split_file: splits.json
-    meta_file: meta.json
     # Default split ratios
     train_ratio: 0.48
     mask_ratio: 0.32
@@ -57,14 +52,13 @@ model:
 # ============================================================================
 training:
     # Training hyperparameters
-    batch_size: 64
+    batch_size: 1024
     epochs: 25
     lr: 0.001
     weight_decay: 0.001
     early_stopping_patience: 10
     gradient_clip_val: 0.5
-    use_weighted_loss: true
-    
+
     # Experiment tracking
     log_dir: logs/
     exp_name: walk_to_paint_experiment
@@ -72,13 +66,18 @@ training:
     resume_from_checkpoint: null
     eval_only: false
     use_cuda: true
-    
+
     # DataLoader performance configuration
     # These settings control parallel data loading and GPU transfer
-    num_workers: 16          # Parallel workers for data loading (0 = main process only)
-    pin_memory: true         # Pin memory for faster GPU transfer
+    num_workers: 16 # Parallel workers for data loading (0 = main process only)
+    pin_memory: true # Pin memory for faster GPU transfer
     persistent_workers: true # Keep workers alive between epochs (faster with num_workers > 0)
-    prefetch_factor: 2       # Batches prefetched per worker
+    prefetch_factor: 2 # Batches prefetched per worker
+
+    # Optional non-standard callbacks (disable for faster baseline training)
+    callbacks:
+        enable_prediction_saver: false # Save train/val/test prediction PKLs each epoch
+        enable_per_epoch_test_runner: false # Run test loop at every validation epoch
 
 # Default paths configuration
 paths:
@@ -87,4 +86,4 @@ paths:
     append_timestamp: true
 
 # GPU optimization
-float32_precision: "medium"  # "highest" | "high" | "medium" (for matmul speed)
+float32_precision: "medium" # "highest" | "high" | "medium" (for matmul speed)

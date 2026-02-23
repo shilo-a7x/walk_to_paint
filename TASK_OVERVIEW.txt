@@ -1,0 +1,154 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                   🎯 PROJECT RETHINKING - COMPLETE OVERVIEW                   ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+YOUR 14 REQUIREMENTS → 17 TASKS → 3-WEEK ROADMAP
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 📋 NEW DOCUMENTATION FILES (Created Today)                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. START_HERE.md                                                           │
+│     └─ Quick navigation, dependency graph, decision tree                    │
+│     └─ READ FIRST if confused                                              │
+│                                                                              │
+│  2. COMPREHENSIVE_RETHINKING.md                                            │
+│     └─ Detailed definition of all 17 tasks                                 │
+│     └─ Success criteria, implementation details, time estimates           │
+│     └─ YOUR TASK BIBLE - All answers here                                 │
+│                                                                              │
+│  3. PRIORITY_SUMMARY.md                                                    │
+│     └─ Visual timeline with phases (Week 1, 2, 3)                         │
+│     └─ Task dependencies diagram                                          │
+│     └─ What you get by end of each phase                                 │
+│                                                                              │
+│  4. RETHINKING_COMPLETE.md                                                 │
+│     └─ This summary (coverage check, next steps)                          │
+│                                                                              │
+│  5. cleanup_old_docs.sh                                                     │
+│     └─ Bash script to remove 40+ old/redundant MD files                   │
+│     └─ Run: bash cleanup_old_docs.sh                                      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 🎯 17 TASKS ORGANIZED BY PHASE                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ PHASE 0: Cleanup                                                            │
+│ ├─ T0.1: Clean old MD files ............................ 0.5h              │
+│                                                                              │
+│ PHASE 1: Foundation & Infrastructure (CRITICAL) 🔴                          │
+│ ├─ T0.2: Robust Config System .......................... 4-6h             │
+│ ├─ T0.3: Output Directory Structure ................... 3-4h             │
+│ ├─ T1.1: Verify Data Reproducibility .................. 3-4h             │
+│ ├─ T1.2: Optimize Data Stages ......................... 4-5h             │
+│ ├─ T1.3: Implement Caching & Train-Ready Loading ...... 5-6h             │
+│ ├─ T2.1: Analyze Loss Weighting ....................... 2-3h             │
+│ ├─ T2.2: Implement Class-Weighted Loss ................ 4-5h             │
+│ └─ T2.3: Validate No Data Leakage ..................... 2-3h             │
+│   ➜ Subtotal: 35-45 hours                                                  │
+│                                                                              │
+│ PHASE 2: Prediction & Aggregation Infrastructure                            │
+│ ├─ T3.1: Save Model Predictions ........................ 3-4h             │
+│ ├─ T3.2: Save Aggregator Triplets (Prof's Format) ..... 3-4h             │
+│ ├─ T3.3: Heatmap Analysis Tool ......................... 3-4h             │
+│ └─ T4.1: MLP/Logistic Aggregation ...................... 5-6h             │
+│   ➜ Subtotal: 14-18 hours                                                  │
+│                                                                              │
+│ PHASE 3: Analysis & Refinement                                              │
+│ ├─ T4.2: Triplet-Based Analysis & Heatmaps ............ 3-4h             │
+│ ├─ T4.3: Compare Aggregation Strategies ............... 4-5h             │
+│ ├─ T5.1: Training Optimization ......................... 4-5h             │
+│ ├─ T5.2: Binary/Multiclass Support .................... 2-3h             │
+│ └─ T5.3: Comprehensive Evaluation Metrics ............. 4-5h             │
+│   ➜ Subtotal: 17-22 hours                                                  │
+│                                                                              │
+│ GRAND TOTAL: 70-97 hours (~2-3 weeks of full-time work)                    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 🔴 CRITICAL PATH (Must Do First)                                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Week 1: Foundation (35-45h)                                                │
+│  ├─ T0.2 → T0.3 → T1.1 → T1.2 → T1.3 (Sequential)                         │
+│  └─ T2.1 → T2.2 → T2.3 (Sequential)                                       │
+│    Result: Clean infrastructure, reproducible data, fair loss               │
+│                                                                              │
+│  Week 2: Research Ready (20-25h)                                            │
+│  ├─ T3.1 → T3.2 → T3.3 (Sequential)                                       │
+│  └─ T4.1 (Aggregation)                                                     │
+│    Result: Predictions saved, triplets ready, prof's data ready           │
+│                                                                              │
+│  Week 3+: Analysis & Iteration (22-27h)                                     │
+│  ├─ T4.2 → T4.3 (Analysis)                                                 │
+│  └─ T5.1-T5.3 (Optimization & Polish)                                      │
+│    Result: Best aggregation strategy, optimized code, publication ready    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ✅ COVERAGE OF YOUR 14 REQUIREMENTS                                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ✓ 1. Verify data reproducibility .................. T1.1                  │
+│  ✓ 2. Optimize data stages (merge/separate) ........ T1.2                  │
+│  ✓ 3. Train-ready loading, easy retrain ............ T1.3                  │
+│  ✓ 4. Training optimization ........................ T5.1                  │
+│  ✓ 5. Save predictions (raw + labels) ............. T3.1                  │
+│  ✓ 6. Save aggregator info (walks, positions) ..... T3.2                  │
+│  ✓ 7. Class imbalance rethinking .................. T2.1-T2.3              │
+│  ✓ 8. Robust config system ........................ T0.2                  │
+│  ✓ 9. Output structure cleanup .................... T0.3                  │
+│  ✓ 10. Easy for current experiments ............... T1.3 + T3.1            │
+│  ✓ 11. Binary/multiclass support .................. T5.2                  │
+│  ✓ 12. Aggregator experimentation ................. T3.1-T4.1              │
+│  ✓ 13. Triplet analysis + heatmaps ................ T3.2-T3.3              │
+│  ✓ 14. Keep previous relevant tasks ............... T5.3 (metrics)         │
+│                                                                              │
+│  ALL 14 REQUIREMENTS COVERED ✓                                             │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 🚀 NEXT STEPS - WHICH TASK TO START WITH?                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Option A: Cleanup First (Fast Start - 30 sec)                             │
+│  $ bash cleanup_old_docs.sh                                               │
+│  Then pick Option B or C below                                            │
+│                                                                              │
+│  Option B: Start T0.2 (Config System) ← RECOMMENDED                        │
+│  • Most foundational (everything depends on it)                           │
+│  • 4-6 hours, high value                                                  │
+│  • Gates all other infrastructure work                                    │
+│                                                                              │
+│  Option C: Start T1.1 (Data Verify) ← ALTERNATIVE                         │
+│  • If you want to understand current state first                          │
+│  • 3-4 hours of analysis                                                  │
+│  • Then T0.2 will be easier to design                                     │
+│                                                                              │
+│  Option D: Start T3.1 (Predictions) ← RESEARCH TRACK                       │
+│  • If you want to work on prof's requirement now                          │
+│  • Requires T0.3 (output structure) first                                 │
+│  • Requires T1.3 (data loading) first                                     │
+│                                                                              │
+│  ➜ REPLY WITH YOUR CHOICE (A, B, C, or D)                                 │
+│  ➜ I'LL CREATE DETAILED IMPLEMENTATION PROMPT FOR CHOSEN TASK             │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 📚 DOCUMENTATION TO READ                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. START_HERE.md .......................... (5 min, orientation)           │
+│  2. COMPREHENSIVE_RETHINKING.md ........... (30 min, full details)         │
+│  3. PRIORITY_SUMMARY.md ................... (10 min, timeline)             │
+│                                                                              │
+│  Total reading time: ~45 minutes                                            │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+

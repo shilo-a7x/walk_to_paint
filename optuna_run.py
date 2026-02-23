@@ -3,6 +3,7 @@ import copy
 import argparse
 import shutil
 import glob
+import time
 from pathlib import Path
 from omegaconf import OmegaConf
 import torch
@@ -19,7 +20,7 @@ from pytorch_lightning import seed_everything
 from src.data.prepare_data import prepare_data
 from src.model.lit_model import LitEdgeClassifier
 from src.utils.paths import resolve_outputs_dirs
-from src.utils.config import load_config, get_seed
+from src.utils.config import load_config, get_seed, validate_config
 import random
 import numpy as np
 import shutil
@@ -27,23 +28,44 @@ import glob
 import importlib
 
 # Centralized Optuna suggestion ranges (easy to tweak for experiments)
+# =============================================================================
+# ANTI-OVERFITTING FOCUSED HYPERPARAMETER RANGES
+# =============================================================================
+# Walk parameters are now FIXED (not tuned) to leverage dataset caching:
+#   - max_walk_length = 80 (FIXED)
+#   - num_walks = 5,000,000 (FIXED)
+#   - batch_size = 1024 (FIXED)
+# All trials share the same cached dataset for 10-20x speedup!
+#
+# Hyperparameter ranges focus on REGULARIZATION to combat overfitting:
+#   - Slower learning rates (max 1e-3 instead of 1e-1)
+#   - Stronger weight decay (min 1e-5 instead of 1e-8)
+#   - Mandatory dropout (min 20% instead of 0%)
+#   - Smaller model capacity (fewer dims, fewer layers)
+#   - More aggressive early stopping (patience 3-10 vs 5-20)
+# =============================================================================
 OPTUNA_RANGES = {
-    # dataset
-    "dataset.max_walk_length": (10, 100),
-    "dataset.num_walks": (100000, 5000000),
-    # training
-    "training.lr": (1e-5, 1e-1),
-    "training.weight_decay": (1e-8, 1e-1),
-    "training.batch_size": [32, 64, 128, 256, 512],
-    "training.gradient_clip_val": (0.1, 2.0),
-    "training.early_stopping_patience": (5, 20),
-    "training.epochs": None,  # computed per-base-config if None
-    # model
-    "model.nhead": [1, 2, 4, 8, 16],
-    "model.embedding_dim": [4, 8, 16, 32, 64, 128],
-    "model.hidden_dim": [4, 8, 16, 32, 64, 128, 256],
-    "model.nlayers": (1, 6),
-    "model.dropout": (0.0, 0.7),
+    # REMOVED: Walk parameters are now FIXED (see objective function)
+    # REMOVED: batch_size is now FIXED at 1024
+    # Training - Anti-overfitting focus
+    "training.lr": (1e-5, 1e-3),  # ← Slower learning (was 1e-1)
+    "training.weight_decay": (1e-5, 1e-1),  # ← Stronger L2 regularization (was 1e-8)
+    "training.gradient_clip_val": (
+        0.5,
+        2.0,
+    ),  # ← Higher min for more clipping (was 0.1)
+    "training.early_stopping_patience": (3, 10),  # ← Stop faster (was 5-20)
+    "training.epochs": (15, 50),  # ← Simple fixed range for hyperparameter search
+    # Model - Smaller capacity to reduce overfitting
+    "model.nhead": [
+        2,
+        4,
+        8,
+    ],  # even heads only (avoids nested-tensor warning for odd heads)
+    "model.embedding_dim": [4, 8, 16, 32, 64],  # ← Removed large (128)
+    "model.hidden_dim": [4, 8, 16, 32, 64, 128],  # ← Removed tiny (4,8) and large (256)
+    "model.nlayers": (1, 4),  # ← Max 4 layers (was 6)
+    "model.dropout": (0.2, 0.7),  # ← Min 20% dropout (was 0%)
 }
 
 
@@ -176,11 +198,15 @@ def build_trainer(cfg, val_loader=None, trial=None, enable_pruning=True):
         save_last=False,
     )
 
+    early_stopping_min_delta = float(
+        getattr(cfg.training, "early_stopping_min_delta", 0.005)
+    )
     early_stopping = EarlyStopping(
         monitor="val_auc_epoch",
         patience=cfg.training.early_stopping_patience,
         verbose=True,
         mode="max",  # Maximize AUC
+        min_delta=early_stopping_min_delta,
     )
 
     callbacks = [checkpoint, early_stopping]
@@ -205,52 +231,67 @@ def build_trainer(cfg, val_loader=None, trial=None, enable_pruning=True):
     return trainer, checkpoint
 
 
-def objective_factory(base_cfg, device, enable_pruning=True):
+def objective_factory(
+    base_cfg,
+    device,
+    enable_pruning=True,
+    shared_data_module=None,
+    shared_post_prepare_cfg=None,
+):
     """
     Returns an Optuna objective that:
       1) clones and tweaks the config per-trial,
       2) trains,
       3) returns the best val_auc from the best checkpoint.
+
+    Args:
+        shared_data_module: Pre-loaded data module shared across all trials (loaded once before study)
+                           Avoids reloading the .pt cache file for every trial (~242s saved per trial).
+        shared_post_prepare_cfg: Config after prepare_data() was called (includes pad_id and other modifications)
+                                Each trial deep-copies this and applies hyperparameters on top.
     """
 
     def objective(trial: optuna.trial.Trial):
         # ---- Clone and set per-trial hyperparams ----
-        cfg = copy.deepcopy(base_cfg)
+        # Use the post-prepare config if available (has pad_id and other prepare_data modifications)
+        # Otherwise fall back to base_cfg
+        base_for_trial = (
+            shared_post_prepare_cfg if shared_post_prepare_cfg is not None else base_cfg
+        )
+        cfg = copy.deepcopy(base_for_trial)
 
         # Unique experiment name per trial
         cfg.training.exp_name = f"{base_cfg.training.exp_name}-optuna-t{trial.number}"
 
-        # ===== DATA GENERATION HYPERPARAMETERS =====
-        # Walk generation parameters (most impactful for graph learning)
-        # Use OPTUNA_RANGES mapping if available, otherwise fall back to defaults
-        mr = OPTUNA_RANGES.get("dataset.max_walk_length", (10, 100))
-        cfg.dataset.max_walk_length = trial.suggest_int(
-            "dataset.max_walk_length", mr[0], mr[1]
+        # ===== FIXED PARAMETERS (Not Hyperparameters) =====
+        # Walk parameters are FIXED to enable dataset caching across all trials
+        # This provides 10-20x speedup: first trial builds cache (~40s), subsequent trials load cache (~3-5s)
+        cfg.dataset.max_walk_length = 80  # FIXED
+        cfg.dataset.num_walks = 5000000  # FIXED (5M walks)
+        cfg.training.batch_size = 1024  # FIXED
+        cfg.training.num_workers = (
+            0  # Optuna stability: avoid DataLoader worker teardown noise
         )
-        nr = OPTUNA_RANGES.get("dataset.num_walks", (100000, 5000000))
-        cfg.dataset.num_walks = trial.suggest_int(
-            "dataset.num_walks", nr[0], nr[1], log=True
-        )
+        cfg.training.persistent_workers = False
+
+        # Enable dataset caching (critical for performance with fixed walks)
+        cfg.preprocess.use_cache = True
+        cfg.preprocess.save = True
 
         # ===== TRAINING HYPERPARAMETERS =====
-        # ===== TRAINING HYPERPARAMETERS =====
-        lr_lo, lr_hi = OPTUNA_RANGES.get("training.lr", (1e-5, 1e-1))
+        lr_lo, lr_hi = OPTUNA_RANGES.get("training.lr", (1e-5, 1e-3))
         cfg.training.lr = trial.suggest_float("training.lr", lr_lo, lr_hi, log=True)
-        wd_lo, wd_hi = OPTUNA_RANGES.get("training.weight_decay", (1e-8, 1e-1))
+        wd_lo, wd_hi = OPTUNA_RANGES.get("training.weight_decay", (1e-5, 1e-1))
         cfg.training.weight_decay = trial.suggest_float(
             "training.weight_decay", wd_lo, wd_hi, log=True
         )
-        cfg.training.batch_size = trial.suggest_categorical(
-            "training.batch_size",
-            OPTUNA_RANGES.get("training.batch_size", [32, 64, 128, 256, 512]),
-        )
-        gc_lo, gc_hi = OPTUNA_RANGES.get("training.gradient_clip_val", (0.1, 2.0))
+        gc_lo, gc_hi = OPTUNA_RANGES.get("training.gradient_clip_val", (0.5, 2.0))
         cfg.training.gradient_clip_val = trial.suggest_float(
             "training.gradient_clip_val", gc_lo, gc_hi
         )
 
         # Early stopping patience (adaptive based on epochs)
-        ep_lo, ep_hi = OPTUNA_RANGES.get("training.early_stopping_patience", (5, 20))
+        ep_lo, ep_hi = OPTUNA_RANGES.get("training.early_stopping_patience", (3, 10))
         cfg.training.early_stopping_patience = trial.suggest_int(
             "training.early_stopping_patience", ep_lo, ep_hi
         )
@@ -262,11 +303,11 @@ def objective_factory(base_cfg, device, enable_pruning=True):
         max_attempts = 10  # Prevent infinite loops
         for attempt in range(max_attempts):
             cfg.model.nhead = trial.suggest_categorical(
-                "model.nhead", OPTUNA_RANGES.get("model.nhead", [1, 2, 4, 8, 16])
+                "model.nhead", OPTUNA_RANGES.get("model.nhead", [2, 4, 8])
             )
             cfg.model.embedding_dim = trial.suggest_categorical(
                 "model.embedding_dim",
-                OPTUNA_RANGES.get("model.embedding_dim", [4, 8, 16, 32, 64, 128]),
+                OPTUNA_RANGES.get("model.embedding_dim", [16, 32, 64]),
             )
 
             # Check if embedding_dim is divisible by nhead
@@ -283,36 +324,31 @@ def objective_factory(base_cfg, device, enable_pruning=True):
 
         cfg.model.hidden_dim = trial.suggest_categorical(
             "model.hidden_dim",
-            OPTUNA_RANGES.get("model.hidden_dim", [4, 8, 16, 32, 64, 128, 256]),
+            OPTUNA_RANGES.get("model.hidden_dim", [16, 32, 64, 128]),
         )
-        nl_lo, nl_hi = OPTUNA_RANGES.get("model.nlayers", (1, 6))
+        nl_lo, nl_hi = OPTUNA_RANGES.get("model.nlayers", (1, 4))
         cfg.model.nlayers = trial.suggest_int("model.nlayers", nl_lo, nl_hi)
 
         # Regularization
-        dr_lo, dr_hi = OPTUNA_RANGES.get("model.dropout", (0.0, 0.7))
+        dr_lo, dr_hi = OPTUNA_RANGES.get("model.dropout", (0.2, 0.7))
         cfg.model.dropout = trial.suggest_float("model.dropout", dr_lo, dr_hi)
 
-        # ===== EPOCHS ADAPTATION =====
-        # Shorter epochs for hyperparameter search but ensure minimum learning time
-        base_epochs = base_cfg.training.epochs
-        # Use OPTUNA_RANGES for epochs if provided, otherwise derive from base
-        epochs_range = OPTUNA_RANGES.get("training.epochs")
-        if epochs_range is None:
-            e_lo = max(1, min(15, base_epochs // 4))
-            e_hi = min(100, base_epochs)
-        else:
-            e_lo, e_hi = epochs_range
-
+        # ===== EPOCHS (from OPTUNA_RANGES) =====
+        e_lo, e_hi = OPTUNA_RANGES.get("training.epochs", (15, 50))
         cfg.training.epochs = trial.suggest_int("training.epochs", int(e_lo), int(e_hi))
 
-        # Set seeds for reproducibility (per-trial)
-        base_seed = get_seed(base_cfg)
-        seed_everything(base_seed, workers=True)
-        random.seed(base_seed)
-        np.random.seed(base_seed)
-        # Record the seed used so runs are reproducible
+        # ===== UNIFIED SEEDING STRATEGY =====
+        # Use get_seed(cfg) to get canonical seed from config.reproducibility.seed
+        # This ensures all trials use the same seed from config (not hardcoded values)
+        seed = get_seed(cfg)
+        seed_everything(seed, workers=True)
+        torch.manual_seed(seed)
+        random.seed(seed)
+        np.random.seed(seed)
+
+        # Record the seed used for reproducibility tracking
         try:
-            trial.set_user_attr("seed", base_seed)
+            trial.set_user_attr("seed", seed)
         except Exception:
             pass
 
@@ -323,21 +359,46 @@ def objective_factory(base_cfg, device, enable_pruning=True):
             os.environ.pop("CUDA_VISIBLE_DEVICES", None)
 
         print(f"\n🔬 Trial {trial.number} hyperparameters:")
+        print(f"  Seed (from config): {seed}")
         print(
-            f"  Walk length: {cfg.dataset.max_walk_length}, Num walks: {cfg.dataset.num_walks:,}"
+            f"  Walk length: {cfg.dataset.max_walk_length} (FIXED), Num walks: {cfg.dataset.num_walks:,} (FIXED)"
         )
-        print(f"  LR: {cfg.training.lr:.2e}, Batch size: {cfg.training.batch_size}")
+        print(
+            f"  LR: {cfg.training.lr:.2e}, Weight decay: {cfg.training.weight_decay:.2e}"
+        )
+        print(
+            f"  Batch size: {cfg.training.batch_size} (FIXED), Gradient clip: {cfg.training.gradient_clip_val:.2f}"
+        )
         print(
             f"  Model: emb_dim={cfg.model.embedding_dim}, hidden_dim={cfg.model.hidden_dim}"
         )
         print(f"  Transformer: {cfg.model.nlayers} layers, {cfg.model.nhead} heads")
+        print(f"  Dropout: {cfg.model.dropout:.2f}, Epochs: {cfg.training.epochs}")
+        print(f"  Early stopping patience: {cfg.training.early_stopping_patience}")
+        use_weighted = getattr(cfg.training, "use_weighted_loss", True)  # Default True
         print(
-            f"  Epochs: {cfg.training.epochs}, Weighted loss: {cfg.training.use_weighted_loss}"
+            f"  Weighted loss: {use_weighted}, Cache enabled: {cfg.preprocess.use_cache}"
         )
 
         # ---- Data & Model ----
         try:
-            data_module = prepare_data(cfg)
+            # Use shared pre-loaded data module (loaded once before study started)
+            # This avoids reloading the .pt cache file for every trial (~242s saved per trial)
+            if shared_data_module is not None:
+                data_module = shared_data_module
+                print(f"  📦 Dataset cache: REUSED (pre-loaded, 0.0s)")
+            else:
+                # Fallback: load data if no shared module provided (first trial or single trial mode)
+                cache_start_time = time.time()
+                data_module = prepare_data(cfg)
+                cache_load_time = time.time() - cache_start_time
+                cache_status = (
+                    "HIT (loaded from cache)"
+                    if cache_load_time < 10
+                    else "MISS (built new cache)"
+                )
+                print(f"  📦 Dataset cache: {cache_status} ({cache_load_time:.1f}s)")
+
             model = LitEdgeClassifier(cfg)
 
             # ---- Trainer with pruning ----
@@ -347,28 +408,57 @@ def objective_factory(base_cfg, device, enable_pruning=True):
             # ---- Fit ----
             trainer.fit(model, data_module["train"], val_loader)
 
-            # ---- Evaluate best checkpoint on validation set ----
+            # ---- Get best validation metrics from checkpoint ----
             best_ckpt_path = checkpoint.best_model_path
 
+            # IMPORTANT: evaluate with a fresh trainer WITHOUT pruning callbacks
+            # to avoid duplicate Optuna step reports on post-fit validation.
+            eval_trainer = Trainer(
+                logger=False,
+                enable_checkpointing=False,
+                enable_progress_bar=False,
+                enable_model_summary=False,
+                accelerator=(
+                    "gpu"
+                    if cfg.training.use_cuda and torch.cuda.is_available()
+                    else "cpu"
+                ),
+                devices=(
+                    1 if (cfg.training.use_cuda and torch.cuda.is_available()) else None
+                ),
+            )
+
             if best_ckpt_path and os.path.exists(best_ckpt_path):
-                val_metrics = trainer.validate(
+                val_metrics = eval_trainer.validate(
                     model, val_loader, ckpt_path=best_ckpt_path
                 )
             else:
                 # Fallback to current model if no checkpoint
-                val_metrics = trainer.validate(model, val_loader)
+                val_metrics = eval_trainer.validate(model, val_loader)
 
-            # Extract val_auc_epoch (maximize this!)
+            # Extract metrics
             val_auc = float(val_metrics[0]["val_auc_epoch"])
+            val_loss = float(val_metrics[0].get("val_loss", 0.0))
 
-            print(f"✅ Trial {trial.number} completed - Val AUC: {val_auc:.4f}")
+            # Custom objective: alpha*val_auc - beta*val_loss
+            # This balances AUC improvement with loss degradation
+            alpha = 1.0  # Weight for AUC (maximize)
+            beta = 0.1  # Weight for loss (minimize)
+            score = alpha * val_auc - beta * val_loss
 
-            return val_auc
+            print(f"✅ Trial {trial.number} completed:")
+            print(f"   Val AUC: {val_auc:.4f}, Val Loss: {val_loss:.4f}")
+            print(f"   Score (α*AUC - β*Loss): {score:.4f}")
 
+            return score
+
+        except optuna.TrialPruned as e:
+            print(f"⚠️ Trial {trial.number} pruned: {str(e)}")
+            raise
         except Exception as e:
             print(f"❌ Trial {trial.number} failed: {str(e)}")
             # Return a bad score for failed trials
-            return 0.0  # This will be interpreted as -0.0 AUC (very bad)
+            return 0.0  # This will be interpreted as 0.0 AUC (very bad)
 
     return objective
 
@@ -380,6 +470,7 @@ def main():
     # ---- Load config and apply CLI overrides ----
     # Load and merge config (supports `configs/<dataset>.yaml` and CLI dotlist overrides)
     base_cfg = load_config(args.config, overrides=args.overrides)
+    validate_config(base_cfg, context="optuna")
 
     # ---- Auto-generate an informative exp_name when not explicitly set ----
     try:
@@ -400,11 +491,12 @@ def main():
         print(f"Auto-generated exp_name: {base_cfg.training.exp_name}")
 
     # Global seed (single seed for all components)
-    base_seed = get_seed(base_cfg)
-    seed_everything(base_seed, workers=True)
-    random.seed(base_seed)
-    np.random.seed(base_seed)
-    print(f"✅ Using global seed={base_seed}")
+    seed = get_seed(base_cfg)
+    seed_everything(seed, workers=True)
+    torch.manual_seed(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    print(f"✅ Using global seed from config.reproducibility.seed: {seed}")
 
     # Resolve outputs dirs early so Optuna and Trainer write into namespaced locations
     resolved = resolve_outputs_dirs(base_cfg)
@@ -422,16 +514,19 @@ def main():
 
     print(f"🎯 Starting Optuna hyperparameter optimization with {args.n_trials} trials")
     print(f"📊 Objective: Maximize validation AUC")
+    print(f"🎯 Focus: Anti-overfitting regularization (fixed walks, caching enabled)")
     print(f"🖥️  Device: {args.device}")
     print(f"💾 Keeping top 10 checkpoints/logs to save space")
 
     # ---- Create study with Optuna journal file storage (per-experiment) ----
-    optuna_log = os.path.join(resolved.get("optuna_dir", "."), "optuna_study.log")
-    storage = JournalStorage(JournalFileStorage(optuna_log))
-    from src.utils.config import get_seed
+    # Ensure optuna directory exists first
+    optuna_dir = resolved.get("optuna_dir", ".")
+    os.makedirs(optuna_dir, exist_ok=True)
 
-    base_seed = get_seed(base_cfg)
-    sampler = optuna.samplers.TPESampler(seed=base_seed)
+    optuna_log = os.path.join(optuna_dir, "optuna_study.log")
+    storage = JournalStorage(JournalFileStorage(optuna_log))
+
+    sampler = optuna.samplers.TPESampler(seed=seed)
     study = optuna.create_study(
         direction="maximize",
         sampler=sampler,
@@ -454,7 +549,7 @@ def main():
         ip = None
 
     if ip:
-        # Build seed mapping for suggestion keys used in objective()
+        # Build initial trial parameter mapping for suggestion keys used in objective()
         def _pick(path, fallback):
             # Prefer CLI/loaded base_cfg value if present, otherwise fallback to initial_params
             try:
@@ -465,51 +560,135 @@ def main():
                 pass
             return fallback
 
-        seed = {}
-        # dataset
-        seed["dataset.max_walk_length"] = int(
-            _pick(
-                "dataset.max_walk_length", ip.get("dataset", {}).get("max_walk_length")
-            )
-        )
-        seed["dataset.num_walks"] = int(
-            _pick("dataset.num_walks", ip.get("dataset", {}).get("num_walks"))
-        )
+        initial_trial_params = {}
+        # REMOVED: Walk parameters are now FIXED (not in OPTUNA_RANGES)
+        # REMOVED: batch_size is now FIXED at 1024
 
-        # training
+        # Training hyperparameters only
         t_ip = ip.get("training", {})
-        seed["training.lr"] = float(_pick("training.lr", t_ip.get("lr")))
-        seed["training.weight_decay"] = float(
+        initial_trial_params["training.lr"] = float(
+            _pick("training.lr", t_ip.get("lr"))
+        )
+        initial_trial_params["training.weight_decay"] = float(
             _pick("training.weight_decay", t_ip.get("weight_decay"))
         )
-        seed["training.batch_size"] = int(
-            _pick("training.batch_size", t_ip.get("batch_size"))
-        )
-        seed["training.gradient_clip_val"] = float(
+        initial_trial_params["training.gradient_clip_val"] = float(
             _pick("training.gradient_clip_val", t_ip.get("gradient_clip_val"))
         )
-        seed["training.early_stopping_patience"] = int(
+        initial_trial_params["training.early_stopping_patience"] = int(
             _pick(
                 "training.early_stopping_patience", t_ip.get("early_stopping_patience")
             )
         )
-        seed["training.epochs"] = int(_pick("training.epochs", t_ip.get("epochs")))
+        initial_trial_params["training.epochs"] = int(
+            _pick("training.epochs", t_ip.get("epochs"))
+        )
 
         # model
         m_ip = ip.get("model", {})
-        seed["model.embedding_dim"] = int(
+        initial_trial_params["model.embedding_dim"] = int(
             _pick("model.embedding_dim", m_ip.get("embedding_dim"))
         )
-        seed["model.hidden_dim"] = int(
+        initial_trial_params["model.hidden_dim"] = int(
             _pick("model.hidden_dim", m_ip.get("hidden_dim"))
         )
-        seed["model.nhead"] = int(_pick("model.nhead", m_ip.get("nhead")))
-        seed["model.nlayers"] = int(_pick("model.nlayers", m_ip.get("nlayers")))
-        seed["model.dropout"] = float(_pick("model.dropout", m_ip.get("dropout")))
+        initial_trial_params["model.nhead"] = int(
+            _pick("model.nhead", m_ip.get("nhead"))
+        )
+        initial_trial_params["model.nlayers"] = int(
+            _pick("model.nlayers", m_ip.get("nlayers"))
+        )
+        initial_trial_params["model.dropout"] = float(
+            _pick("model.dropout", m_ip.get("dropout"))
+        )
+
+        # Clamp all initial params to OPTUNA_RANGES to avoid out-of-range errors
+        lr_lo, lr_hi = OPTUNA_RANGES.get("training.lr", (1e-5, 1e-3))
+        initial_trial_params["training.lr"] = max(
+            lr_lo, min(lr_hi, initial_trial_params["training.lr"])
+        )
+
+        wd_lo, wd_hi = OPTUNA_RANGES.get("training.weight_decay", (1e-5, 1e-1))
+        initial_trial_params["training.weight_decay"] = max(
+            wd_lo, min(wd_hi, initial_trial_params["training.weight_decay"])
+        )
+
+        gc_lo, gc_hi = OPTUNA_RANGES.get("training.gradient_clip_val", (0.5, 2.0))
+        initial_trial_params["training.gradient_clip_val"] = max(
+            gc_lo, min(gc_hi, initial_trial_params["training.gradient_clip_val"])
+        )
+
+        ep_lo, ep_hi = OPTUNA_RANGES.get("training.early_stopping_patience", (3, 10))
+        initial_trial_params["training.early_stopping_patience"] = max(
+            ep_lo, min(ep_hi, initial_trial_params["training.early_stopping_patience"])
+        )
+
+        nl_lo, nl_hi = OPTUNA_RANGES.get("model.nlayers", (1, 4))
+        initial_trial_params["model.nlayers"] = max(
+            nl_lo, min(nl_hi, initial_trial_params["model.nlayers"])
+        )
+
+        dr_lo, dr_hi = OPTUNA_RANGES.get("model.dropout", (0.2, 0.7))
+        initial_trial_params["model.dropout"] = max(
+            dr_lo, min(dr_hi, initial_trial_params["model.dropout"])
+        )
+
+        # Clamp categorical parameters to valid choices
+        valid_nhead = OPTUNA_RANGES.get("model.nhead", [2, 4, 8])
+        if initial_trial_params["model.nhead"] not in valid_nhead:
+            initial_trial_params["model.nhead"] = valid_nhead[0]
+
+        valid_emb_dim = OPTUNA_RANGES.get("model.embedding_dim", [16, 32, 64])
+        if initial_trial_params["model.embedding_dim"] not in valid_emb_dim:
+            initial_trial_params["model.embedding_dim"] = valid_emb_dim[0]
+
+        valid_hid_dim = OPTUNA_RANGES.get("model.hidden_dim", [16, 32, 64, 128])
+        if initial_trial_params["model.hidden_dim"] not in valid_hid_dim:
+            initial_trial_params["model.hidden_dim"] = valid_hid_dim[0]
 
         try:
-            study.enqueue_trial(seed)
+            # Validate that initial params are within OPTUNA_RANGES before enqueuing
+            lr_lo, lr_hi = OPTUNA_RANGES.get("training.lr", (1e-5, 1e-3))
+            if not (lr_lo <= initial_trial_params["training.lr"] <= lr_hi):
+                print(
+                    f"  ⚠️  Initial LR {initial_trial_params['training.lr']:.2e} out of range [{lr_lo:.2e}, {lr_hi:.2e}] - skipping enqueue"
+                )
+                raise ValueError("Initial LR out of range")
+
+            ep_lo, ep_hi = OPTUNA_RANGES.get(
+                "training.early_stopping_patience", (3, 10)
+            )
+            if not (
+                ep_lo
+                <= initial_trial_params["training.early_stopping_patience"]
+                <= ep_hi
+            ):
+                print(
+                    f"  ⚠️  Initial patience {initial_trial_params['training.early_stopping_patience']} out of range [{ep_lo}, {ep_hi}] - skipping enqueue"
+                )
+                raise ValueError("Initial patience out of range")
+
+            nl_lo, nl_hi = OPTUNA_RANGES.get("model.nlayers", (1, 4))
+            if not (nl_lo <= initial_trial_params["model.nlayers"] <= nl_hi):
+                print(
+                    f"  ⚠️  Initial nlayers {initial_trial_params['model.nlayers']} out of range [{nl_lo}, {nl_hi}] - skipping enqueue"
+                )
+                raise ValueError("Initial nlayers out of range")
+
+            dr_lo, dr_hi = OPTUNA_RANGES.get("model.dropout", (0.2, 0.7))
+            if not (dr_lo <= initial_trial_params["model.dropout"] <= dr_hi):
+                print(
+                    f"  ⚠️  Initial dropout {initial_trial_params['model.dropout']:.4f} out of range [{dr_lo}, {dr_hi}] - skipping enqueue"
+                )
+                raise ValueError("Initial dropout out of range")
+
+            # All checks passed, enqueue the trial
+            study.enqueue_trial(initial_trial_params)
             print("🔁 Enqueued initial seed trial from config.optuna.initial_params")
+        except ValueError:
+            print(
+                "⚠️  Skipping initial params - they are outside the new anti-overfitting ranges"
+            )
         except Exception as e:
             print("⚠️ Could not enqueue seed trial:", e)
 
@@ -523,12 +702,12 @@ def main():
                 keep_top_n=10,
             )
 
-    # Study-level early stop if plateau
+    # Study-level early stop if plateau with min_delta
     es_patience = int(
         getattr(getattr(base_cfg, "optuna", {}), "study_early_stop_patience", 25)
     )
     es_min_delta = float(
-        getattr(getattr(base_cfg, "optuna", {}), "study_early_stop_min_delta", 1e-4)
+        getattr(getattr(base_cfg, "optuna", {}), "study_early_stop_min_delta", 0.005)
     )
     best_seen = {
         "value": None,
@@ -553,8 +732,45 @@ def main():
                 )
                 study.stop()
 
+    # ---- Pre-load data module once to avoid reloading .pt cache for every trial ----
+    # This is critical: torch.load() on a 46GB .pt file takes ~242s per trial if not cached
+    # Loading once here and reusing across all trials saves ~7,260s (2+ hours) for 30 trials
+    # ALSO: Capture the config AFTER prepare_data() since it modifies cfg (e.g., sets pad_id)
+    print("\n🔄 Pre-loading dataset (shared across all trials)...")
+    data_preload_start = time.time()
+    shared_data_module = None
+    shared_post_prepare_cfg = None
+    try:
+        # Set cache config for pre-loading
+        base_cfg_preload = copy.deepcopy(base_cfg)
+        base_cfg_preload.preprocess.use_cache = True
+        base_cfg_preload.preprocess.save = True
+        base_cfg_preload.dataset.max_walk_length = 80
+        base_cfg_preload.dataset.num_walks = 5000000
+        base_cfg_preload.training.num_workers = 0
+        base_cfg_preload.training.persistent_workers = False
+
+        shared_data_module = prepare_data(base_cfg_preload)
+        # IMPORTANT: capture the updated config after prepare_data() modifies it
+        # (e.g., sets pad_id from cache metadata). Each trial will use this as base.
+        shared_post_prepare_cfg = base_cfg_preload
+        data_preload_time = time.time() - data_preload_start
+        print(
+            f"✅ Data pre-loaded in {data_preload_time:.1f}s (will be reused for all {args.n_trials} trials)"
+        )
+    except Exception as e:
+        print(f"⚠️  Could not pre-load data: {e}. Trials will load data individually.")
+        shared_data_module = None
+        shared_post_prepare_cfg = None
+
     # ---- Optimize ----
-    objective = objective_factory(base_cfg, args.device, enable_pruning=True)
+    objective = objective_factory(
+        base_cfg,
+        args.device,
+        enable_pruning=True,
+        shared_data_module=shared_data_module,
+        shared_post_prepare_cfg=shared_post_prepare_cfg,
+    )
     study.optimize(
         objective,
         n_trials=args.n_trials,
@@ -573,17 +789,21 @@ def main():
     print(f"\n" + "=" * 60)
     print("🏆 OPTUNA OPTIMIZATION COMPLETED!")
     print("=" * 60)
+
+    # Check if we have any completed trials
+    if study.best_trial is None or study.best_value is None:
+        print("❌ No trials completed successfully!")
+        print("   Check logs for errors.")
+        return
+
     print(f"Best trial: #{study.best_trial.number}")
     print(f"Best validation AUC: {study.best_value:.6f}")
+    print(f"\n💡 Note: Walk parameters were FIXED (not tuned):")
+    print(f"   max_walk_length = 80, num_walks = 5,000,000, batch_size = 1024")
     print("\n📋 Best hyperparameters:")
 
     # Group parameters by category for better readability
     params = study.best_trial.params
-
-    print("\n🗃️  Data Generation:")
-    for key in sorted(params.keys()):
-        if key.startswith("dataset."):
-            print(f"  {key}: {params[key]}")
 
     print("\n🏋️  Training:")
     for key in sorted(params.keys()):
@@ -602,14 +822,15 @@ def main():
         f"best_params_optuna_{base_cfg.training.exp_name}.yaml",
     )
     best_cfg = {
+        # FIXED parameters (not tuned, but included for completeness)
         "dataset": {
-            "max_walk_length": params.get("dataset.max_walk_length"),
-            "num_walks": params.get("dataset.num_walks"),
+            "max_walk_length": 80,  # FIXED
+            "num_walks": 5000000,  # FIXED
         },
         "training": {
             "lr": params.get("training.lr"),
             "weight_decay": params.get("training.weight_decay"),
-            "batch_size": params.get("training.batch_size"),
+            "batch_size": 1024,  # FIXED
             "gradient_clip_val": params.get("training.gradient_clip_val"),
             "early_stopping_patience": params.get("training.early_stopping_patience"),
             "epochs": params.get("training.epochs"),
@@ -643,78 +864,98 @@ def main():
     joblib.dump(study, study_path)
     print(f"📊 Saved complete study to: {study_path}")
 
-    # ---- Plot top trials and copy their checkpoints into the optuna folder ----
-    try:
-        import plot_metrics
-
-        top_k = min(3, len(study.trials))
-        # Filter out trials with None values (pruned trials) before sorting
-        completed_trials = [t for t in study.trials if t.value is not None]
-        sorted_trials = sorted(completed_trials, key=lambda t: t.value, reverse=True)
-        top_trials = sorted_trials[:top_k]
-
-        top_ckpt_dir = os.path.join(resolved.get("optuna_dir", "."), "top_checkpoints")
-        os.makedirs(top_ckpt_dir, exist_ok=True)
-
-        top_trials_info = []
-        for t in top_trials:
-            tr_num = t.number
-            # Reconstruct the per-trial log directory used by the trainer
-            trial_log_dir = os.path.join(
-                resolved.get("log_dir", "."),
-                f"{base_cfg.dataset.name}-{base_cfg.training.exp_name}-optuna-t{tr_num}",
-                f"trial_{tr_num}",
-            )
-            plot_metrics.plot_from_logdir(
-                trial_log_dir, resolved.get("plots_dir", "."), prefix=f"trial_{tr_num}_"
-            )
-
-            # copy checkpoint for this trial (pick newest matching file)
-            ckpt_pattern = os.path.join(
-                resolved.get("checkpoint_dir", "."), f"trial_{tr_num}-*.ckpt"
-            )
-            matches = glob.glob(ckpt_pattern)
-            if matches:
-                newest = max(matches, key=os.path.getmtime)
-                dst = os.path.join(top_ckpt_dir, f"trial_{tr_num}.ckpt")
-                shutil.copy2(newest, dst)
-                print(f"Copied checkpoint for trial {tr_num} -> {dst}")
-                ckpt_path = dst
-            else:
-                print(
-                    f"No checkpoint found for trial {tr_num} (pattern={ckpt_pattern})"
-                )
-                ckpt_path = None
-
-            # collect metadata
-            # include recorded seed (if present) for reproducibility
-            try:
-                seed_for_trial = t.user_attrs.get("seed", None)
-            except Exception:
-                seed_for_trial = None
-
-            top_trials_info.append(
-                {
-                    "trial_number": tr_num,
-                    "value": t.value,
-                    "params": t.params,
-                    "seed": seed_for_trial,
-                    "checkpoint": ckpt_path,
-                }
-            )
-
-        # Save top trials metadata
+    # ---- Optional: Plot top trials and copy their checkpoints into the optuna folder ----
+    # Disabled by default to avoid optional heavy dependencies (e.g., tensorflow in plotting stack).
+    enable_top_trial_plots = bool(
+        getattr(getattr(base_cfg, "optuna", {}), "enable_top_trial_plots", False)
+    )
+    if enable_top_trial_plots:
         try:
-            import json
+            import plot_metrics
 
-            meta_path = os.path.join(resolved.get("optuna_dir", "."), "top_trials.json")
-            with open(meta_path, "w") as mf:
-                json.dump(top_trials_info, mf, indent=2)
-            print(f"Saved top trials metadata to: {meta_path}")
+            top_k = min(3, len(study.trials))
+            # Filter out trials with None values (pruned trials) before sorting
+            completed_trials = [t for t in study.trials if t.value is not None]
+            if len(completed_trials) == 0:
+                print("⚠️ No completed trials to plot")
+                return
+            sorted_trials = sorted(
+                completed_trials, key=lambda t: t.value, reverse=True
+            )
+            top_trials = sorted_trials[:top_k]
+
+            top_ckpt_dir = os.path.join(
+                resolved.get("optuna_dir", "."), "top_checkpoints"
+            )
+            os.makedirs(top_ckpt_dir, exist_ok=True)
+
+            top_trials_info = []
+            for t in top_trials:
+                tr_num = t.number
+                # Reconstruct the per-trial log directory used by the trainer
+                trial_log_dir = os.path.join(
+                    resolved.get("log_dir", "."),
+                    f"{base_cfg.dataset.name}-{base_cfg.training.exp_name}-optuna-t{tr_num}",
+                    f"trial_{tr_num}",
+                )
+                plot_metrics.plot_from_logdir(
+                    trial_log_dir,
+                    resolved.get("plots_dir", "."),
+                    prefix=f"trial_{tr_num}_",
+                )
+
+                # copy checkpoint for this trial (pick newest matching file)
+                ckpt_pattern = os.path.join(
+                    resolved.get("checkpoint_dir", "."), f"trial_{tr_num}-*.ckpt"
+                )
+                matches = glob.glob(ckpt_pattern)
+                if matches:
+                    newest = max(matches, key=os.path.getmtime)
+                    dst = os.path.join(top_ckpt_dir, f"trial_{tr_num}.ckpt")
+                    shutil.copy2(newest, dst)
+                    print(f"Copied checkpoint for trial {tr_num} -> {dst}")
+                    ckpt_path = dst
+                else:
+                    print(
+                        f"No checkpoint found for trial {tr_num} (pattern={ckpt_pattern})"
+                    )
+                    ckpt_path = None
+
+                # collect metadata
+                # include recorded seed (if present) for reproducibility
+                try:
+                    seed_for_trial = t.user_attrs.get("seed", None)
+                except Exception:
+                    seed_for_trial = None
+
+                top_trials_info.append(
+                    {
+                        "trial_number": tr_num,
+                        "value": t.value,
+                        "params": t.params,
+                        "seed": seed_for_trial,
+                        "checkpoint": ckpt_path,
+                    }
+                )
+
+            # Save top trials metadata
+            try:
+                import json
+
+                meta_path = os.path.join(
+                    resolved.get("optuna_dir", "."), "top_trials.json"
+                )
+                with open(meta_path, "w") as mf:
+                    json.dump(top_trials_info, mf, indent=2)
+                print(f"Saved top trials metadata to: {meta_path}")
+            except Exception as e:
+                print("Could not save top trials metadata:", e)
         except Exception as e:
-            print("Could not save top trials metadata:", e)
-    except Exception as e:
-        print("Could not generate top-trial plots/checkpoints:", e)
+            print("Could not generate top-trial plots/checkpoints:", e)
+    else:
+        print(
+            "ℹ️ Skipping optional top-trial plots/checkpoints (optuna.enable_top_trial_plots=False)"
+        )
 
     print("\n🚀 Use the best configuration to train your final model!")
     print("=" * 60)

@@ -5,13 +5,12 @@ Comprehensive data verification script to check if data is loaded and represente
 
 import torch
 import yaml
-import json
 import os
 import random
-from collections import Counter, defaultdict
+from collections import Counter
 from omegaconf import OmegaConf
-from src.data.prepare_data import prepare_data, SplitID
-from src.data.tokenizer import Tokenizer
+from src.data.prepare_data import prepare_data
+from src.data.dataset_cache import load_dataset_cache, tokenizer_from_cache
 from src.data.datasets import get_loader
 
 
@@ -20,6 +19,12 @@ def load_config():
     with open("config.yaml", "r") as f:
         cfg = yaml.safe_load(f)
     return OmegaConf.create(cfg)
+
+
+def load_cache(cfg):
+    """Load dataset cache (only supported format)."""
+    cache_path = os.path.join(cfg.dataset.data_dir, "dataset_cache.pt")
+    return load_dataset_cache(cache_path)
 
 
 def verify_raw_data(cfg):
@@ -65,10 +70,8 @@ def verify_walks(cfg):
     print(f"\n🚶 WALK VERIFICATION")
     print("=" * 60)
 
-    # Load walks
-    walks_path = os.path.join(cfg.dataset.data_dir, cfg.dataset.walks_file)
-    with open(walks_path, "r") as f:
-        walks = json.load(f)
+    cache_data = load_cache(cfg)
+    walks = cache_data["walks"]
 
     print(f"\n📊 Walk Statistics:")
     print(f"  Total walks: {len(walks):,}")
@@ -109,8 +112,8 @@ def verify_tokenizer(cfg, walks, edges):
     print(f"\n🔤 TOKENIZER VERIFICATION")
     print("=" * 60)
 
-    tokenizer_path = os.path.join(cfg.dataset.data_dir, cfg.dataset.tokenizer_file)
-    tokenizer = Tokenizer.load(tokenizer_path)
+    cache_data = load_cache(cfg)
+    tokenizer = tokenizer_from_cache(cache_data)
 
     print(f"\n📊 Tokenizer Statistics:")
     print(f"  Vocabulary size: {tokenizer.vocab_size:,}")
@@ -165,9 +168,8 @@ def verify_data_splits(cfg):
     print(f"\n📊 DATA SPLITS VERIFICATION")
     print("=" * 60)
 
-    splits_path = os.path.join(cfg.dataset.data_dir, cfg.dataset.edge_split_file)
-    with open(splits_path, "r") as f:
-        splits = json.load(f)
+    cache_data = load_cache(cfg)
+    splits = {k: list(v) for k, v in cache_data["splits"].items()}
 
     print(f"\n📊 Split Statistics:")
     total_edges = sum(len(splits[split]) for split in splits)
@@ -218,70 +220,51 @@ def verify_encoded_data(cfg):
     print(f"\n🔢 ENCODED DATA VERIFICATION")
     print("=" * 60)
 
-    # Load encoded data
-    encoded_path = os.path.join(cfg.dataset.data_dir, cfg.dataset.encoded_file)
-    train_pack, val_pack, test_pack = torch.load(encoded_path)
-
-    # Load meta information
-    meta_path = os.path.join(cfg.dataset.data_dir, cfg.dataset.meta_file)
-    with open(meta_path, "r") as f:
-        meta = json.load(f)
+    cache_data = load_cache(cfg)
+    encoded = cache_data["encoded"]
+    meta = cache_data["metadata"]
 
     print(f"\n📊 Meta Information:")
     for key, value in meta.items():
         print(f"  {key}: {value}")
 
-    # Verify each stage
-    stages = [("Train", train_pack), ("Validation", val_pack), ("Test", test_pack)]
+    input_ids = encoded["input_ids"]
+    edge_split_mask = encoded["edge_split_mask"]
+    attention_mask = encoded["attention_base"]
 
-    for stage_name, (input_ids, labels, attention_mask) in stages:
-        print(f"\n🎯 {stage_name} Stage:")
-        print(f"  Input IDs shape: {input_ids.shape}")
-        print(f"  Labels shape: {labels.shape}")
-        print(f"  Attention mask shape: {attention_mask.shape}")
+    print(f"\n🎯 Encoded Base Tensors:")
+    print(f"  Input IDs shape: {input_ids.shape}")
+    print(f"  Edge split mask shape: {edge_split_mask.shape}")
+    print(f"  Attention mask shape: {attention_mask.shape}")
 
-        # Check data types
-        print(f"  Input IDs dtype: {input_ids.dtype}")
-        print(f"  Labels dtype: {labels.dtype}")
-        print(f"  Attention mask dtype: {attention_mask.dtype}")
+    print(f"  Input IDs dtype: {input_ids.dtype}")
+    print(f"  Edge split mask dtype: {edge_split_mask.dtype}")
+    print(f"  Attention mask dtype: {attention_mask.dtype}")
 
-        # Check value ranges
-        print(f"  Input IDs range: [{input_ids.min()}, {input_ids.max()}]")
-        print(f"  Labels range: [{labels.min()}, {labels.max()}]")
-        print(
-            f"  Attention mask range: [{attention_mask.min()}, {attention_mask.max()}]"
-        )
+    print(f"  Input IDs range: [{input_ids.min()}, {input_ids.max()}]")
+    print(
+        f"  Edge split mask range: [{edge_split_mask.min()}, {edge_split_mask.max()}]"
+    )
+    print(f"  Attention mask range: [{attention_mask.min()}, {attention_mask.max()}]")
 
-        # Check padding
-        pad_id = meta["pad_id"]
-        ignore_index = meta["ignore_index"]
+    pad_id = meta["pad_id"]
+    padded_positions = (input_ids == pad_id).sum()
+    attended_positions = attention_mask.sum()
 
-        padded_positions = (input_ids == pad_id).sum()
-        ignored_labels = (labels == ignore_index).sum()
-        attended_positions = attention_mask.sum()
+    print(
+        f"  Padded positions: {padded_positions} / {input_ids.numel()} ({100*padded_positions/input_ids.numel():.1f}%)"
+    )
+    print(
+        f"  Attended positions: {attended_positions} / {attention_mask.numel()} ({100*attended_positions/attention_mask.numel():.1f}%)"
+    )
 
-        print(
-            f"  Padded positions: {padded_positions} / {input_ids.numel()} ({100*padded_positions/input_ids.numel():.1f}%)"
-        )
-        print(
-            f"  Ignored labels: {ignored_labels} / {labels.numel()} ({100*ignored_labels/labels.numel():.1f}%)"
-        )
-        print(
-            f"  Attended positions: {attended_positions} / {attention_mask.numel()} ({100*attended_positions/attention_mask.numel():.1f}%)"
-        )
-
-        # Check sample sequence
-        sample_idx = 0
-        sample_input = input_ids[sample_idx]
-        sample_labels = labels[sample_idx]
-        sample_mask = attention_mask[sample_idx]
-
-        # Find first non-padded sequence
-        seq_len = sample_mask.sum().item()
-        print(f"  Sample sequence length: {seq_len}")
-        print(f"  Sample input IDs: {sample_input[:min(10, seq_len)].tolist()}...")
-        print(f"  Sample labels: {sample_labels[:min(10, seq_len)].tolist()}...")
-        print(f"  Sample attention: {sample_mask[:min(10, seq_len)].tolist()}...")
+    sample_idx = 0
+    sample_input = input_ids[sample_idx]
+    sample_mask = attention_mask[sample_idx]
+    seq_len = sample_mask.sum().item()
+    print(f"  Sample sequence length: {seq_len}")
+    print(f"  Sample input IDs: {sample_input[:min(10, seq_len)].tolist()}...")
+    print(f"  Sample attention: {sample_mask[:min(10, seq_len)].tolist()}...")
 
 
 def verify_dataloaders(cfg):
@@ -304,7 +287,10 @@ def verify_dataloaders(cfg):
     print(f"\n🧪 Batch Loading Test:")
     for stage_name, dataloader in dataloaders.items():
         batch = next(iter(dataloader))
-        input_ids, labels, attention_mask = batch
+        if len(batch) == 4:
+            input_ids, labels, attention_mask, _ = batch
+        else:
+            input_ids, labels, attention_mask = batch
 
         print(f"  {stage_name.capitalize()} batch:")
         print(f"    Input IDs: {input_ids.shape} {input_ids.dtype}")
@@ -334,15 +320,13 @@ def main():
 
     cfg = load_config()
 
-    # Load meta information for model config
-    meta_path = os.path.join(cfg.dataset.data_dir, cfg.dataset.meta_file)
-    if os.path.exists(meta_path):
-        with open(meta_path, "r") as f:
-            meta = json.load(f)
-        cfg.model.vocab_size = meta["vocab_size"]
-        cfg.model.num_classes = meta["num_classes"]
-        cfg.model.pad_id = meta["pad_id"]
-        cfg.model.ignore_index = meta["ignore_index"]
+    # Load meta information for model config from dataset cache
+    cache_data = load_cache(cfg)
+    meta = cache_data["metadata"]
+    cfg.model.vocab_size = meta["vocab_size"]
+    cfg.model.num_classes = meta["num_classes"]
+    cfg.model.pad_id = meta["pad_id"]
+    cfg.model.ignore_index = meta["ignore_index"]
 
     try:
         # Run all verifications

@@ -2,11 +2,6 @@ dataset:
     name: toy
     data_dir: data/toy
     edge_list_file: out.toy
-    walks_file: walks.json
-    tokenizer_file: tokenizer.json
-    encoded_file: encoded.pt
-    edge_split_file: splits.json
-    meta_file: meta.json
     max_walk_length: 5
     num_walks: 10000
     train_ratio: 0.7
@@ -37,7 +32,7 @@ training:
 
 preprocess:
     save: true
-    use_cache: true
+    use_cache: true # Load from cache if available
 
 paths:
     base_outputs_dir: outputs

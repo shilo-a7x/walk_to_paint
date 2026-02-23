@@ -8,8 +8,8 @@ dataset:
     remove_self_loops: true
     multiedge_handling: keep
     # Best Optuna hyperparams (trial #31, AUC=0.9133)
-    max_walk_length: 79
-    num_walks: 4966522
+    max_walk_length: 80 # was 79
+    num_walks: 5000000 # was 4966522
 
 model:
     embedding_dim: 32
@@ -19,25 +19,26 @@ model:
     dropout: 0.000861
 
 training:
-    batch_size: 256
-    epochs: 25
+    batch_size: 1024 # was 256
+    epochs: 50 # was 25
     lr: 0.002936
     weight_decay: 0.000293
     gradient_clip_val: 0.1072
-    early_stopping_patience: 9
+    early_stopping_patience: 15 # was 9
 
 optuna:
+    # Keep initial_params aligned with the dataset/model/training values above
     initial_params:
         dataset:
-            max_walk_length: 79
-            num_walks: 4966522
+            max_walk_length: 80
+            num_walks: 5000000
         training:
             lr: 0.002936
             weight_decay: 0.000293
-            batch_size: 256
+            batch_size: 1024
             gradient_clip_val: 0.1072
-            early_stopping_patience: 9
-            epochs: 25
+            early_stopping_patience: 15
+            epochs: 50
         model:
             embedding_dim: 32
             hidden_dim: 32

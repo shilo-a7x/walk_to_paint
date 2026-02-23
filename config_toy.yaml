@@ -1,36 +1,47 @@
 dataset:
+    binary: true
     data_dir: data/toy
     edge_list_file: out.toy
-    edge_split_file: splits.json
-    encoded_file: encoded.pt
-    mask_ratio: 0.1
+    mask_ratio: 0.32
     max_walk_length: 5
-    meta_file: meta.json
+    multiedge_handling: keep
     name: toy
     num_walks: 10000
-    tokenizer_file: tokenizer.json
-    train_ratio: 0.7
+    remove_self_loops: true
+    test_ratio: 0.1
+    train_ratio: 0.48
     val_ratio: 0.1
-    walks_file: walks.json
+float32_precision: medium
 model:
-    dropout: 0.3
-    embedding_dim: 32
+    dropout: 0.5
+    embedding_dim: 16
     hidden_dim: 16
-    nhead: 4
-    nlayers: 2
+    nhead: 2
+    nlayers: 1
+paths:
+    append_timestamp: true
+    base_outputs_dir: outputs
+    use_dataset_outputs: true
 preprocess:
+    num_workers: 8
     save: true
     use_cache: true
+reproducibility:
+    seed: 42
 training:
-    batch_size: 32
+    batch_size: 2
     checkpoint_dir: checkpoints/
     early_stopping_patience: 10
     epochs: 10
     eval_only: false
     exp_name: walk_to_paint_experiment
-    gradient_clip_val: 1.0
+    gradient_clip_val: 0.5
     log_dir: logs/
-    lr: 1e-3
+    lr: 0.001
+    num_workers: 16
+    persistent_workers: true
+    pin_memory: true
+    prefetch_factor: 2
     resume_from_checkpoint: null
     use_cuda: true
-    weight_decay: 1e-2
+    weight_decay: 0.001

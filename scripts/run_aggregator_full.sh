@@ -18,18 +18,14 @@ RUN_ID="aggregator_run_${TIMESTAMP}"
 
 mkdir -p "${FEATURES_DIR}" "${RESULTS_DIR}" "${LOGS_DIR}"
 
-# Transformer checkpoint paths (from 20251224 runs)
+# Transformer checkpoint paths (latest runs, best epoch=00)
 declare -A TRANSFORMER_CKPTS=(
-    ["epinions"]="outputs/epinions/epinions-run_20251224-214709/checkpoints/epinions-epinions-run-epoch=15-val_loss=1.25.ckpt"
-    ["slashdot090221"]="outputs/slashdot090221/slashdot090221-run_20251224-214709/checkpoints/slashdot090221-slashdot090221-run-epoch=06-val_loss=2.22.ckpt"
-    ["wiki-rfa"]="outputs/wiki-rfa/wiki-rfa-run_20251225-*/checkpoints/wiki-rfa-wiki-rfa-run-epoch=*.ckpt"
+    ["epinions"]="outputs/epinions/epinions-run_20260208-145126/checkpoints/epinions-epinions-run-epoch=00-val_loss=0.59.ckpt"
+    ["slashdot090221"]="outputs/slashdot090221/slashdot090221-run_20260208-145128/checkpoints/slashdot090221-slashdot090221-run-epoch=00-val_loss=0.60.ckpt"
+    ["wiki-rfa"]="outputs/wiki-rfa/wiki-rfa-run_20260208-145124/checkpoints/wiki-rfa-wiki-rfa-run-epoch=00-val_loss=1.30.ckpt"
 )
 
-# Transformer metrics (from eval-only runs)
-# Data gathered from retrain logs:
-#   epinions: val=0.8933, test=0.8852 (from conversation history)
-#   slashdot: val_best=0.786 (epoch 6), test=0.8029
-#   wiki-rfa: val_best=0.809, test=0.8198 (binary mode retrain)
+# Transformer metrics (optional, for comparison in summary)
 declare -A TRANSFORMER_VAL_AUC=(
     ["epinions"]="0.8933"
     ["slashdot090221"]="0.7860"

@@ -1,4 +1,5 @@
 import json
+import numpy as np
 
 
 class Tokenizer:
@@ -18,11 +19,33 @@ class Tokenizer:
         }
         self.id2token = {v: k for k, v in self.token2id.items()}
 
+        # Cache sets for fast lookups
+        self._edge_tokens = set()
+        self._node_tokens = set()
+        self._token_to_node_id = {}
+        self._token_to_edge_label = {}
+
     def add_token(self, token):
         if token not in self.token2id:
             idx = len(self.token2id)
             self.token2id[token] = idx
             self.id2token[idx] = token
+
+            # Update cached lookup structures
+            if token.startswith(self.EDGE_PREFIX):
+                self._edge_tokens.add(token)
+                try:
+                    label = int(token.split(self.DELIMITER, 1)[1])
+                    self._token_to_edge_label[token] = label
+                except (IndexError, ValueError):
+                    pass
+            elif token.startswith(self.NODE_PREFIX):
+                self._node_tokens.add(token)
+                try:
+                    node_id = int(token.split(self.DELIMITER, 1)[1])
+                    self._token_to_node_id[token] = node_id
+                except (IndexError, ValueError):
+                    pass
 
     def fit(self, walks, edges=None):
         for walk in walks:
@@ -60,9 +83,19 @@ class Tokenizer:
         return self.id2edge_label.get(class_id, self.UNK_LABEL)
 
     def encode(self, sequence):
+        """Optimized encoding using direct dictionary access"""
         if isinstance(sequence, str):
-            sequence = [sequence]
-        return [self.token2id.get(token, self.UNK_ID) for token in sequence]
+            return [self.token2id.get(sequence, self.UNK_ID)]
+        # Fast batch encoding
+        unk_id = self.UNK_ID
+        token2id = self.token2id
+        return [token2id.get(token, unk_id) for token in sequence]
+
+    def encode_batch(self, sequences):
+        """Vectorized batch encoding for maximum performance"""
+        unk_id = self.UNK_ID
+        token2id = self.token2id
+        return [[token2id.get(token, unk_id) for token in seq] for seq in sequences]
 
     def decode(self, ids):
         if isinstance(ids, int):
@@ -85,6 +118,28 @@ class Tokenizer:
         tok.edge_label2id = data.get("edge_label2id", {})
         tok.id2edge_label = {v: k for k, v in tok.edge_label2id.items()}
 
+        # Rebuild cached lookup structures
+        tok._edge_tokens = set()
+        tok._node_tokens = set()
+        tok._token_to_node_id = {}
+        tok._token_to_edge_label = {}
+
+        for token in tok.token2id.keys():
+            if token.startswith(tok.EDGE_PREFIX):
+                tok._edge_tokens.add(token)
+                try:
+                    label = int(token.split(tok.DELIMITER, 1)[1])
+                    tok._token_to_edge_label[token] = label
+                except (IndexError, ValueError):
+                    pass
+            elif token.startswith(tok.NODE_PREFIX):
+                tok._node_tokens.add(token)
+                try:
+                    node_id = int(token.split(tok.DELIMITER, 1)[1])
+                    tok._token_to_node_id[token] = node_id
+                except (IndexError, ValueError):
+                    pass
+
         return tok
 
     def _token_or_id_to_str(self, token_or_id) -> str:
@@ -93,28 +148,32 @@ class Tokenizer:
         return self.id2token.get(token_or_id, "")
 
     def is_edge(self, token_or_id):
-        tok = self._token_or_id_to_str(token_or_id)
-        return tok.startswith(self.EDGE_PREFIX)
+        """Optimized edge checking using cached set"""
+        if isinstance(token_or_id, str):
+            return token_or_id in self._edge_tokens
+        tok = self.id2token.get(token_or_id, "")
+        return tok in self._edge_tokens
 
     def is_node(self, token_or_id):
-        tok = self._token_or_id_to_str(token_or_id)
-        return tok.startswith(self.NODE_PREFIX)
+        """Optimized node checking using cached set"""
+        if isinstance(token_or_id, str):
+            return token_or_id in self._node_tokens
+        tok = self.id2token.get(token_or_id, "")
+        return tok in self._node_tokens
 
     def parse_node(self, token_or_id) -> int:
-        tok = self._token_or_id_to_str(token_or_id)
-        return (
-            int(tok.split(self.DELIMITER, 1)[1])
-            if tok.startswith(self.NODE_PREFIX)
-            else None
-        )
+        """Optimized node parsing using cached mapping"""
+        if isinstance(token_or_id, str):
+            return self._token_to_node_id.get(token_or_id, None)
+        tok = self.id2token.get(token_or_id, "")
+        return self._token_to_node_id.get(tok, None)
 
     def parse_edge_label(self, token_or_id) -> int:
-        tok = self._token_or_id_to_str(token_or_id)
-        return (
-            int(tok.split(self.DELIMITER, 1)[1])
-            if tok.startswith(self.EDGE_PREFIX)
-            else None
-        )
+        """Optimized edge label parsing using cached mapping"""
+        if isinstance(token_or_id, str):
+            return self._token_to_edge_label.get(token_or_id, None)
+        tok = self.id2token.get(token_or_id, "")
+        return self._token_to_edge_label.get(tok, None)
 
     @property
     def PAD_ID(self):

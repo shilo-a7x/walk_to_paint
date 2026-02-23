@@ -6,11 +6,6 @@ dataset:
     name: bitcoin-alpha-binary
     data_dir: data/bitcoin-alpha-binary
     edge_list_file: soc-sign-bitcoinalpha-binary.csv
-    walks_file: walks.json
-    tokenizer_file: tokenizer.json
-    encoded_file: encoded.pt
-    edge_split_file: splits.json
-    meta_file: meta.json
     max_walk_length: 83
     num_walks: 219589
     train_ratio: 0.48

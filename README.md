@@ -114,6 +114,15 @@ python run.py --config config.yaml dataset.name=toy
 python run.py --config config.yaml dataset.name=bitcoin-alpha-binary training.epochs=30 training.lr=5e-4
 ```
 
+For faster baseline training (no per-epoch prediction saving / no per-epoch test loop), keep:
+
+```bash
+python run.py --config config.yaml \
+    dataset.name=wiki-rfa \
+    training.callbacks.enable_prediction_saver=false \
+    training.callbacks.enable_per_epoch_test_runner=false
+```
+
 #### Hyperparameter Optimization with Optuna
 
 Run hyperparameter search using Optuna:
@@ -133,6 +142,7 @@ python extract_trials.py
 ```
 
 **Optuna Features:**
+
 - Pruning callback for early stopping of unpromising trials
 - Journal-based storage for persistence
 - Automatic checkpoint management
@@ -186,12 +196,14 @@ outputs/
 ```
 
 **Benefits:**
+
 - No accidental overwrites between experiments
 - Easy comparison of results across datasets
 - Organized storage for hyperparameter search results
 - Optional timestamp suffix for multiple runs
 
 **Control timestamp behavior:**
+
 ```yaml
 paths:
     append_timestamp: false  # For deterministic folder names
@@ -209,7 +221,38 @@ python plot_metrics.py
 python extract_optuna_results.py --study-dir outputs/<dataset>/<exp>/optuna/
 ```
 
-### 9. Adding a New Dataset
+### 9. Post-hoc pipeline (predictions / triplets / heatmaps / aggregator)
+
+Run analysis after training from a chosen checkpoint (`best`, `last`, or custom path):
+
+```bash
+# Best checkpoint inferred from checkpoint filenames/metrics
+python run_posthoc.py \
+    --config config.yaml \
+    --exp-dir outputs/wiki-rfa/<exp_name_timestamp> \
+    --checkpoint-choice best
+
+# Last checkpoint
+python run_posthoc.py \
+    --config config.yaml \
+    --exp-dir outputs/wiki-rfa/<exp_name_timestamp> \
+    --checkpoint-choice last
+
+# Custom checkpoint path
+python run_posthoc.py \
+    --config config.yaml \
+    --exp-dir outputs/wiki-rfa/<exp_name_timestamp> \
+    --checkpoint-choice other \
+    --checkpoint-path outputs/wiki-rfa/<exp_name_timestamp>/checkpoints/<file>.ckpt
+```
+
+Optional controls:
+
+- `--artifacts predictions,triplets,heatmaps,aggregator`
+- `--splits train,val,test`
+- `--agg-models logistic,xgboost`
+
+### 10. Adding a New Dataset
 
 1. Add a loader in `src/data/datasets.py`:
 
@@ -231,7 +274,7 @@ DATASET_LOADERS = {
 }
 ```
 
-2. Create a config file `configs/new_dataset.yaml`:
+1. Create a config file `configs/new_dataset.yaml`:
 
 ```yaml
 dataset:
@@ -240,7 +283,7 @@ dataset:
     # ... dataset-specific parameters ...
 ```
 
-3. Run:
+1. Run:
 
 ```bash
 python run.py --config config.yaml dataset.name=new_dataset
@@ -267,11 +310,11 @@ The project ensures reproducible results through:
 
 The model is evaluated using:
 
--   **Accuracy**: Overall classification accuracy
--   **F1 Score (macro)**: Macro-averaged F1 across classes
--   **AUC-ROC**: Area under the ROC curve (binary/multiclass)
--   **Confusion Matrix**: Per-class performance visualization
--   **Loss**: Cross-entropy loss on masked edge predictions
+- **Accuracy**: Overall classification accuracy
+- **F1 Score (macro)**: Macro-averaged F1 across classes
+- **AUC-ROC**: Area under the ROC curve (binary/multiclass)
+- **Confusion Matrix**: Per-class performance visualization
+- **Loss**: Cross-entropy loss on masked edge predictions
 
 Metrics are logged to TensorBoard and tracked throughout training.
 
@@ -281,15 +324,16 @@ Metrics are logged to TensorBoard and tracked throughout training.
 
 Core dependencies:
 
--   **PyTorch**: Deep learning framework
--   **PyTorch Lightning**: Training loop management
--   **OmegaConf**: Hierarchical configuration management
--   **Optuna**: Hyperparameter optimization
--   **NetworkX**: Graph operations and random walk generation
--   **scikit-learn**: Metrics and data splitting
--   **TensorBoard**: Training visualization
+- **PyTorch**: Deep learning framework
+- **PyTorch Lightning**: Training loop management
+- **OmegaConf**: Hierarchical configuration management
+- **Optuna**: Hyperparameter optimization
+- **NetworkX**: Graph operations and random walk generation
+- **scikit-learn**: Metrics and data splitting
+- **TensorBoard**: Training visualization
 
 Install all dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
@@ -299,12 +343,14 @@ pip install -r requirements.txt
 ## 🧠 Technical Details
 
 ### Model Architecture
--   **Input**: Padded sequences of tokenized random walks
--   **Masking**: Only edge tokens are masked (not node tokens)
--   **Output**: Per-token predictions over edge label space
--   **Loss**: Computed only on masked edge positions
+
+- **Input**: Padded sequences of tokenized random walks
+- **Masking**: Only edge tokens are masked (not node tokens)
+- **Output**: Per-token predictions over edge label space
+- **Loss**: Computed only on masked edge positions
 
 ### Data Pipeline
+
 1. **Graph Loading**: Load edge list with labels from dataset loaders
 2. **Walk Sampling**: Generate random walks from graph structure
 3. **Tokenization**: Convert walks to token sequences (nodes + edges)
@@ -312,10 +358,11 @@ pip install -r requirements.txt
 5. **Batching**: Pad sequences and create batches for training
 
 ### Performance Optimization
--   **Caching**: Preprocessed data cached to disk
--   **Parallel Loading**: Multi-worker data loading
--   **Mixed Precision**: Automatic mixed precision training support
--   **Early Stopping**: Based on validation metrics
+
+- **Caching**: Preprocessed data cached to disk
+- **Parallel Loading**: Multi-worker data loading
+- **Mixed Precision**: Automatic mixed precision training support
+- **Early Stopping**: Based on validation metrics
 
 ---
 
@@ -347,6 +394,7 @@ tensorboard --logdir outputs/
 ## 🤝 Contributing
 
 When adding new features:
+
 1. Maintain the config merging system
 2. Add dataset-specific configs to `configs/`
 3. Update this README with usage examples

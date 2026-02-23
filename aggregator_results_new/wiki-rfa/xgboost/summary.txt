@@ -1,0 +1,14 @@
+Aggregator (walk-level triplets)
+Model: xgboost
+Class weighting: balanced
+
+Train samples: 4034488 walks
+Test samples: 4257683 walks
+
+Walk-level metrics:
+  Train AUC: 0.8275
+  Test  AUC: 0.7938
+
+Edge-level aggregated AUC (mean prob per edge):
+  Train AUC: 0.8448 (17574 edges)
+  Test  AUC: 0.8441 (17607 edges)

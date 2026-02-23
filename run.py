@@ -11,7 +11,7 @@ from pytorch_lightning import seed_everything
 from src.data.prepare_data import prepare_data
 from src.training.train import train_model
 from src.utils.paths import resolve_outputs_dirs
-from src.utils.config import load_config, get_seed
+from src.utils.config import load_config, get_seed, validate_config
 
 
 def parse_args():
@@ -21,6 +21,11 @@ def parse_args():
     )
     parser.add_argument(
         "--device", type=int, default=0, help="CUDA device id (default: 0)"
+    )
+    parser.add_argument(
+        "--dry-run-config",
+        action="store_true",
+        help="Load + validate config then exit without data prep or training",
     )
     parser.add_argument(
         "overrides", nargs=argparse.REMAINDER, help="Override config values"
@@ -33,6 +38,16 @@ def main():
 
     # Load and merge config (supports `configs/<dataset>.yaml` and CLI dotlist overrides)
     cfg = load_config(args.config, overrides=args.overrides)
+
+    try:
+        validate_config(cfg, context="train")
+    except ValueError as e:
+        print(f"❌ ERROR: {e}")
+        sys.exit(1)
+
+    if args.dry_run_config:
+        print("✅ Config validation passed (context=train)")
+        return
 
     # Auto-generate exp_name when placeholder or absent
     try:

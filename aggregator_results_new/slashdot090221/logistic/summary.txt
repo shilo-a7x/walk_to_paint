@@ -1,0 +1,14 @@
+Aggregator (walk-level triplets)
+Model: logistic
+Class weighting: balanced
+
+Train samples: 3214326 walks
+Test samples: 2915858 walks
+
+Walk-level metrics:
+  Train AUC: 0.8503
+  Test  AUC: 0.8141
+
+Edge-level aggregated AUC (mean prob per edge):
+  Train AUC: 0.8028 (53978 edges)
+  Test  AUC: 0.8044 (53962 edges)

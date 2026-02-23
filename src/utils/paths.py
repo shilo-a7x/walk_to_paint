@@ -59,8 +59,10 @@ def resolve_outputs_dirs(
     plots_dir = exp_dir / "plots"
 
     if make_dirs:
-        for p in (checkpoint_dir, log_dir, optuna_dir, plots_dir):
+        # Only create used directories (checkpoint and logs)
+        for p in (checkpoint_dir, log_dir):
             p.mkdir(parents=True, exist_ok=True)
+        # Note: optuna/ and plots/ are pre-created structure but not used in standard training
 
     # Update cfg so training and downstream code use the new dirs
     try:

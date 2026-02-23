@@ -1,0 +1,21 @@
+AGGREGATOR OPTUNA TUNING RESULTS
+======================================================================
+
+LOGISTIC:
+  Val AUC:   0.9216
+  Train AUC: 0.9229
+  Test AUC:  0.9240
+  Params:    {'C': 0.00010836048611091676, 'max_iter': 1253}
+
+XGBOOST:
+  Val AUC:   0.9310
+  Train AUC: 0.9336
+  Test AUC:  0.9328
+  Params:    {'n_estimators': 153, 'max_depth': 4, 'learning_rate': 0.11377910463395943, 'subsample': 0.6336092420366389, 'colsample_bytree': 0.993706039028371}
+
+LGBM:
+  Val AUC:   0.9315
+  Train AUC: 0.9337
+  Test AUC:  0.9331
+  Params:    {'n_estimators': 78, 'num_leaves': 82, 'learning_rate': 0.01239473510460728, 'feature_fraction': 0.8707462951736002, 'bagging_fraction': 0.542924749111299}
+
