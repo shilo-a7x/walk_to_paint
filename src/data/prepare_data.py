@@ -581,7 +581,17 @@ def prepare_data(cfg):
         # Create dataloaders from dataset cache
         batch_size = int(cfg.training.batch_size)
         num_workers = int(getattr(cfg.training, "num_workers", 4))
-        return create_stage_dataloaders(cache_data, batch_size, num_workers)
+        pin_memory = bool(getattr(cfg.training, "pin_memory", True))
+        persistent_workers = bool(getattr(cfg.training, "persistent_workers", True))
+        prefetch_factor = int(getattr(cfg.training, "prefetch_factor", 2))
+        return create_stage_dataloaders(
+            cache_data,
+            batch_size,
+            num_workers,
+            pin_memory=pin_memory,
+            persistent_workers=persistent_workers,
+            prefetch_factor=prefetch_factor,
+        )
     # Profile data creation steps to help diagnose slow preprocessing
     timings = {}
 

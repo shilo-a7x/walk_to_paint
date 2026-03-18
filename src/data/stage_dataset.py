@@ -6,6 +6,7 @@ Stores base tensors once and applies stage-specific masking in __getitem__().
 
 import torch
 from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
 from enum import IntEnum
 
 
@@ -102,8 +103,26 @@ class StageViewDataset(Dataset):
         return input_ids, labels, attention_mask
 
 
-def create_stage_dataloaders(cache_data: dict, batch_size: int, num_workers: int = 0):
-    from torch.utils.data import DataLoader
+def create_stage_dataloaders(
+    cache_data: dict,
+    batch_size: int,
+    num_workers: int = 0,
+    pin_memory: bool = None,
+    persistent_workers: bool = True,
+    prefetch_factor: int = 2,
+):
+
+    if pin_memory is None:
+        pin_memory = True if torch.cuda.is_available() else False
+
+    dataloader_kwargs = {
+        "batch_size": batch_size,
+        "num_workers": num_workers,
+        "pin_memory": pin_memory,
+    }
+    if num_workers > 0:
+        dataloader_kwargs["persistent_workers"] = bool(persistent_workers)
+        dataloader_kwargs["prefetch_factor"] = int(prefetch_factor)
 
     train_dataset = StageViewDataset(cache_data, stage="train")
     val_dataset = StageViewDataset(cache_data, stage="val")
@@ -111,26 +130,20 @@ def create_stage_dataloaders(cache_data: dict, batch_size: int, num_workers: int
 
     train_loader = DataLoader(
         train_dataset,
-        batch_size=batch_size,
         shuffle=True,
-        num_workers=num_workers,
-        pin_memory=True if torch.cuda.is_available() else False,
+        **dataloader_kwargs,
     )
 
     val_loader = DataLoader(
         val_dataset,
-        batch_size=batch_size,
         shuffle=False,
-        num_workers=num_workers,
-        pin_memory=True if torch.cuda.is_available() else False,
+        **dataloader_kwargs,
     )
 
     test_loader = DataLoader(
         test_dataset,
-        batch_size=batch_size,
         shuffle=False,
-        num_workers=num_workers,
-        pin_memory=True if torch.cuda.is_available() else False,
+        **dataloader_kwargs,
     )
 
     return {"train": train_loader, "val": val_loader, "test": test_loader}
