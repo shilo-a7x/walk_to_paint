@@ -15,7 +15,9 @@ def _open_text_file(path: str, encoding: str = "utf-8", errors: str = "strict"):
     return open(path, "r", encoding=encoding, errors=errors)
 
 
-def _read_lines(path: str, encoding: str = "utf-8", errors: str = "strict") -> Iterable[str]:
+def _read_lines(
+    path: str, encoding: str = "utf-8", errors: str = "strict"
+) -> Iterable[str]:
     with _open_text_file(path, encoding=encoding, errors=errors) as fh:
         for line in fh:
             yield line
