@@ -1,0 +1,48 @@
+# Wiki-Elec dataset configuration
+# Merges with base config.yaml - only overrides dataset-specific values
+# Starting hyperparams modeled after wiki-rfa; tune with Optuna
+
+dataset:
+    name: wiki-elec
+    data_dir: data/wiki-Elec
+    edge_list_file: wikiElec.ElecBs3.txt.gz
+    # Skip neutral votes; keep only support (+1) and oppose (-1)
+    binary: true
+    remove_self_loops: true
+    multiedge_handling: most_recent
+    max_walk_length: 80
+    num_walks: 5000000
+
+model:
+    embedding_dim: 64
+    hidden_dim: 64
+    nhead: 2
+    nlayers: 5
+    dropout: 0.14736239940786994
+
+training:
+    batch_size: 1024
+    epochs: 50
+    lr: 0.0016135042002810406
+    weight_decay: 2.9866739870000337e-05
+    gradient_clip_val: 0.5394002549968298
+    early_stopping_patience: 15
+
+optuna:
+    initial_params:
+        dataset:
+            max_walk_length: 80
+            num_walks: 5000000
+        training:
+            lr: 0.0016135042002810406
+            weight_decay: 2.9866739870000337e-05
+            batch_size: 1024
+            gradient_clip_val: 0.5394002549968298
+            early_stopping_patience: 15
+            epochs: 50
+        model:
+            embedding_dim: 64
+            hidden_dim: 64
+            nhead: 2
+            nlayers: 5
+            dropout: 0.14736239940786994

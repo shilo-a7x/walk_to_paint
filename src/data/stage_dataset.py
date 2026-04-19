@@ -21,7 +21,7 @@ class SplitID(IntEnum):
 class StageViewDataset(Dataset):
     """Create stage-specific views on-the-fly for a cached dataset."""
 
-    def __init__(self, cache_data: dict, stage: str = "train"):
+    def __init__(self, cache_data: dict, stage: str = "train", dynamic_train_masking: bool = False):
         self.input_ids = cache_data["encoded"]["input_ids"]
         self.edge_split_mask = cache_data["encoded"]["edge_split_mask"]
         self.attention_base = cache_data["encoded"]["attention_base"]
@@ -34,6 +34,8 @@ class StageViewDataset(Dataset):
         tokenizer = cache_data["tokenizer"]
         self.mask_id = tokenizer["MASK_ID"]
         self.ignore_index = tokenizer["UNK_LABEL_ID"]
+        self.dynamic_train_masking = bool(dynamic_train_masking)
+        self.stage = stage
 
         self.id2class = torch.full(
             (tokenizer["vocab_size"],), self.ignore_index, dtype=torch.long
@@ -78,10 +80,11 @@ class StageViewDataset(Dataset):
         disallowed_edges = is_edge & (~allowed_edges)
 
         labels = torch.full_like(input_ids, self.ignore_index)
-        if target_edges.any():
+        if target_edges.any() and not (self.stage == "train" and self.dynamic_train_masking):
             labels[target_edges] = self.id2class[input_ids[target_edges]]
 
-        input_ids[target_edges] = self.mask_id
+        if not (self.stage == "train" and self.dynamic_train_masking):
+            input_ids[target_edges] = self.mask_id
         input_ids[disallowed_edges] = self.mask_id
         attention_mask[disallowed_edges] = 0
 
@@ -96,6 +99,8 @@ class StageViewDataset(Dataset):
                 "walk_ids": self.walk_ids[idx],
                 "positions": self.positions[idx],
                 "walk_lengths": self.walk_lengths[idx],
+                "edge_split_mask": split_mask,
+                "edge_classes": self.id2class[self.input_ids[idx]],
             }
             return input_ids, labels, attention_mask, metadata
 
@@ -110,6 +115,7 @@ def create_stage_dataloaders(
     pin_memory: bool = None,
     persistent_workers: bool = True,
     prefetch_factor: int = 2,
+    dynamic_train_masking: bool = False,
 ):
 
     if pin_memory is None:
@@ -124,9 +130,13 @@ def create_stage_dataloaders(
         dataloader_kwargs["persistent_workers"] = bool(persistent_workers)
         dataloader_kwargs["prefetch_factor"] = int(prefetch_factor)
 
-    train_dataset = StageViewDataset(cache_data, stage="train")
-    val_dataset = StageViewDataset(cache_data, stage="val")
-    test_dataset = StageViewDataset(cache_data, stage="test")
+    train_dataset = StageViewDataset(
+        cache_data,
+        stage="train",
+        dynamic_train_masking=dynamic_train_masking,
+    )
+    val_dataset = StageViewDataset(cache_data, stage="val", dynamic_train_masking=False)
+    test_dataset = StageViewDataset(cache_data, stage="test", dynamic_train_masking=False)
 
     train_loader = DataLoader(
         train_dataset,

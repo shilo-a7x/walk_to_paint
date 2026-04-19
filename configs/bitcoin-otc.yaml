@@ -1,0 +1,46 @@
+# Bitcoin-OTC dataset configuration
+# Merges with base config.yaml - only overrides dataset-specific values
+
+dataset:
+    name: bitcoin-otc
+    data_dir: data/bitcoin-otc
+    edge_list_file: soc-sign-bitcoinotc.csv.gz
+    binary: true
+    remove_self_loops: true
+    multiedge_handling: most_recent
+    max_walk_length: 80 # same starting point as alpha
+    num_walks: 5000000
+
+model:
+    embedding_dim: 64
+    hidden_dim: 128
+    nhead: 4
+    nlayers: 3
+    dropout: 0.20
+
+training:
+    batch_size: 1024
+    epochs: 50
+    lr: 0.0016
+    weight_decay: 1.0e-4
+    early_stopping_patience: 15
+    gradient_clip_val: 0.54
+
+optuna:
+    initial_params:
+        dataset:
+            max_walk_length: 80
+            num_walks: 5000000
+        training:
+            lr: 0.0016
+            weight_decay: 1.0e-4
+            batch_size: 1024
+            gradient_clip_val: 0.54
+            early_stopping_patience: 15
+            epochs: 50
+        model:
+            embedding_dim: 64
+            hidden_dim: 128
+            nhead: 4
+            nlayers: 3
+            dropout: 0.20

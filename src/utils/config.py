@@ -185,6 +185,57 @@ def validate_config(cfg, context: str = "train") -> None:
     _check_number("model.nhead", lambda v: v > 0, "nhead > 0")
     _check_number("model.nlayers", lambda v: v > 0, "nlayers > 0")
 
+    node_context_mode = _get("model.node_context_mode", _MISSING)
+    if node_context_mode is not _MISSING and node_context_mode is not None:
+        allowed_modes = {"none", "mask_unscaled", "noise", "replace"}
+        if str(node_context_mode) not in allowed_modes:
+            _invalid(
+                "model.node_context_mode",
+                node_context_mode,
+                "one of {'none','mask_unscaled','noise','replace'}",
+            )
+
+    node_mask_prob = _get("model.node_mask_prob", _MISSING)
+    if node_mask_prob is not _MISSING and node_mask_prob is not None:
+        if not _is_number(node_mask_prob) or not (0.0 <= float(node_mask_prob) <= 1.0):
+            _invalid("model.node_mask_prob", node_mask_prob, "0.0 <= node_mask_prob <= 1.0")
+
+    node_noise_sigma = _get("model.node_noise_sigma", _MISSING)
+    if node_noise_sigma is not _MISSING and node_noise_sigma is not None:
+        if not _is_number(node_noise_sigma) or float(node_noise_sigma) < 0.0:
+            _invalid("model.node_noise_sigma", node_noise_sigma, "node_noise_sigma >= 0.0")
+
+    node_replace_prob = _get("model.node_replace_prob", _MISSING)
+    if node_replace_prob is not _MISSING and node_replace_prob is not None:
+        if not _is_number(node_replace_prob) or not (0.0 <= float(node_replace_prob) <= 1.0):
+            _invalid(
+                "model.node_replace_prob",
+                node_replace_prob,
+                "0.0 <= node_replace_prob <= 1.0",
+            )
+
+    node_replace_unk_ratio = _get("model.node_replace_unk_ratio", _MISSING)
+    if node_replace_unk_ratio is not _MISSING and node_replace_unk_ratio is not None:
+        if not _is_number(node_replace_unk_ratio) or not (0.0 <= float(node_replace_unk_ratio) <= 1.0):
+            _invalid(
+                "model.node_replace_unk_ratio",
+                node_replace_unk_ratio,
+                "0.0 <= node_replace_unk_ratio <= 1.0",
+            )
+
+    dynamic_train_masking = _get("model.dynamic_train_masking", _MISSING)
+    if dynamic_train_masking is not _MISSING and not isinstance(dynamic_train_masking, bool):
+        _invalid("model.dynamic_train_masking", dynamic_train_masking, "boolean")
+
+    dynamic_train_mask_seed_offset = _get("model.dynamic_train_mask_seed_offset", _MISSING)
+    if dynamic_train_mask_seed_offset is not _MISSING and dynamic_train_mask_seed_offset is not None:
+        if not _is_int(dynamic_train_mask_seed_offset):
+            _invalid(
+                "model.dynamic_train_mask_seed_offset",
+                dynamic_train_mask_seed_offset,
+                "integer",
+            )
+
     train_ratio = _get("dataset.train_ratio", _MISSING)
     mask_ratio = _get("dataset.mask_ratio", _MISSING)
     val_ratio = _get("dataset.val_ratio", _MISSING)

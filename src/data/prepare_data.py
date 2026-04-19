@@ -1,10 +1,8 @@
 import os
-import random
 import time
 import torch
 import numpy as np
 from enum import IntEnum
-from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
 from sklearn.model_selection import train_test_split
 
@@ -17,7 +15,6 @@ from src.data.dataset_cache import (
     cache_exists,
 )
 from src.data.stage_dataset import create_stage_dataloaders
-from src.data.walk_dataset import WalkDataset
 from src.utils.config import get_seed
 
 
@@ -410,105 +407,48 @@ def pad_and_build_stage_tensors(
     return (train_pack, val_pack, test_pack)
 
 
-def make_dataloaders(cfg, train_pack, val_pack, test_pack):
-    print(f"Creating DataLoaders for {cfg.dataset.name} dataset...")
-    batch_size = int(cfg.training.batch_size)
+def build_runtime_cache_data(
+    walks,
+    tokenizer,
+    input_ids,
+    edge_split_mask,
+    attention_base,
+    splits_dict,
+    metadata,
+    edge_ids,
+    walk_ids,
+    positions,
+    walk_lengths,
+):
+    tokenizer_state = {
+        "token2id": tokenizer.token2id,
+        "id2token": tokenizer.id2token,
+        "edge_label2id": tokenizer.edge_label2id,
+        "id2edge_label": tokenizer.id2edge_label,
+        "PAD_ID": tokenizer.PAD_ID,
+        "MASK_ID": tokenizer.MASK_ID,
+        "UNK_ID": tokenizer.UNK_ID,
+        "UNK_LABEL_ID": tokenizer.UNK_LABEL_ID,
+        "vocab_size": tokenizer.vocab_size,
+        "num_edge_tokens": tokenizer.num_edge_tokens,
+    }
 
-    # Unpack all packs (always 4-tuple with metadata)
-    train_x, train_y, train_attn, train_meta = train_pack
-    val_x, val_y, val_attn, val_meta = val_pack
-    test_x, test_y, test_attn, test_meta = test_pack
-
-    train_ds = WalkDataset(train_x, train_y, train_attn, train_meta)
-    val_ds = WalkDataset(val_x, val_y, val_attn, val_meta)
-    test_ds = WalkDataset(test_x, test_y, test_attn, test_meta)
-
-    # configurable worker options (set in config under training)
-    try:
-        num_workers = int(getattr(cfg.training, "num_workers", 4))
-    except Exception:
-        num_workers = 4
-    try:
-        pin_memory = bool(getattr(cfg.training, "pin_memory", True))
-    except Exception:
-        pin_memory = True
-    try:
-        persistent = bool(getattr(cfg.training, "persistent_workers", True))
-    except Exception:
-        persistent = True
-    try:
-        prefetch = int(getattr(cfg.training, "prefetch_factor", 2))
-    except Exception:
-        prefetch = 2
-
-    # seeded generator for reproducible shuffling
-    # get_seed is imported at top of file
-    base_seed = get_seed(cfg)
-    g = torch.Generator()
-    g.manual_seed(base_seed)
-
-    def worker_init_fn(worker_id):
-        # seed python, numpy and torch in each worker deterministically
-        if base_seed is None:
-            return
-        seed = base_seed + worker_id
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-
-    train_loader = DataLoader(
-        train_ds,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        persistent_workers=(persistent and num_workers > 0),
-        prefetch_factor=prefetch,
-        worker_init_fn=worker_init_fn if num_workers > 0 else None,
-        generator=g,
-    )
-
-    val_loader = DataLoader(
-        val_ds,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        persistent_workers=(persistent and num_workers > 0),
-        prefetch_factor=prefetch,
-        worker_init_fn=worker_init_fn if num_workers > 0 else None,
-        generator=g,
-    )
-
-    test_loader = DataLoader(
-        test_ds,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        persistent_workers=(persistent and num_workers > 0),
-        prefetch_factor=prefetch,
-        worker_init_fn=worker_init_fn if num_workers > 0 else None,
-        generator=g,
-    )
-
-    print(f"DataLoader config:")
-    print(f"  num_workers: {num_workers}")
-    print(f"  pin_memory: {pin_memory}")
-    print(f"  persistent_workers: {persistent and num_workers > 0}")
-    print(f"  prefetch_factor: {prefetch}")
-    print(f"Success! ✅")
-    print(f"DataLoader Config Summary:")
-    print(
-        f"  Train:  num_workers={num_workers}, pin_memory={pin_memory}, persistent={persistent}, prefetch={prefetch}"
-    )
-    print(
-        f"  Val:    num_workers={num_workers}, pin_memory={pin_memory}, persistent={persistent}, prefetch={prefetch}"
-    )
-    print(
-        f"  Test:   num_workers={num_workers}, pin_memory={pin_memory}, persistent={persistent}, prefetch={prefetch}"
-    )
-    return {"train": train_loader, "val": val_loader, "test": test_loader}
+    return {
+        "version": "1.0",
+        "walks": walks,
+        "tokenizer": tokenizer_state,
+        "encoded": {
+            "input_ids": input_ids,
+            "edge_split_mask": edge_split_mask,
+            "attention_base": attention_base,
+            "edge_ids": edge_ids,
+            "walk_ids": walk_ids,
+            "positions": positions,
+            "walk_lengths": walk_lengths,
+        },
+        "splits": splits_dict,
+        "metadata": metadata,
+    }
 
 
 def compute_class_weights_from_train(train_pack, ignore_index, num_classes):
@@ -569,6 +509,8 @@ def prepare_data(cfg):
         cfg.model.num_classes = cache_data["metadata"]["num_classes"]
         cfg.model.pad_id = cache_data["metadata"]["pad_id"]
         cfg.model.ignore_index = cache_data["metadata"]["ignore_index"]
+        cfg.model.unk_id = int(cache_data["tokenizer"]["UNK_ID"])
+        cfg.model.mask_id = int(cache_data["tokenizer"]["MASK_ID"])
 
         # Compute class weights if not in cache
         if "class_weights" in cache_data["metadata"]:
@@ -591,6 +533,7 @@ def prepare_data(cfg):
             pin_memory=pin_memory,
             persistent_workers=persistent_workers,
             prefetch_factor=prefetch_factor,
+            dynamic_train_masking=bool(getattr(cfg.model, "dynamic_train_masking", False)),
         )
     # Profile data creation steps to help diagnose slow preprocessing
     timings = {}
@@ -615,6 +558,8 @@ def prepare_data(cfg):
     cfg.model.num_classes = tokenizer.num_edge_tokens
     cfg.model.pad_id = tokenizer.PAD_ID
     cfg.model.ignore_index = tokenizer.UNK_LABEL_ID
+    cfg.model.unk_id = tokenizer.UNK_ID
+    cfg.model.mask_id = tokenizer.MASK_ID
 
     t0 = time.time()
     (
@@ -647,53 +592,52 @@ def prepare_data(cfg):
     cfg.model.class_weights = class_weights
     print(f"✓ Class weights computed from train split: {class_weights}")
 
+    pad_id = int(tokenizer.PAD_ID)
+    input_ids = pad_sequence(input_lists, batch_first=True, padding_value=pad_id).long()
+    edge_split_mask = pad_sequence(
+        split_lists, batch_first=True, padding_value=SplitID.BAD
+    ).long()
+    attention_base = (input_ids != pad_id).long()
+    edge_ids = pad_sequence(edge_ids_list, batch_first=True, padding_value=-1).long()
+    walk_ids = pad_sequence(walk_ids_list, batch_first=True, padding_value=-1).long()
+    positions = pad_sequence(positions_list, batch_first=True, padding_value=-1).long()
+    walk_lengths = pad_sequence(
+        walk_lengths_list, batch_first=True, padding_value=-1
+    ).long()
+
+    splits_dict = {
+        "train": train_set,
+        "mask": mask_set,
+        "val": val_set,
+        "test": test_set,
+    }
+    metadata = {
+        "vocab_size": cfg.model.vocab_size,
+        "num_classes": cfg.model.num_classes,
+        "pad_id": cfg.model.pad_id,
+        "ignore_index": cfg.model.ignore_index,
+        "class_weights": class_weights,
+        "dataset_name": cfg.dataset.name,
+        "seed": get_seed(cfg),
+    }
+    cache_data = build_runtime_cache_data(
+        walks,
+        tokenizer,
+        input_ids,
+        edge_split_mask,
+        attention_base,
+        splits_dict,
+        metadata,
+        edge_ids,
+        walk_ids,
+        positions,
+        walk_lengths,
+    )
+
     # Save dataset cache (always save in new approach)
     if cfg.preprocess.save:
         print(f"Saving dataset cache to {dataset_cache_path}...")
 
-        # Get base tensors from padding step
-        pad_id = int(tokenizer.PAD_ID)
-        input_ids = pad_sequence(
-            input_lists, batch_first=True, padding_value=pad_id
-        ).long()
-        edge_split_mask = pad_sequence(
-            split_lists, batch_first=True, padding_value=SplitID.BAD
-        ).long()
-        attention_base = (input_ids != pad_id).long()
-
-        edge_ids = pad_sequence(
-            edge_ids_list, batch_first=True, padding_value=-1
-        ).long()
-        walk_ids = pad_sequence(
-            walk_ids_list, batch_first=True, padding_value=-1
-        ).long()
-        positions = pad_sequence(
-            positions_list, batch_first=True, padding_value=-1
-        ).long()
-        walk_lengths = pad_sequence(
-            walk_lengths_list, batch_first=True, padding_value=-1
-        ).long()
-
-        # Prepare splits dict
-        splits_dict = {
-            "train": train_set,
-            "mask": mask_set,
-            "val": val_set,
-            "test": test_set,
-        }
-
-        # Prepare metadata
-        metadata = {
-            "vocab_size": cfg.model.vocab_size,
-            "num_classes": cfg.model.num_classes,
-            "pad_id": cfg.model.pad_id,
-            "ignore_index": cfg.model.ignore_index,
-            "class_weights": class_weights,
-            "dataset_name": cfg.dataset.name,
-            "seed": get_seed(cfg),
-        }
-
-        # Save dataset cache
         size_mb = save_dataset_cache(
             dataset_cache_path,
             walks,
@@ -718,4 +662,17 @@ def prepare_data(cfg):
     except Exception:
         pass
 
-    return make_dataloaders(cfg, train_pack, val_pack, test_pack)
+    batch_size = int(cfg.training.batch_size)
+    num_workers = int(getattr(cfg.training, "num_workers", 4))
+    pin_memory = bool(getattr(cfg.training, "pin_memory", True))
+    persistent_workers = bool(getattr(cfg.training, "persistent_workers", True))
+    prefetch_factor = int(getattr(cfg.training, "prefetch_factor", 2))
+    return create_stage_dataloaders(
+        cache_data,
+        batch_size,
+        num_workers,
+        pin_memory=pin_memory,
+        persistent_workers=persistent_workers,
+        prefetch_factor=prefetch_factor,
+        dynamic_train_masking=bool(getattr(cfg.model, "dynamic_train_masking", False)),
+    )

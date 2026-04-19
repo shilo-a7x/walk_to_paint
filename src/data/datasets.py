@@ -5,18 +5,18 @@ from datetime import datetime
 from typing import Iterable, List, Tuple, Optional
 
 
-def _open_text_file(path: str):
+def _open_text_file(path: str, encoding: str = "utf-8", errors: str = "strict"):
     """Open a text file, supporting plain and gzip-compressed files.
 
     Returns a file-like object opened in text mode (iterator over lines).
     """
     if path.endswith(".gz"):
-        return gzip.open(path, "rt")
-    return open(path, "r")
+        return gzip.open(path, "rt", encoding=encoding, errors=errors)
+    return open(path, "r", encoding=encoding, errors=errors)
 
 
-def _read_lines(path: str) -> Iterable[str]:
-    with _open_text_file(path) as fh:
+def _read_lines(path: str, encoding: str = "utf-8", errors: str = "strict") -> Iterable[str]:
+    with _open_text_file(path, encoding=encoding, errors=errors) as fh:
         for line in fh:
             yield line
 
@@ -185,18 +185,40 @@ def load_chess(cfg):
 
 
 def load_bitcoin(cfg):
-    """Load the Bitcoin dataset from a csv file (supports .gz)."""
+    """Load the Bitcoin Alpha or OTC dataset from a CSV file (supports .gz).
+
+    CSV columns: source, target, rating, timestamp
+    Ratings are on a scale of -10 to +10.
+
+    Binary mode (`cfg.dataset.binary=True`) maps positive ratings to +1,
+    negative ratings to -1, and skips zero-rated edges.
+    Non-binary mode preserves the raw integer rating.
+    """
     path = os.path.join(cfg.dataset.data_dir, cfg.dataset.edge_list_file)
+    binary = bool(getattr(cfg.dataset, "binary", False))
     edges = []
     for line in _read_lines(path):
         parts = line.strip().split(",")
         if len(parts) < 3:
             continue  # Invalid line
         try:
-            u, v, label = int(parts[0]), int(parts[1]), int(parts[2])
+            u, v, rating = int(parts[0]), int(parts[1]), int(parts[2])
         except ValueError:
             continue
-        edges.append((u, v, label))
+        # Parse optional timestamp (4th column)
+        ts = None
+        if len(parts) >= 4:
+            ts = parts[3].strip() or None
+        if binary:
+            if rating > 0:
+                label = 1
+            elif rating < 0:
+                label = -1
+            else:
+                continue  # skip neutral
+        else:
+            label = rating
+        edges.append((u, v, label, ts))
     return postprocess_edges(cfg, edges)
 
 
@@ -270,6 +292,77 @@ def load_slashdot(cfg):
     return postprocess_edges(cfg, parsed)
 
 
+def load_wiki_elec(cfg):
+    """Load the Wikipedia Elections (wiki-Elec) dataset.
+
+    The file is a block-structured text file where each block describes one
+    election:
+      E  <1/0>          - election result (1=promoted, 0=not)
+      T  <datetime>     - time election was closed
+      U  <id> <name>    - candidate user id and username
+      N  <id> <name>    - nominator user id and username
+      V  <vote> <voter_id> <date> <time> <username>  - individual votes
+
+    Each vote V creates a directed edge: voter_id → candidate_id (U), with the
+    vote value as the label (1=support, 0=neutral, -1=oppose) and the V-line
+    datetime as the timestamp.
+
+    Binary mode (`cfg.dataset.binary=True`) skips neutral votes (vote == 0).
+    """
+    path = os.path.join(cfg.dataset.data_dir, cfg.dataset.edge_list_file)
+    binary = bool(getattr(cfg.dataset, "binary", False))
+
+    edges = []
+    candidate_id = None
+
+    for line in _read_lines(path, encoding="latin-1"):
+        ln = line.rstrip("\n")
+        # Skip blank lines and comment header lines that aren't data blocks
+        if not ln.strip() or (ln.startswith("#") and not ln.startswith("#\t")):
+            if ln.strip() == "":
+                # blank line resets candidate context
+                candidate_id = None
+            continue
+
+        parts = ln.split()
+        if not parts:
+            continue
+
+        tag = parts[0]
+
+        if tag == "U":
+            # U <id> <username>
+            try:
+                candidate_id = int(parts[1])
+            except (IndexError, ValueError):
+                candidate_id = None
+
+        elif tag == "V" and candidate_id is not None:
+            # V <vote> <voter_id> <date> <time> <username>
+            if len(parts) < 3:
+                continue
+            try:
+                vote = int(parts[1])
+                voter_id = int(parts[2])
+            except ValueError:
+                continue
+            # Parse timestamp: date and time are in parts[3] and parts[4]
+            ts = None
+            if len(parts) >= 5:
+                ts = f"{parts[3]} {parts[4]}"
+            elif len(parts) >= 4:
+                ts = parts[3]
+
+            if binary and vote == 0:
+                continue
+
+            edges.append((voter_id, candidate_id, vote, ts))
+
+        # E, T, N lines are ignored for edge construction
+
+    return postprocess_edges(cfg, edges)
+
+
 # 🔁 Registry of dataset loaders
 DATASET_LOADERS = {
     "chess": load_chess,
@@ -278,6 +371,7 @@ DATASET_LOADERS = {
     "bitcoin-otc": load_bitcoin,
     "bitcoin-otc-binary": load_bitcoin,
     "wiki-rfa": load_wiki_rfa,
+    "wiki-elec": load_wiki_elec,
     "toy": load_toy,
     "epinions": load_epinions,
     "slashdot090221": load_slashdot,

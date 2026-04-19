@@ -36,6 +36,10 @@ class ExperimentSpec:
     exp_id: str
     change: str
     overrides: List[str]
+    hardness_map_epochs: int = 0   # 0 = no miner; >0 = run miner with this many epochs
+    hardness_lambda: float = 0.5
+    miner_max_walk_edges: int = 0  # 0 = no short-walk filter
+    miner_dynamic_pool: bool = False  # True = rotate TRAIN+MASK targets each epoch (E15)
 
 
 def parse_args() -> argparse.Namespace:
@@ -90,13 +94,22 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--run-ids",
-        default="E0_BASELINE,E1_SMALLER_MODEL,E2_DROPOUT_UP,E3_WEIGHT_DECAY_UP,E4_EARLY_STOP_TIGHTER,E5_LR_DOWN",
-        help="Comma-separated subset of experiment IDs to run",
+        default="E0_BASELINE,E10_NODE_MASK_P20,E10_NODE_MASK_P40,E10_NODE_NOISE_S01,E10_NODE_REPLACE_P20",
+        help="Comma-separated subset of experiment IDs to run (e.g. E14_HARDNODE_L05,E14_HARDNODE_L10)",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print planned runs and exit without executing training",
+    )
+    parser.add_argument(
+        "--suite-tag",
+        default=None,
+        help=(
+            "Reuse an existing suite directory instead of creating a new timestamped one. "
+            "Example: wiki-rfa_seed42_nw500000_mw80_bs1024_ep50_20260414-105924. "
+            "Useful for resuming after a failed run without re-building the dataset cache."
+        ),
     )
     return parser.parse_args()
 
@@ -249,10 +262,6 @@ def _bool_verdict(
 
 
 def _build_experiments(base_cfg: Dict[str, object]) -> List[ExperimentSpec]:
-    base_wd = float(base_cfg["base_weight_decay"])
-    base_lr = float(base_cfg["base_lr"])
-    base_patience = int(base_cfg["base_patience"])
-
     return [
         ExperimentSpec(
             exp_id="E0_BASELINE",
@@ -260,34 +269,118 @@ def _build_experiments(base_cfg: Dict[str, object]) -> List[ExperimentSpec]:
             overrides=[],
         ),
         ExperimentSpec(
-            exp_id="E1_SMALLER_MODEL",
-            change="Capacity down: embedding/hidden/layers reduced",
+            exp_id="E10_NODE_MASK_P20",
+            change="Node context: unscaled node masking p=0.2",
             overrides=[
-                "model.embedding_dim=16",
-                "model.hidden_dim=16",
-                "model.nhead=4",
-                "model.nlayers=2",
+                "model.node_context_mode=mask_unscaled",
+                "model.node_mask_prob=0.2",
             ],
         ),
         ExperimentSpec(
-            exp_id="E2_DROPOUT_UP",
-            change="Regularization up: dropout=0.2",
-            overrides=["model.dropout=0.2"],
+            exp_id="E10_NODE_MASK_P40",
+            change="Node context: unscaled node masking p=0.4",
+            overrides=[
+                "model.node_context_mode=mask_unscaled",
+                "model.node_mask_prob=0.4",
+            ],
         ),
         ExperimentSpec(
-            exp_id="E3_WEIGHT_DECAY_UP",
-            change="Regularization up: weight_decay x10",
-            overrides=[f"training.weight_decay={max(base_wd * 10.0, 1e-6):.10f}"],
+            exp_id="E10_NODE_NOISE_S01",
+            change="Node context: additive Gaussian noise sigma=0.1",
+            overrides=[
+                "model.node_context_mode=noise",
+                "model.node_noise_sigma=0.1",
+            ],
         ),
         ExperimentSpec(
-            exp_id="E4_EARLY_STOP_TIGHTER",
-            change="Training control: tighter early stopping",
-            overrides=[f"training.early_stopping_patience={max(3, min(base_patience, 5))}"],
+            exp_id="E10_NODE_REPLACE_P20",
+            change="Node context: replace nodes p=0.2 (70% UNK / 30% random node)",
+            overrides=[
+                "model.node_context_mode=replace",
+                "model.node_replace_prob=0.2",
+                "model.node_replace_unk_ratio=0.7",
+            ],
         ),
         ExperimentSpec(
-            exp_id="E5_LR_DOWN",
-            change="Training control: lr halved",
-            overrides=[f"training.lr={max(base_lr * 0.5, 1e-6):.10f}"],
+            exp_id="E12_DYNAMIC_TARGET_RESPLIT",
+            change="Dynamic train/mask resplit each epoch (val/test fixed)",
+            overrides=[
+                "model.dynamic_train_masking=true",
+                "model.dynamic_train_mask_seed_offset=0",
+            ],
+        ),
+        ExperimentSpec(
+            exp_id="E13_DYNAMIC_RESPLIT_PLUS_NODE_REPLACE_P20",
+            change="Dynamic train/mask resplit + node replacement p=0.2 (70% UNK / 30% random node)",
+            overrides=[
+                "model.dynamic_train_masking=true",
+                "model.dynamic_train_mask_seed_offset=0",
+                "model.node_context_mode=replace",
+                "model.node_replace_prob=0.2",
+                "model.node_replace_unk_ratio=0.7",
+            ],
+        ),
+        ExperimentSpec(
+            exp_id="E14_HARDNODE_L05",
+            change="Hard-node reweight λ=0.5 on E13 stack (miner 16/16/2/2, 5 epochs, simple accuracy)",
+            overrides=[
+                "model.dynamic_train_masking=true",
+                "model.dynamic_train_mask_seed_offset=0",
+                "model.node_context_mode=replace",
+                "model.node_replace_prob=0.2",
+                "model.node_replace_unk_ratio=0.7",
+            ],
+            hardness_map_epochs=5,
+            hardness_lambda=0.5,
+        ),
+        ExperimentSpec(
+            exp_id="E14_HARDNODE_L10",
+            change="Hard-node reweight λ=1.0 on E13 stack (miner 16/16/2/2, 5 epochs, simple accuracy)",
+            overrides=[
+                "model.dynamic_train_masking=true",
+                "model.dynamic_train_mask_seed_offset=0",
+                "model.node_context_mode=replace",
+                "model.node_replace_prob=0.2",
+                "model.node_replace_unk_ratio=0.7",
+            ],
+            hardness_map_epochs=5,
+            hardness_lambda=1.0,
+        ),
+        ExperimentSpec(
+            exp_id="E14_HONLY_E0_L10",
+            change="Hard-node reweight only on E0 baseline (no dynamic resplit, no node replacement), λ=1.0",
+            overrides=[],
+            hardness_map_epochs=5,
+            hardness_lambda=1.0,
+        ),
+        ExperimentSpec(
+            exp_id="E14_DRH_SHORT7_E15_L10",
+            change="D+R+H with short-walk miner (<=7 edges), miner=15 epochs, λ=1.0",
+            overrides=[
+                "model.dynamic_train_masking=true",
+                "model.dynamic_train_mask_seed_offset=0",
+                "model.node_context_mode=replace",
+                "model.node_replace_prob=0.2",
+                "model.node_replace_unk_ratio=0.7",
+            ],
+            hardness_map_epochs=15,
+            hardness_lambda=1.0,
+            miner_max_walk_edges=7,
+        ),
+        ExperimentSpec(
+            exp_id="E15_DRH_DYNMINER_L10",
+            change="D+R+H with corrected dynamic-pool miner (full TRAIN+MASK pool eval, short walks <=7, 8 epochs), λ=1.0",
+            overrides=[
+                "model.dynamic_train_masking=true",
+                "model.dynamic_train_mask_seed_offset=0",
+                "model.node_context_mode=replace",
+                "model.node_replace_prob=0.2",
+                "model.node_replace_unk_ratio=0.7",
+            ],
+            hardness_map_epochs=8,
+            hardness_lambda=1.0,
+            miner_max_walk_edges=7,
+            miner_dynamic_pool=True,
         ),
     ]
 
@@ -329,6 +422,100 @@ def _run_one(
         "training.callbacks.enable_per_epoch_test_runner=false",
         *spec.overrides,
     ]
+
+    # ------------------------------------------------------------------
+    # E14: build hardness map before main training
+    # ------------------------------------------------------------------
+    if spec.hardness_map_epochs > 0:
+        cache_path = tmp_data_dir / "dataset_cache.pt"
+        hardness_map_path = run_dir / "hardness_map.pt"
+        miner_log = run_dir / "miner.log"
+
+        # Build cache if this is the first experiment in the suite
+        if not cache_path.exists():
+            print(f"  [miner] Cache not found; building cache with a 1-epoch warm-up ...")
+            warmup_cmd = [
+                sys.executable,
+                "run.py",
+                "--device", str(args.device),
+                f"dataset.name={args.dataset}",
+                f"dataset.data_dir={tmp_data_dir.as_posix()}",
+                f"dataset.edge_list_file={edge_list_file}",
+                f"dataset.num_walks={resolved['num_walks']}",
+                f"dataset.max_walk_length={resolved['max_walk_length']}",
+                f"training.batch_size={resolved['batch_size']}",
+                "training.epochs=1",
+                f"reproducibility.seed={args.seed}",
+                f"training.exp_name={spec.exp_id}_cache_warmup",
+                f"paths.base_outputs_dir={(suite_dir / 'runs').as_posix()}",
+                "paths.use_dataset_outputs=true",
+                "paths.append_timestamp=false",
+                "preprocess.use_cache=false",
+                "preprocess.save=true",
+                "training.callbacks.enable_prediction_saver=false",
+                "training.callbacks.enable_per_epoch_test_runner=false",
+            ]
+            warmup_log = run_dir / "cache_warmup.log"
+            with warmup_log.open("w", encoding="utf-8") as wf:
+                wp = subprocess.run(warmup_cmd, cwd=str(ROOT), stdout=wf, stderr=subprocess.STDOUT, check=False)
+            if wp.returncode != 0 or not cache_path.exists():
+                print(f"  [miner] Cache warm-up failed (exit {wp.returncode}); aborting E14")
+                return {
+                    "exp_id": spec.exp_id, "change": spec.change, "seed": int(args.seed),
+                    "best_epoch": None, "val_auc": None, "test_auc": None,
+                    "train_auc": None, "train_loss": None, "val_loss": None,
+                    "gap_loss": None, "gap_auc": None,
+                    "runtime_per_epoch_min": 0.0, "runtime_total_min": 0.0,
+                    "return_code": wp.returncode, "status": "failed",
+                    "run_log": str(miner_log), "event_file": "",
+                    "tmp_data_dir": str(tmp_data_dir), "cache_path": str(cache_path),
+                    "num_walks": int(resolved["num_walks"]),
+                    "max_walk_length": int(resolved["max_walk_length"]),
+                    "batch_size": int(resolved["batch_size"]),
+                    "epochs": int(resolved["epochs"]),
+                }
+
+        print(f"  [miner] Training hardness miner ({spec.hardness_map_epochs} epoch(s)) ...")
+        miner_cmd = [
+            sys.executable, "-u",
+            "scripts/compute_hardness_map.py",
+            "--cache", str(cache_path),
+            "--out", str(hardness_map_path),
+            "--device", str(args.device),
+            "--epochs", str(spec.hardness_map_epochs),
+            "--batch-size", str(resolved["batch_size"]),
+            "--seed", str(args.seed),
+        ]
+        if spec.miner_max_walk_edges > 0:
+            miner_cmd += ["--max-walk-edges", str(spec.miner_max_walk_edges)]
+        if spec.miner_dynamic_pool:
+            miner_cmd += ["--dynamic-pool"]
+        with miner_log.open("w", encoding="utf-8") as mf:
+            mp = subprocess.run(miner_cmd, cwd=str(ROOT), stdout=mf, stderr=subprocess.STDOUT, check=False)
+
+        if mp.returncode != 0 or not hardness_map_path.exists():
+            print(f"  [miner] Miner failed (exit {mp.returncode}); aborting E14")
+            return {
+                "exp_id": spec.exp_id, "change": spec.change, "seed": int(args.seed),
+                "best_epoch": None, "val_auc": None, "test_auc": None,
+                "train_auc": None, "train_loss": None, "val_loss": None,
+                "gap_loss": None, "gap_auc": None,
+                "runtime_per_epoch_min": 0.0, "runtime_total_min": 0.0,
+                "return_code": mp.returncode, "status": "failed",
+                "run_log": str(miner_log), "event_file": "",
+                "tmp_data_dir": str(tmp_data_dir), "cache_path": str(cache_path),
+                "num_walks": int(resolved["num_walks"]),
+                "max_walk_length": int(resolved["max_walk_length"]),
+                "batch_size": int(resolved["batch_size"]),
+                "epochs": int(resolved["epochs"]),
+            }
+
+        # Inject hardness map overrides into the main run command
+        cmd += [
+            f"model.hardness_map_path={hardness_map_path.as_posix()}",
+            f"model.hardness_lambda={spec.hardness_lambda}",
+        ]
+        print(f"  [miner] Hardness map ready → {hardness_map_path}")
 
     started = time.time()
     with run_log.open("w", encoding="utf-8") as log_file:
@@ -411,9 +598,13 @@ def _write_csv(rows: List[Dict[str, object]], out_csv: Path) -> None:
         "event_file",
         "tmp_data_dir",
         "cache_path",
+        "num_walks",
+        "max_walk_length",
+        "batch_size",
+        "epochs",
     ]
     with out_csv.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fields)
+        writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         for row in rows:
             writer.writerow(row)
@@ -543,7 +734,7 @@ def main() -> int:
         raise ValueError("No experiments selected. Check --run-ids.")
 
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    suite_tag = (
+    suite_tag = args.suite_tag if args.suite_tag else (
         f"{args.dataset}_seed{args.seed}"
         f"_nw{resolved['num_walks']}_mw{resolved['max_walk_length']}"
         f"_bs{resolved['batch_size']}_ep{resolved['epochs']}_{timestamp}"

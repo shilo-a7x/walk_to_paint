@@ -15,6 +15,9 @@ def get_sinusoidal_encoding(length, dim):
 class TransformerModel(nn.Module):
     def __init__(self, cfg):
         super().__init__()
+        self.node_context_mode = str(getattr(cfg.model, "node_context_mode", "none"))
+        self.node_mask_prob = float(getattr(cfg.model, "node_mask_prob", 0.0))
+        self.node_noise_sigma = float(getattr(cfg.model, "node_noise_sigma", 0.0))
         pad_id = cfg.model.pad_id
         self.embed = nn.Embedding(
             cfg.model.vocab_size, cfg.model.embedding_dim, padding_idx=pad_id
@@ -36,8 +39,19 @@ class TransformerModel(nn.Module):
         )
         self.out = nn.Linear(cfg.model.embedding_dim, cfg.model.num_classes)
 
-    def forward(self, input_ids, attention_mask=None):
-        x = self.embed(input_ids) + self.pos_encoder[: input_ids.size(1)]
+    def forward(self, input_ids, attention_mask=None, node_mask=None):
+        x = self.embed(input_ids)
+
+        if self.training and node_mask is not None:
+            if self.node_context_mode == "mask_unscaled" and self.node_mask_prob > 0.0:
+                keep = torch.rand_like(node_mask, dtype=torch.float) >= self.node_mask_prob
+                node_keep = (~node_mask) | keep
+                x = x * node_keep.unsqueeze(-1).to(x.dtype)
+            elif self.node_context_mode == "noise" and self.node_noise_sigma > 0.0:
+                noise = torch.randn_like(x) * self.node_noise_sigma
+                x = x + noise * node_mask.unsqueeze(-1).to(x.dtype)
+
+        x = x + self.pos_encoder[: input_ids.size(1)]
         if attention_mask is not None:
             # Convert mask to shape [batch_size, seq_len] with bool type
             # True = to be ignored, False = to attend

@@ -46,6 +46,8 @@ model:
     dropout: 0.5
     nhead: 8
     nlayers: 5
+    dynamic_train_masking: false
+    dynamic_train_mask_seed_offset: 0
 
 # ============================================================================
 # Training Configuration
