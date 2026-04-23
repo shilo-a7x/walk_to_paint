@@ -502,9 +502,26 @@ def compute_class_weights_from_train(train_pack, ignore_index, num_classes):
     return weights
 
 
+def _dataloader_kwargs(cfg) -> dict:
+    """Extract DataLoader construction kwargs from cfg. Single source of truth for both paths."""
+    return dict(
+        batch_size=int(cfg.training.batch_size),
+        num_workers=int(getattr(cfg.training, "num_workers", 4)),
+        pin_memory=bool(getattr(cfg.training, "pin_memory", True)),
+        persistent_workers=bool(getattr(cfg.training, "persistent_workers", True)),
+        prefetch_factor=int(getattr(cfg.training, "prefetch_factor", 2)),
+    )
+
+
 def prepare_data(cfg):
-    # Load from dataset cache (only supported format)
     dataset_cache_path = os.path.join(cfg.dataset.data_dir, "dataset_cache.pt")
+
+    # Warn when caller asked for cache but it doesn't exist yet — avoids silent rebuild.
+    if cfg.preprocess.use_cache and not cache_exists(dataset_cache_path):
+        print(
+            f"⚠️  use_cache=True but no cache found at {dataset_cache_path} "
+            "\u2014 building from scratch."
+        )
 
     if cfg.preprocess.use_cache and cache_exists(dataset_cache_path):
         print(f"Loading dataset cache from {dataset_cache_path}...")
@@ -518,28 +535,24 @@ def prepare_data(cfg):
         cfg.model.unk_id = int(cache_data["tokenizer"]["UNK_ID"])
         cfg.model.mask_id = int(cache_data["tokenizer"]["MASK_ID"])
 
-        # Compute class weights if not in cache
         if "class_weights" in cache_data["metadata"]:
             cfg.model.class_weights = cache_data["metadata"]["class_weights"]
+        else:
+            # Old cache built before class-weight support: warn loudly so the user
+            # knows the model will fall back to uniform weights inside LitEdgeClassifier.
+            print(
+                f"⚠️  WARNING: cache at {dataset_cache_path} has no class_weights in metadata.\n"
+                "   The model will use uniform class weights, which may skew results\n"
+                "   on imbalanced datasets. Delete the cache and re-run to rebuild it."
+            )
 
-        # Get file size for reporting
         size_mb = os.path.getsize(dataset_cache_path) / (1024 * 1024)
         print(f"Success! ✅ (loaded {size_mb:.1f} MB)")
 
-        # Create dataloaders from dataset cache
-        batch_size = int(cfg.training.batch_size)
-        num_workers = int(getattr(cfg.training, "num_workers", 4))
-        pin_memory = bool(getattr(cfg.training, "pin_memory", True))
-        persistent_workers = bool(getattr(cfg.training, "persistent_workers", True))
-        prefetch_factor = int(getattr(cfg.training, "prefetch_factor", 2))
         return create_stage_dataloaders(
             cache_data,
-            batch_size,
-            num_workers,
-            pin_memory=pin_memory,
-            persistent_workers=persistent_workers,
-            prefetch_factor=prefetch_factor,
             dynamic_train_masking=bool(getattr(cfg.model, "dynamic_train_masking", False)),
+            **_dataloader_kwargs(cfg),
         )
     # Profile data creation steps to help diagnose slow preprocessing
     timings = {}
@@ -636,7 +649,7 @@ def prepare_data(cfg):
         walk_lengths,
     )
 
-    # Save dataset cache (always save in new approach)
+    # Save dataset cache if requested.
     if cfg.preprocess.save:
         print(f"Saving dataset cache to {dataset_cache_path}...")
 
@@ -664,17 +677,8 @@ def prepare_data(cfg):
     except Exception:
         pass
 
-    batch_size = int(cfg.training.batch_size)
-    num_workers = int(getattr(cfg.training, "num_workers", 4))
-    pin_memory = bool(getattr(cfg.training, "pin_memory", True))
-    persistent_workers = bool(getattr(cfg.training, "persistent_workers", True))
-    prefetch_factor = int(getattr(cfg.training, "prefetch_factor", 2))
     return create_stage_dataloaders(
         cache_data,
-        batch_size,
-        num_workers,
-        pin_memory=pin_memory,
-        persistent_workers=persistent_workers,
-        prefetch_factor=prefetch_factor,
         dynamic_train_masking=bool(getattr(cfg.model, "dynamic_train_masking", False)),
+        **_dataloader_kwargs(cfg),
     )
