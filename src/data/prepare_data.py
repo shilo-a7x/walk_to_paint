@@ -154,14 +154,7 @@ def split_edges(cfg, edges):
 def get_walks(cfg, edges):
     print(f"Sampling random walks from {cfg.dataset.name} dataset...")
 
-    # Get worker count - support both old and new config keys
-    walk_workers = int(
-        getattr(
-            cfg.preprocess,
-            "num_workers",
-            getattr(cfg.preprocess, "walk_num_workers", 1),
-        )
-    )
+    walk_workers = int(getattr(cfg.preprocess, "num_workers", 1))
 
     # Use canonical seed from reproducibility config (imported at top)
     walk_seed = get_seed(cfg)
@@ -393,6 +386,8 @@ def pad_and_build_stage_tensors(
         walk_lengths_list, batch_first=True, padding_value=-1
     ).long()
 
+    attention_base = (input_ids != pad_id).long()
+
     # derive stage-specific views
     train_pack, val_pack, test_pack = _stage_views_from_base(
         input_ids,
@@ -404,7 +399,18 @@ def pad_and_build_stage_tensors(
         walk_lengths,
     )
     print(f"Success! ✅")
-    return (train_pack, val_pack, test_pack)
+    # Return base tensors alongside stage packs so callers can reuse them
+    # without a second pad_sequence pass over the same lists.
+    base_tensors = {
+        "input_ids": input_ids,
+        "edge_split_mask": edge_split_mask,
+        "attention_base": attention_base,
+        "edge_ids": edge_ids,
+        "walk_ids": walk_ids,
+        "positions": positions,
+        "walk_lengths": walk_lengths,
+    }
+    return (train_pack, val_pack, test_pack), base_tensors
 
 
 def build_runtime_cache_data(
@@ -573,7 +579,7 @@ def prepare_data(cfg):
     timings["encode_walks"] = time.time() - t0
 
     t0 = time.time()
-    train_pack, val_pack, test_pack = pad_and_build_stage_tensors(
+    (train_pack, val_pack, test_pack), base_tensors = pad_and_build_stage_tensors(
         cfg,
         input_lists,
         split_lists,
@@ -592,18 +598,14 @@ def prepare_data(cfg):
     cfg.model.class_weights = class_weights
     print(f"✓ Class weights computed from train split: {class_weights}")
 
-    pad_id = int(tokenizer.PAD_ID)
-    input_ids = pad_sequence(input_lists, batch_first=True, padding_value=pad_id).long()
-    edge_split_mask = pad_sequence(
-        split_lists, batch_first=True, padding_value=SplitID.BAD
-    ).long()
-    attention_base = (input_ids != pad_id).long()
-    edge_ids = pad_sequence(edge_ids_list, batch_first=True, padding_value=-1).long()
-    walk_ids = pad_sequence(walk_ids_list, batch_first=True, padding_value=-1).long()
-    positions = pad_sequence(positions_list, batch_first=True, padding_value=-1).long()
-    walk_lengths = pad_sequence(
-        walk_lengths_list, batch_first=True, padding_value=-1
-    ).long()
+    # Reuse base tensors already computed inside pad_and_build_stage_tensors
+    input_ids      = base_tensors["input_ids"]
+    edge_split_mask = base_tensors["edge_split_mask"]
+    attention_base = base_tensors["attention_base"]
+    edge_ids       = base_tensors["edge_ids"]
+    walk_ids       = base_tensors["walk_ids"]
+    positions      = base_tensors["positions"]
+    walk_lengths   = base_tensors["walk_lengths"]
 
     splits_dict = {
         "train": train_set,
