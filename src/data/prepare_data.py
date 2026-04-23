@@ -388,20 +388,8 @@ def pad_and_build_stage_tensors(
 
     attention_base = (input_ids != pad_id).long()
 
-    # derive stage-specific views
-    train_pack, val_pack, test_pack = _stage_views_from_base(
-        input_ids,
-        edge_split_mask,
-        tokenizer,
-        edge_ids,
-        walk_ids,
-        positions,
-        walk_lengths,
-    )
     print(f"Success! ✅")
-    # Return base tensors alongside stage packs so callers can reuse them
-    # without a second pad_sequence pass over the same lists.
-    base_tensors = {
+    return {
         "input_ids": input_ids,
         "edge_split_mask": edge_split_mask,
         "attention_base": attention_base,
@@ -410,7 +398,6 @@ def pad_and_build_stage_tensors(
         "positions": positions,
         "walk_lengths": walk_lengths,
     }
-    return (train_pack, val_pack, test_pack), base_tensors
 
 
 def build_runtime_cache_data(
@@ -499,6 +486,51 @@ def compute_class_weights_from_train(train_pack, ignore_index, num_classes):
     weight_sum = sum(weights)
     weights = [w / weight_sum * num_classes for w in weights]
 
+    return weights
+
+
+def compute_class_weights_from_base(
+    input_ids: torch.Tensor,
+    edge_split_mask: torch.Tensor,
+    tokenizer: "Tokenizer",
+    num_classes: int,
+    ignore_index: int,
+) -> list:
+    """Compute class weights from train-target (MASK) edges in base tensors.
+
+    Avoids materializing any stage views — reads labels directly from the
+    MASK positions in edge_split_mask.  Drop-in replacement for the old
+    compute_class_weights_from_train(train_pack, ...) flow.
+    """
+    # Build token_id -> class_id mapping (same logic as _stage_views_from_base)
+    id2class = torch.full((tokenizer.vocab_size,), ignore_index, dtype=torch.long)
+    for class_id, edge_tok in tokenizer.id2edge_label.items():
+        tok_id = tokenizer.token2id.get(edge_tok, None)
+        if tok_id is not None:
+            id2class[tok_id] = int(class_id)
+
+    # Extract class labels at train-target (MASK) positions
+    target_positions = edge_split_mask == SplitID.MASK
+    if not target_positions.any():
+        print("\u26a0\ufe0f  Warning: No MASK positions found, using uniform weights")
+        return [1.0] * num_classes
+
+    raw_labels = id2class[input_ids[target_positions]]
+    valid_labels = raw_labels[raw_labels != ignore_index]
+
+    if len(valid_labels) == 0:
+        print("\u26a0\ufe0f  Warning: No valid labels in train split, using uniform weights")
+        return [1.0] * num_classes
+
+    # Inverse frequency (identical formula to compute_class_weights_from_train)
+    class_counts = [(valid_labels == i).sum().item() for i in range(num_classes)]
+    total = len(valid_labels)
+    weights = [
+        total / (num_classes * count) if count > 0 else 1.0
+        for count in class_counts
+    ]
+    weight_sum = sum(weights)
+    weights = [w / weight_sum * num_classes for w in weights]
     return weights
 
 
@@ -592,7 +624,7 @@ def prepare_data(cfg):
     timings["encode_walks"] = time.time() - t0
 
     t0 = time.time()
-    (train_pack, val_pack, test_pack), base_tensors = pad_and_build_stage_tensors(
+    base_tensors = pad_and_build_stage_tensors(
         cfg,
         input_lists,
         split_lists,
@@ -604,21 +636,20 @@ def prepare_data(cfg):
     )
     timings["pad_and_build_stage_tensors"] = time.time() - t0
 
-    # Compute class weights from train split only (mandatory for fair loss)
-    class_weights = compute_class_weights_from_train(
-        train_pack, cfg.model.ignore_index, cfg.model.num_classes
+    input_ids       = base_tensors["input_ids"]
+    edge_split_mask = base_tensors["edge_split_mask"]
+    attention_base  = base_tensors["attention_base"]
+    edge_ids        = base_tensors["edge_ids"]
+    walk_ids        = base_tensors["walk_ids"]
+    positions       = base_tensors["positions"]
+    walk_lengths    = base_tensors["walk_lengths"]
+
+    # Compute class weights directly from base tensors — no stage view materialization.
+    class_weights = compute_class_weights_from_base(
+        input_ids, edge_split_mask, tokenizer, cfg.model.num_classes, cfg.model.ignore_index
     )
     cfg.model.class_weights = class_weights
     print(f"✓ Class weights computed from train split: {class_weights}")
-
-    # Reuse base tensors already computed inside pad_and_build_stage_tensors
-    input_ids      = base_tensors["input_ids"]
-    edge_split_mask = base_tensors["edge_split_mask"]
-    attention_base = base_tensors["attention_base"]
-    edge_ids       = base_tensors["edge_ids"]
-    walk_ids       = base_tensors["walk_ids"]
-    positions      = base_tensors["positions"]
-    walk_lengths   = base_tensors["walk_lengths"]
 
     splits_dict = {
         "train": train_set,

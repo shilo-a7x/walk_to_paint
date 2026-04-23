@@ -18,7 +18,7 @@ from src.data.prepare_data import (
     encode_walks,
     pad_and_build_stage_tensors,
     build_runtime_cache_data,
-    compute_class_weights_from_train,
+    compute_class_weights_from_base,
 )
 from src.data.dataset_cache import save_dataset_cache, load_dataset_cache, cache_exists
 from src.data.stage_dataset import create_stage_dataloaders
@@ -65,15 +65,10 @@ def _build_from_scratch(cfg):
     timings["encode_walks"] = time.perf_counter() - t
 
     t = time.perf_counter()
-    (train_pack, val_pack, test_pack), base_tensors = pad_and_build_stage_tensors(
+    base_tensors = pad_and_build_stage_tensors(
         cfg, input_lists, split_lists, eid_list, wid_list, pos_list, wlen_list, tokenizer
     )
     timings["pad_and_build_stage_tensors"] = time.perf_counter() - t
-
-    class_weights = compute_class_weights_from_train(
-        train_pack, cfg.model.ignore_index, cfg.model.num_classes
-    )
-    cfg.model.class_weights = class_weights
 
     input_ids    = base_tensors["input_ids"]
     edge_split   = base_tensors["edge_split_mask"]
@@ -82,6 +77,11 @@ def _build_from_scratch(cfg):
     walk_ids     = base_tensors["walk_ids"]
     positions    = base_tensors["positions"]
     walk_lengths = base_tensors["walk_lengths"]
+
+    class_weights = compute_class_weights_from_base(
+        input_ids, edge_split, tokenizer, cfg.model.num_classes, cfg.model.ignore_index
+    )
+    cfg.model.class_weights = class_weights
 
     splits_dict = {"train": train_s, "mask": mask_s, "val": val_s, "test": test_s}
     metadata = {
