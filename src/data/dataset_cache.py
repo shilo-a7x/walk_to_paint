@@ -79,9 +79,24 @@ _CURRENT_VERSION = "1.2"
 _LEGACY_VERSIONS = {"1.0", "1.1"}
 
 
-def load_dataset_cache(cache_path: str) -> Dict[str, Any]:
-    """Load dataset cache file."""
-    cache_data = torch.load(cache_path, weights_only=False)
+def load_dataset_cache(cache_path: str, use_mmap: bool = False) -> Dict[str, Any]:
+    """Load dataset cache file.
+
+    Args:
+        cache_path: Path to the .pt cache file.
+        use_mmap: When True, attempt to memory-map the file's tensors so the OS
+            pages them in on demand rather than reading the whole file upfront.
+            Falls back to a normal load if the mmap call fails (e.g. on some
+            network file systems that do not support MAP_SHARED).
+    """
+    if use_mmap:
+        try:
+            cache_data = torch.load(cache_path, weights_only=False, mmap=True)
+        except Exception as e:
+            print(f"⚠️  mmap load failed ({e}), falling back to normal load.")
+            cache_data = torch.load(cache_path, weights_only=False)
+    else:
+        cache_data = torch.load(cache_path, weights_only=False)
     version = cache_data.get("version", "unknown")
     if version in _LEGACY_VERSIONS:
         print(

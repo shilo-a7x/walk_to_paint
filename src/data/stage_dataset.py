@@ -138,7 +138,23 @@ def create_stage_dataloaders(
 ):
 
     if pin_memory is None:
-        pin_memory = True if torch.cuda.is_available() else False
+        # Auto-enable only when CUDA is available.
+        # Also force-off when tensors may be mmap'd: DataLoader's pin_memory
+        # worker calls .pin_memory() which fails on storage-backed tensors.
+        pin_memory = torch.cuda.is_available()
+
+    # Safety override: mmap'd tensors cannot be pinned — detect by checking
+    # whether the base input_ids tensor has a non-contiguous or file-backed
+    # storage.  The simplest reliable check is is_pinned() == False AND
+    # storage().is_shared() == False, but the most portable guard is just
+    # to check if any encoded tensor reports a non-CPU, non-pinned state.
+    if pin_memory:
+        try:
+            t = cache_data["encoded"]["input_ids"]
+            if t.untyped_storage().filename() is not None:  # mmap'd file-backed tensor
+                pin_memory = False
+        except (AttributeError, TypeError):
+            pass  # filename() not available on all backends — leave as-is
 
     dataloader_kwargs = {
         "batch_size": batch_size,

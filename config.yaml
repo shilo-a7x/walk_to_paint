@@ -22,6 +22,7 @@ reproducibility:
 preprocess:
     save: true # Save preprocessed data (walks, tokenizer, encodings)
     use_cache: true # Load from cache if available
+    use_mmap: true # Memory-map tensors on load (faster startup, lower RSS)
     num_workers: 8 # Number of parallel workers for walk sampling
 
 # Default dataset structure (overridden by dataset-specific configs)

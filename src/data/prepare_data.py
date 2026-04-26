@@ -630,8 +630,9 @@ def prepare_data(cfg):
         )
 
     if cfg.preprocess.use_cache and cache_exists(dataset_cache_path):
-        print(f"Loading dataset cache from {dataset_cache_path}...")
-        cache_data = load_dataset_cache(dataset_cache_path)
+        use_mmap = bool(getattr(cfg.preprocess, "use_mmap", False))
+        print(f"Loading dataset cache from {dataset_cache_path} (mmap={use_mmap})...")
+        cache_data = load_dataset_cache(dataset_cache_path, use_mmap=use_mmap)
 
         # Update config with metadata
         cfg.model.vocab_size = cache_data["metadata"]["vocab_size"]
