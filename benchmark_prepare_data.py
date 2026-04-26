@@ -59,14 +59,14 @@ def _build_from_scratch(cfg):
     cfg.model.mask_id      = tokenizer.MASK_ID
 
     t = time.perf_counter()
-    input_lists, split_lists, eid_list, wid_list, pos_list, wlen_list = encode_walks(
+    input_lists, split_lists, eid_list = encode_walks(
         walks, tokenizer, edges, train_s, mask_s, val_s, test_s
     )
     timings["encode_walks"] = time.perf_counter() - t
 
     t = time.perf_counter()
     base_tensors = pad_and_build_stage_tensors(
-        cfg, input_lists, split_lists, eid_list, wid_list, pos_list, wlen_list, tokenizer
+        cfg, input_lists, split_lists, eid_list, tokenizer
     )
     timings["pad_and_build_stage_tensors"] = time.perf_counter() - t
 
