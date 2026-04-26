@@ -26,9 +26,9 @@ preprocess:
 
 # Default dataset structure (overridden by dataset-specific configs)
 dataset:
-    name: bitcoin-alpha-binary
-    data_dir: data/bitcoin-alpha-binary
-    edge_list_file: soc-sign-bitcoinalpha-binary.csv
+    name: bitcoin-alpha
+    data_dir: data/bitcoin-alpha
+    edge_list_file: soc-sign-bitcoinalpha.csv.gz
     # Default split ratios
     train_ratio: 0.48
     mask_ratio: 0.32
@@ -46,8 +46,40 @@ model:
     dropout: 0.5
     nhead: 8
     nlayers: 5
-    dynamic_train_masking: false
+
+    # ── D: Dynamic resplit ──────────────────────────────────────────────────
+    # Each epoch, re-assign which edges in TRAIN+MASK are the supervised
+    # targets.  Prevents the model memorising which edges to predict.
+    dynamic_train_masking: true
     dynamic_train_mask_seed_offset: 0
+
+    # ── R: Node token replacement ───────────────────────────────────────────
+    # Replace node tokens with [UNK] or a random node with probability
+    # node_replace_prob.  Reduces reliance on individual node identities.
+    # Set node_context_mode to "none" to disable.
+    node_context_mode: replace       # "none" | "replace"
+    node_replace_prob: 0.2           # fraction of node tokens to replace
+    node_replace_unk_ratio: 0.7      # of replaced tokens: fraction set to [UNK]
+
+    # ── H: Hard-node reweighting ────────────────────────────────────────────
+    # Scale each walk's loss by (1 + λ · avg_hardness_of_adjacent_nodes).
+    # Set hardness_map_path to the output of compute_hardness_map.py.
+    # Leave null to disable H (useful for E0/E12/E13 ablations).
+    hardness_lambda: 1.0
+    hardness_map_path: null          # path to hardness_map.pt, or null
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Miner configuration (used by compute_hardness_map.py / pipeline entry point)
+# Tiny transformer trained before the main model to produce the hardness map.
+# ──────────────────────────────────────────────────────────────────────────────
+miner:
+    epochs: 5
+    embedding_dim: 16
+    hidden_dim: 16
+    nhead: 2
+    nlayers: 2
+    lr: 1.0e-3
+    batch_size: 1024
 
 # ============================================================================
 # Training Configuration
@@ -80,6 +112,7 @@ training:
     callbacks:
         enable_prediction_saver: false # Save train/val/test prediction PKLs each epoch
         enable_per_epoch_test_runner: false # Run test loop at every validation epoch
+        save_every: 0 # 0 = every epoch; N > 0 = every Nth epoch + always last epoch
 
 # Default paths configuration
 paths:

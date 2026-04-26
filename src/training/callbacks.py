@@ -34,6 +34,9 @@ class PerEpochPredictionSaver(Callback):
         self.cfg = cfg
         self.data_module = data_module
 
+        callback_cfg = getattr(cfg.training, "callbacks", None)
+        self.save_every = int(getattr(callback_cfg, "save_every", 0))
+
         # Create output directory
         self.predictions_dir = os.path.join(
             cfg.training.checkpoint_dir, f"{cfg.dataset.name}_predictions"
@@ -42,6 +45,8 @@ class PerEpochPredictionSaver(Callback):
 
         print(f"✓ PerEpochPredictionSaver initialized")
         print(f"  Predictions will be saved to: {self.predictions_dir}")
+        if self.save_every > 0:
+            print(f"  save_every={self.save_every} (+ always last epoch)")
 
     def _extract_predictions(self, trainer, pl_module, dataloader, split_name):
         """Extract predictions from a dataloader with full walk metadata.
@@ -206,19 +211,33 @@ class PerEpochPredictionSaver(Callback):
                 f"{n_unique_edges} unique edges, AUC=N/A"
             )
 
-    def on_train_epoch_end(self, trainer, pl_module):
-        """Save train predictions after each epoch."""
-        print(f"\nEpoch {trainer.current_epoch}: Saving train predictions...")
+    def _should_save(self, trainer) -> bool:
+        """Return True if this epoch should trigger a save.
 
+        save_every=0  → every epoch (default, backward-compatible)
+        save_every=N  → every Nth epoch (1-based) and always on the final epoch
+        """
+        if self.save_every <= 0:
+            return True
+        epoch = trainer.current_epoch  # 0-based
+        is_last = (epoch + 1) >= trainer.max_epochs
+        return is_last or ((epoch + 1) % self.save_every == 0)
+
+    def on_train_epoch_end(self, trainer, pl_module):
+        """Save train predictions after each eligible epoch."""
+        if not self._should_save(trainer):
+            return
+        print(f"\nEpoch {trainer.current_epoch}: Saving train predictions...")
         predictions = self._extract_predictions(
             trainer, pl_module, self.data_module["train"], "train"
         )
         self._save_predictions(predictions, trainer.current_epoch, "train")
 
     def on_validation_epoch_end(self, trainer, pl_module):
-        """Save val predictions after each epoch."""
+        """Save val predictions after each eligible epoch."""
+        if not self._should_save(trainer):
+            return
         print(f"Epoch {trainer.current_epoch}: Saving val predictions...")
-
         predictions = self._extract_predictions(
             trainer, pl_module, self.data_module["val"], "val"
         )
@@ -226,8 +245,9 @@ class PerEpochPredictionSaver(Callback):
 
     def on_test_epoch_end(self, trainer, pl_module):
         """Save test predictions after test run."""
+        if not self._should_save(trainer):
+            return
         print(f"Epoch {trainer.current_epoch}: Saving test predictions...")
-
         predictions = self._extract_predictions(
             trainer, pl_module, self.data_module["test"], "test"
         )
@@ -245,12 +265,23 @@ class PerEpochTestRunner(Callback):
         """
         self.test_dataloader = data_module["test"]
         self.prediction_saver = prediction_saver
-        print("✓ PerEpochTestRunner initialized - test will run every epoch")
+        save_every = prediction_saver.save_every if prediction_saver is not None else 0
+        freq = "every epoch" if save_every <= 0 else f"every {save_every} epoch(s) + last"
+        print(f"✓ PerEpochTestRunner initialized - test will run {freq}")
+
+    def _should_run(self, trainer) -> bool:
+        """Mirror PerEpochPredictionSaver._should_save logic."""
+        if self.prediction_saver is None:
+            return True
+        return self.prediction_saver._should_save(trainer)
 
     def on_validation_epoch_end(self, trainer, pl_module):
-        """Run test loop after validation completes."""
+        """Run test loop after validation completes (only on eligible epochs)."""
         # Skip during sanity check
         if trainer.sanity_checking:
+            return
+
+        if not self._should_run(trainer):
             return
 
         # Manually run inference on test set instead of calling trainer.test()
