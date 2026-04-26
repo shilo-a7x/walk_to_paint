@@ -101,7 +101,6 @@ def _time_save(cache_data, tokenizer, cache_path):
     t = time.perf_counter()
     save_dataset_cache(
         cache_path,
-        cache_data["walks"],
         tokenizer,
         cache_data["encoded"]["input_ids"],
         cache_data["encoded"]["edge_split_mask"],
@@ -109,9 +108,6 @@ def _time_save(cache_data, tokenizer, cache_path):
         cache_data["splits"],
         cache_data["metadata"],
         edge_ids=cache_data["encoded"].get("edge_ids"),
-        walk_ids=cache_data["encoded"].get("walk_ids"),
-        positions=cache_data["encoded"].get("positions"),
-        walk_lengths=cache_data["encoded"].get("walk_lengths"),
     )
     return time.perf_counter() - t
 

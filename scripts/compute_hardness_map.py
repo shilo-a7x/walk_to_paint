@@ -111,9 +111,26 @@ class FullPoolMinerDataset(torch.utils.data.Dataset):
         self.edge_split_mask = enc["edge_split_mask"]
         self.attention_base = enc["attention_base"]
         self.edge_ids = enc.get("edge_ids")
-        self.walk_ids = enc.get("walk_ids")
-        self.positions = enc.get("positions")
-        self.walk_lengths = enc.get("walk_lengths")
+
+        # Reconstruct walk_ids/positions/walk_lengths from attention_base when absent
+        # (v1.2+ caches no longer store these redundant tensors).
+        N, seq_len = self.attention_base.shape
+
+        if enc.get("walk_ids") is not None:
+            self.walk_ids = enc["walk_ids"]
+        else:
+            self.walk_ids = torch.arange(N, dtype=torch.long).unsqueeze(1).expand(N, seq_len)
+
+        if enc.get("positions") is not None:
+            self.positions = enc["positions"]
+        else:
+            self.positions = torch.arange(seq_len, dtype=torch.long).unsqueeze(0).expand(N, seq_len)
+
+        if enc.get("walk_lengths") is not None:
+            self.walk_lengths = enc["walk_lengths"]
+        else:
+            lengths = self.attention_base.sum(dim=1, dtype=torch.long)
+            self.walk_lengths = lengths.unsqueeze(1).expand(N, seq_len)
 
         self.mask_id = tok["MASK_ID"]
         self.ignore_index = tok["UNK_LABEL_ID"]

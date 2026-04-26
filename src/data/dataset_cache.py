@@ -1,19 +1,21 @@
 """
 Dataset cache format for data pipeline.
 
-Single file stores everything: walks, tokenizer, encoded data, splits, metadata.
+Single file stores: tokenizer, encoded tensors (input_ids, edge_split_mask,
+attention_base, edge_ids), splits, and metadata.  Walks list and redundant
+tensors (walk_ids, positions, walk_lengths) are intentionally excluded to
+keep the file small and load times fast.
 """
 
 import os
 import torch
-from typing import Dict, List, Set, Tuple, Any
+from typing import Dict, Set, Tuple, Any
 
 from src.data.tokenizer import Tokenizer
 
 
 def save_dataset_cache(
     cache_path: str,
-    walks: List[List[str]],
     tokenizer: Tokenizer,
     input_ids: torch.Tensor,
     edge_split_mask: torch.Tensor,
@@ -21,12 +23,14 @@ def save_dataset_cache(
     splits: Dict[str, Set[Tuple[int, int, int]]],
     metadata: Dict[str, Any],
     edge_ids: torch.Tensor = None,
-    walk_ids: torch.Tensor = None,
-    positions: torch.Tensor = None,
-    walk_lengths: torch.Tensor = None,
 ):
     """
     Save all preprocessing results to a single dataset cache file.
+
+    Walks list is not saved — it is never needed after encoding and is the
+    dominant source of serialization cost at scale.
+    walk_ids / positions / walk_lengths are not saved — they are trivially
+    reconstructable from attention_base in StageViewDataset at load time.
     """
 
     tokenizer_state = {
@@ -54,16 +58,12 @@ def save_dataset_cache(
 
     if edge_ids is not None:
         encoded["edge_ids"] = edge_ids
-    if walk_ids is not None:
-        encoded["walk_ids"] = walk_ids
-    if positions is not None:
-        encoded["positions"] = positions
-    if walk_lengths is not None:
-        encoded["walk_lengths"] = walk_lengths
+
+    # walk_ids / positions / walk_lengths are NOT saved — reconstructed at load time.
+    # walks list is NOT saved — not needed after encoding.
 
     cache_data = {
-        "version": "1.0",
-        "walks": walks,
+        "version": "1.2",
         "tokenizer": tokenizer_state,
         "encoded": encoded,
         "splits": splits_serializable,
@@ -75,9 +75,21 @@ def save_dataset_cache(
     return size_mb
 
 
+_CURRENT_VERSION = "1.2"
+_LEGACY_VERSIONS = {"1.0", "1.1"}
+
+
 def load_dataset_cache(cache_path: str) -> Dict[str, Any]:
     """Load dataset cache file."""
-    cache_data = torch.load(cache_path)
+    cache_data = torch.load(cache_path, weights_only=False)
+    version = cache_data.get("version", "unknown")
+    if version in _LEGACY_VERSIONS:
+        print(
+            f"\n⚠️  Cache version {version} detected (current: {_CURRENT_VERSION}).\n"
+            f"   The old format includes large serialized data (walks list and/or\n"
+            f"   redundant tensors) that makes loading SLOW and wastes disk space.\n"
+            f"   Delete {cache_path} and re-run to rebuild with the fast format.\n"
+        )
     cache_data["splits"] = {
         k: {tuple(edge) for edge in v} for k, v in cache_data["splits"].items()
     }

@@ -116,7 +116,6 @@ def _build_synthetic_cache_data():
         "seed": 42,
     }
     cache_data = build_runtime_cache_data(
-        walks,
         tok,
         input_ids,
         edge_split_mask,
@@ -148,7 +147,6 @@ def test_runtime_and_loaded_cache_stage_views_are_identical(tmp_path: Path):
 
     save_dataset_cache(
         str(cache_path),
-        cache_data["walks"],
         tok,
         cache_data["encoded"]["input_ids"],
         cache_data["encoded"]["edge_split_mask"],
@@ -156,9 +154,6 @@ def test_runtime_and_loaded_cache_stage_views_are_identical(tmp_path: Path):
         cache_data["splits"],
         cache_data["metadata"],
         edge_ids=cache_data["encoded"]["edge_ids"],
-        walk_ids=cache_data["encoded"]["walk_ids"],
-        positions=cache_data["encoded"]["positions"],
-        walk_lengths=cache_data["encoded"]["walk_lengths"],
     )
 
     loaded_cache = load_dataset_cache(str(cache_path))
@@ -214,8 +209,16 @@ def test_dynamic_train_targets_resample_without_val_test_leakage():
     assert not torch.isin(epoch0, val_test_ids).any()
     assert not torch.isin(epoch1, val_test_ids).any()
 
-    batch = next(iter(loaders["train"]))
-    dynamic_input_ids, labels = model._build_dynamic_targets_for_batch(batch[0], batch[3])
-    target_count = int((labels != model.ignore_index).sum().item())
-    assert target_count >= 1
-    assert torch.equal(dynamic_input_ids[labels != model.ignore_index], torch.full_like(dynamic_input_ids[labels != model.ignore_index], cfg.model.mask_id))
+    # Iterate all batches: at least one must have dynamic targets (avoids dependence on
+    # random shuffle putting the right walk in the first batch).
+    total_target_count = 0
+    last_dynamic_input_ids, last_labels = None, None
+    for batch in loaders["train"]:
+        dynamic_input_ids, labels = model._build_dynamic_targets_for_batch(batch[0], batch[3])
+        count = int((labels != model.ignore_index).sum().item())
+        if count > 0:
+            total_target_count += count
+            last_dynamic_input_ids, last_labels = dynamic_input_ids, labels
+    assert total_target_count >= 1
+    assert last_dynamic_input_ids is not None
+    assert torch.equal(last_dynamic_input_ids[last_labels != model.ignore_index], torch.full_like(last_dynamic_input_ids[last_labels != model.ignore_index], cfg.model.mask_id))

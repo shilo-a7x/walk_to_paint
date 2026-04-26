@@ -408,7 +408,6 @@ def pad_and_build_stage_tensors(
 
 
 def build_runtime_cache_data(
-    walks,
     tokenizer,
     input_ids,
     edge_split_mask,
@@ -434,8 +433,7 @@ def build_runtime_cache_data(
     }
 
     return {
-        "version": "1.0",
-        "walks": walks,
+        "version": "1.2",
         "tokenizer": tokenizer_state,
         "encoded": {
             "input_ids": input_ids,
@@ -627,6 +625,9 @@ def prepare_data(cfg):
     ) = encode_walks(walks, tokenizer, edges, train_set, mask_set, val_set, test_set)
     timings["encode_walks"] = time.time() - t0
 
+    # Free the walks list — it is no longer needed and holds ~1-2 GB at real scale.
+    del walks
+
     t0 = time.time()
     base_tensors = pad_and_build_stage_tensors(
         cfg,
@@ -668,7 +669,6 @@ def prepare_data(cfg):
         "seed": get_seed(cfg),
     }
     cache_data = build_runtime_cache_data(
-        walks,
         tokenizer,
         input_ids,
         edge_split_mask,
@@ -687,7 +687,6 @@ def prepare_data(cfg):
 
         size_mb = save_dataset_cache(
             dataset_cache_path,
-            walks,
             tokenizer,
             input_ids,
             edge_split_mask,
@@ -695,9 +694,6 @@ def prepare_data(cfg):
             splits_dict,
             metadata,
             edge_ids=edge_ids,
-            walk_ids=walk_ids,
-            positions=positions,
-            walk_lengths=walk_lengths,
         )
         print(f"✓ Dataset cache saved ({size_mb:.1f} MB)")
 

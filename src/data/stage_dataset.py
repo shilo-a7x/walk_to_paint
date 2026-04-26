@@ -27,9 +27,28 @@ class StageViewDataset(Dataset):
         self.attention_base = cache_data["encoded"]["attention_base"]
 
         self.edge_ids = cache_data["encoded"].get("edge_ids")
-        self.walk_ids = cache_data["encoded"].get("walk_ids")
-        self.positions = cache_data["encoded"].get("positions")
-        self.walk_lengths = cache_data["encoded"].get("walk_lengths")
+
+        # walk_ids / positions / walk_lengths are reconstructable from attention_base
+        # and are no longer stored in the cache file.  Prefer stored values (runtime
+        # build path); fall back to reconstruction when loading from a v1.2+ cache.
+        N, seq_len = self.attention_base.shape
+        enc = cache_data["encoded"]
+
+        if enc.get("walk_ids") is not None:
+            self.walk_ids = enc["walk_ids"]
+        else:
+            self.walk_ids = torch.arange(N, dtype=torch.long).unsqueeze(1).expand(N, seq_len)
+
+        if enc.get("positions") is not None:
+            self.positions = enc["positions"]
+        else:
+            self.positions = torch.arange(seq_len, dtype=torch.long).unsqueeze(0).expand(N, seq_len)
+
+        if enc.get("walk_lengths") is not None:
+            self.walk_lengths = enc["walk_lengths"]
+        else:
+            lengths = self.attention_base.sum(dim=1, dtype=torch.long)  # [N]
+            self.walk_lengths = lengths.unsqueeze(1).expand(N, seq_len)
 
         tokenizer = cache_data["tokenizer"]
         self.mask_id = tokenizer["MASK_ID"]
