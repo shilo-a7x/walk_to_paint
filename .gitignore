@@ -12,3 +12,4 @@ outputs/
 *.log
 *.out
 /tmp
+*.pt
