@@ -13,3 +13,4 @@ outputs/
 *.out
 /tmp
 *.pt
+/baselines
