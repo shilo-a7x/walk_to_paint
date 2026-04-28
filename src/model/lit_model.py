@@ -68,9 +68,13 @@ class LitEdgeClassifier(pl.LightningModule):
         self.hardness_lambda = float(getattr(self.cfg.model, "hardness_lambda", 0.5))
         hardness_map_path = getattr(self.cfg.model, "hardness_map_path", None)
         if hardness_map_path:
-            hmap = torch.load(str(hardness_map_path), map_location="cpu", weights_only=True)
+            hmap = torch.load(
+                str(hardness_map_path), map_location="cpu", weights_only=True
+            )
             self.register_buffer("hardness_map_tensor", hmap.float())
-            print(f"✓ Loaded hardness map from {hardness_map_path} (vocab_size={hmap.shape[0]})")
+            print(
+                f"✓ Loaded hardness map from {hardness_map_path} (vocab_size={hmap.shape[0]})"
+            )
         else:
             self.hardness_map_tensor = None
 
@@ -94,7 +98,9 @@ class LitEdgeClassifier(pl.LightningModule):
         if not candidates.any():
             return x
 
-        replace_mask = (torch.rand_like(candidates, dtype=torch.float) < replace_prob) & candidates
+        replace_mask = (
+            torch.rand_like(candidates, dtype=torch.float) < replace_prob
+        ) & candidates
         if not replace_mask.any():
             return x
 
@@ -116,7 +122,9 @@ class LitEdgeClassifier(pl.LightningModule):
         rand_count = int((~use_unk).sum().item())
         if rand_count > 0:
             rand_positions = selected[~use_unk]
-            rand_idx = torch.randint(0, node_pool.numel(), (rand_count,), device=x.device)
+            rand_idx = torch.randint(
+                0, node_pool.numel(), (rand_count,), device=x.device
+            )
             x[rand_positions[:, 0], rand_positions[:, 1]] = node_pool[rand_idx]
 
         return x
@@ -128,19 +136,28 @@ class LitEdgeClassifier(pl.LightningModule):
         train_loader = self.trainer.train_dataloader
         train_dataset = getattr(train_loader, "dataset", None)
         if train_dataset is None:
-            raise RuntimeError("dynamic_train_masking requires accessible train dataset")
+            raise RuntimeError(
+                "dynamic_train_masking requires accessible train dataset"
+            )
 
         edge_ids = getattr(train_dataset, "edge_ids", None)
         edge_split_mask = getattr(train_dataset, "edge_split_mask", None)
         input_ids = getattr(train_dataset, "input_ids", None)
         id2class = getattr(train_dataset, "id2class", None)
 
-        if edge_ids is None or edge_split_mask is None or input_ids is None or id2class is None:
+        if (
+            edge_ids is None
+            or edge_split_mask is None
+            or input_ids is None
+            or id2class is None
+        ):
             raise RuntimeError(
                 "dynamic_train_masking requires edge_ids, edge_split_mask, input_ids and id2class metadata"
             )
 
-        pool_mask = ((edge_split_mask == SPLIT_TRAIN) | (edge_split_mask == SPLIT_MASK)) & (edge_ids >= 0)
+        pool_mask = (
+            (edge_split_mask == SPLIT_TRAIN) | (edge_split_mask == SPLIT_MASK)
+        ) & (edge_ids >= 0)
         pool_edge_ids = edge_ids[pool_mask].long().cpu()
         if pool_edge_ids.numel() == 0:
             raise RuntimeError("dynamic_train_masking pool is empty")
@@ -154,7 +171,9 @@ class LitEdgeClassifier(pl.LightningModule):
         pool_edge_classes = pool_edge_classes[valid]
 
         max_edge_id = int(pool_edge_ids.max().item())
-        edge_class_map = torch.full((max_edge_id + 1,), self.ignore_index, dtype=torch.long)
+        edge_class_map = torch.full(
+            (max_edge_id + 1,), self.ignore_index, dtype=torch.long
+        )
         edge_class_map[pool_edge_ids] = pool_edge_classes
 
         unique_edge_ids = torch.unique(pool_edge_ids)
@@ -267,7 +286,9 @@ class LitEdgeClassifier(pl.LightningModule):
             node_mask = (positions >= 0) & ((positions % 2) == 0)
 
         if stage == "train" and self.training and node_mask is not None:
-            model_input_ids = self._maybe_apply_node_replacement(model_input_ids, node_mask)
+            model_input_ids = self._maybe_apply_node_replacement(
+                model_input_ids, node_mask
+            )
 
         logits = self.model(
             model_input_ids,
@@ -304,7 +325,7 @@ class LitEdgeClassifier(pl.LightningModule):
             # Use original input_ids for node lookup (before any replacement/masking)
             left_toks = input_ids[seq_idx, left_pos]
             right_toks = input_ids[seq_idx, right_pos]
-            h_left = self.hardness_map_tensor[left_toks]   # [B]
+            h_left = self.hardness_map_tensor[left_toks]  # [B]
             h_right = self.hardness_map_tensor[right_toks]  # [B]
             walk_weights = 1.0 + self.hardness_lambda * (h_left + h_right) / 2.0  # [B]
 

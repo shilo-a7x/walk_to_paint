@@ -274,7 +274,9 @@ class PerEpochTestRunner(Callback):
         self.test_dataloader = data_module["test"]
         self.prediction_saver = prediction_saver
         save_every = prediction_saver.save_every if prediction_saver is not None else 0
-        freq = "every epoch" if save_every <= 0 else f"every {save_every} epoch(s) + last"
+        freq = (
+            "every epoch" if save_every <= 0 else f"every {save_every} epoch(s) + last"
+        )
         print(f"✓ PerEpochTestRunner initialized - test will run {freq}")
 
     def _should_run(self, trainer) -> bool:

@@ -58,16 +58,16 @@ model:
     # Replace node tokens with [UNK] or a random node with probability
     # node_replace_prob.  Reduces reliance on individual node identities.
     # Set node_context_mode to "none" to disable.
-    node_context_mode: replace       # "none" | "replace"
-    node_replace_prob: 0.2           # fraction of node tokens to replace
-    node_replace_unk_ratio: 0.7      # of replaced tokens: fraction set to [UNK]
+    node_context_mode: replace # "none" | "replace"
+    node_replace_prob: 0.2 # fraction of node tokens to replace
+    node_replace_unk_ratio: 0.7 # of replaced tokens: fraction set to [UNK]
 
     # ── H: Hard-node reweighting ────────────────────────────────────────────
     # Scale each walk's loss by (1 + λ · avg_hardness_of_adjacent_nodes).
     # Set hardness_map_path to the output of compute_hardness_map.py.
     # Leave null to disable H (useful for E0/E12/E13 ablations).
     hardness_lambda: 1.0
-    hardness_map_path: null          # path to hardness_map.pt, or null
+    hardness_map_path: null # path to hardness_map.pt, or null
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Miner configuration (used by compute_hardness_map.py / pipeline entry point)
@@ -108,8 +108,8 @@ training:
     pin_memory: true # Pin memory for faster GPU transfer
     persistent_workers: true # Keep workers alive between epochs (faster with num_workers > 0)
     prefetch_factor: 2 # Batches prefetched per worker
-    bucket_batching: true    # Bucket walks by length for shorter batches (faster transformer)
-    bucket_width: 16         # Bucket granularity in tokens (smaller = tighter grouping)
+    bucket_batching: true # Bucket walks by length for shorter batches (faster transformer)
+    bucket_width: 16 # Bucket granularity in tokens (smaller = tighter grouping)
 
     # Optional non-standard callbacks (disable for faster baseline training)
     callbacks:

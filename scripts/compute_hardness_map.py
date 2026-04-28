@@ -58,12 +58,14 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         default=False,
         help="If set, miner trains with rotating targets over the full TRAIN+MASK pool each epoch "
-             "(mirrors _sample_epoch_targets in lit_model.py). Eval collection always covers the full pool.",
+        "(mirrors _sample_epoch_targets in lit_model.py). Eval collection always covers the full pool.",
     )
     return p.parse_args()
 
 
-def _target_rows_by_max_walk_edges(labels, metadata, ignore_index: int, max_walk_edges: int):
+def _target_rows_by_max_walk_edges(
+    labels, metadata, ignore_index: int, max_walk_edges: int
+):
     """Return row mask selecting only samples with short-enough target walks."""
     B = labels.size(0)
     keep_rows = torch.ones(B, dtype=torch.bool, device=labels.device)
@@ -92,6 +94,7 @@ def _target_rows_by_max_walk_edges(labels, metadata, ignore_index: int, max_walk
 # ---------------------------------------------------------------------------
 # Full-pool miner dataset
 # ---------------------------------------------------------------------------
+
 
 class FullPoolMinerDataset(torch.utils.data.Dataset):
     """Like StageViewDataset(stage='train') but exposes the entire TRAIN+MASK
@@ -138,11 +141,17 @@ class FullPoolMinerDataset(torch.utils.data.Dataset):
             if enc.get("walk_ids") is not None:
                 self.walk_ids = enc["walk_ids"]
             else:
-                self.walk_ids = torch.arange(N, dtype=torch.long).unsqueeze(1).expand(N, seq_len)
+                self.walk_ids = (
+                    torch.arange(N, dtype=torch.long).unsqueeze(1).expand(N, seq_len)
+                )
             if enc.get("positions") is not None:
                 self.positions = enc["positions"]
             else:
-                self.positions = torch.arange(seq_len, dtype=torch.long).unsqueeze(0).expand(N, seq_len)
+                self.positions = (
+                    torch.arange(seq_len, dtype=torch.long)
+                    .unsqueeze(0)
+                    .expand(N, seq_len)
+                )
             if enc.get("walk_lengths") is not None:
                 self.walk_lengths = enc["walk_lengths"]
             else:
@@ -156,7 +165,9 @@ class FullPoolMinerDataset(torch.utils.data.Dataset):
 
     def update_selected(self, selected_edge_ids):
         """Precompute a bool lookup table so __getitem__ is O(S) not O(S*K)."""
-        _has_edge_ids = self._ragged or (not self._ragged and getattr(self, "edge_ids", None) is not None)
+        _has_edge_ids = self._ragged or (
+            not self._ragged and getattr(self, "edge_ids", None) is not None
+        )
         if selected_edge_ids is None or not _has_edge_ids:
             self._selected_lookup = None
         elif selected_edge_ids.numel() == 0:
@@ -260,9 +271,7 @@ class FullPoolMinerDataset(torch.utils.data.Dataset):
         return input_ids, labels, attention_mask
 
 
-def _build_pool_unique_edges(
-    cache_data: dict, ignore_index: int
-):
+def _build_pool_unique_edges(cache_data: dict, ignore_index: int):
     """Return (unique_edge_ids [P], unique_edge_classes [P]) for the full TRAIN+MASK pool."""
     enc = cache_data["encoded"]
     tok = cache_data["tokenizer"]
@@ -272,9 +281,9 @@ def _build_pool_unique_edges(
         edge_ids_t = enc["flat_edge_ids"].long()
         input_ids_all = enc["flat_input_ids"].long()
     else:
-        edge_split = enc["edge_split_mask"]    # [N, S]
-        edge_ids_t = enc.get("edge_ids")        # [N, S]
-        input_ids_all = enc["input_ids"]        # [N, S]
+        edge_split = enc["edge_split_mask"]  # [N, S]
+        edge_ids_t = enc.get("edge_ids")  # [N, S]
+        input_ids_all = enc["input_ids"]  # [N, S]
 
     if not ragged and edge_ids_t is None:
         raise RuntimeError("cache is missing edge_ids — cannot build dynamic pool")
@@ -286,7 +295,9 @@ def _build_pool_unique_edges(
         if tok_id is not None:
             id2class[int(tok_id)] = int(class_id)
 
-    pool_mask = ((edge_split == 0) | (edge_split == 1)) & (edge_ids_t >= 0)  # TRAIN=0, MASK=1
+    pool_mask = ((edge_split == 0) | (edge_split == 1)) & (
+        edge_ids_t >= 0
+    )  # TRAIN=0, MASK=1
     pool_eids = edge_ids_t[pool_mask].long()
     pool_cls = id2class[input_ids_all[pool_mask]]
 
@@ -365,9 +376,7 @@ def main() -> None:
     args = parse_args()
 
     torch.manual_seed(args.seed)
-    device = torch.device(
-        f"cuda:{args.device}" if torch.cuda.is_available() else "cpu"
-    )
+    device = torch.device(f"cuda:{args.device}" if torch.cuda.is_available() else "cpu")
 
     cache_path = Path(args.cache)
     if not cache_path.exists():
@@ -401,13 +410,20 @@ def main() -> None:
     # Select dataset and (if dynamic-pool) pre-compute the edge pool
     # -----------------------------------------------------------------
     if args.dynamic_pool:
-        print(f"[{_ts()}][miner] --dynamic-pool: building full TRAIN+MASK pool for sampling ...", flush=True)
-        pool_unique_eids, pool_unique_cls = _build_pool_unique_edges(cache_data, ignore_index)
+        print(
+            f"[{_ts()}][miner] --dynamic-pool: building full TRAIN+MASK pool for sampling ...",
+            flush=True,
+        )
+        pool_unique_eids, pool_unique_cls = _build_pool_unique_edges(
+            cache_data, ignore_index
+        )
         # target_ratio: fraction of pool that becomes masked each epoch
         #   = |MASK edges| / (|TRAIN| + |MASK|)  (mirrors _sample_epoch_targets)
-        enc_split = cache_data["encoded"].get("flat_split_mask", cache_data["encoded"].get("edge_split_mask"))
+        enc_split = cache_data["encoded"].get(
+            "flat_split_mask", cache_data["encoded"].get("edge_split_mask")
+        )
         n_train_pos = int((enc_split == 0).sum().item())
-        n_mask_pos  = int((enc_split == 1).sum().item())
+        n_mask_pos = int((enc_split == 1).sum().item())
         target_ratio = n_mask_pos / max(1, n_train_pos + n_mask_pos)
         print(
             f"[{_ts()}][miner]   pool unique edges: {pool_unique_eids.numel()}, "
@@ -416,17 +432,23 @@ def main() -> None:
         )
         train_ds = FullPoolMinerDataset(cache_data, selected_edge_ids=None)
     else:
-        train_ds = StageViewDataset(cache_data, stage="train", dynamic_train_masking=False)
+        train_ds = StageViewDataset(
+            cache_data, stage="train", dynamic_train_masking=False
+        )
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-    print(f"[{_ts()}][miner] Training tiny model for {args.epochs} epoch(s) ...", flush=True)
+    print(
+        f"[{_ts()}][miner] Training tiny model for {args.epochs} epoch(s) ...",
+        flush=True,
+    )
     model.train()
     for epoch in range(args.epochs):
         # Dynamic pool: rotate target subset to match this epoch
         if args.dynamic_pool:
             selected = _sample_dynamic_pool(
-                pool_unique_eids, pool_unique_cls,
+                pool_unique_eids,
+                pool_unique_cls,
                 num_classes=num_classes,
                 target_ratio=target_ratio,
                 seed=args.seed + epoch,
@@ -445,7 +467,12 @@ def main() -> None:
         total_loss = 0.0
         n_batches = 0
         for batch in train_loader:
-            input_ids, labels, attention_mask, metadata = batch[0], batch[1], batch[2], batch[3]
+            input_ids, labels, attention_mask, metadata = (
+                batch[0],
+                batch[1],
+                batch[2],
+                batch[3],
+            )
             input_ids = input_ids.to(device)
             labels = labels.to(device)
             attention_mask = attention_mask.to(device)
@@ -481,12 +508,18 @@ def main() -> None:
             n_batches += 1
 
         avg_loss = total_loss / max(n_batches, 1)
-        print(f"[{_ts()}][miner]   epoch {epoch + 1}/{args.epochs}: loss={avg_loss:.4f}", flush=True)
+        print(
+            f"[{_ts()}][miner]   epoch {epoch + 1}/{args.epochs}: loss={avg_loss:.4f}",
+            flush=True,
+        )
 
     # -----------------------------------------------------------------
     # Collect per-edge predictions on the FULL pool (TRAIN+MASK always)
     # -----------------------------------------------------------------
-    print(f"[{_ts()}][miner] Collecting predictions on full TRAIN+MASK pool ...", flush=True)
+    print(
+        f"[{_ts()}][miner] Collecting predictions on full TRAIN+MASK pool ...",
+        flush=True,
+    )
     model.eval()
 
     node_correct = torch.zeros(vocab_size, dtype=torch.long)
@@ -549,9 +582,7 @@ def main() -> None:
                     target_rows[valid_left], target_cols[valid_left] - 1
                 ]
                 node_correct.scatter_add_(0, left_toks, correct[valid_left])
-                node_total.scatter_add_(
-                    0, left_toks, torch.ones_like(left_toks)
-                )
+                node_total.scatter_add_(0, left_toks, torch.ones_like(left_toks))
 
             # Right adjacent node (mask_pos + 1)
             valid_right = target_cols + 1 < S
@@ -560,9 +591,7 @@ def main() -> None:
                     target_rows[valid_right], target_cols[valid_right] + 1
                 ]
                 node_correct.scatter_add_(0, right_toks, correct[valid_right])
-                node_total.scatter_add_(
-                    0, right_toks, torch.ones_like(right_toks)
-                )
+                node_total.scatter_add_(0, right_toks, torch.ones_like(right_toks))
 
     # -----------------------------------------------------------------
     # Compute hardness = 1 - accuracy  (0 for unseen nodes)

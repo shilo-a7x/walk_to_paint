@@ -183,29 +183,37 @@ def get_tokenizer(cfg, walks, edges):
 # Module-level globals used by multiprocess worker processes.
 # Set once via _worker_init(); never accessed in the main process.
 # ---------------------------------------------------------------------------
-_w_token2id        = None
-_w_edge_tokens     = None
-_w_node_id_lookup  = None
+_w_token2id = None
+_w_edge_tokens = None
+_w_node_id_lookup = None
 _w_edge_label_lookup = None
-_w_unk_id          = None
-_w_split_lookup    = None
-_w_edge_to_id      = None
-_w_bad_val         = None
+_w_unk_id = None
+_w_split_lookup = None
+_w_edge_to_id = None
+_w_bad_val = None
 
 
-def _worker_init(token2id, edge_tokens, node_id_lookup, edge_label_lookup,
-                 unk_id, split_lookup, edge_to_id, bad_val):
+def _worker_init(
+    token2id,
+    edge_tokens,
+    node_id_lookup,
+    edge_label_lookup,
+    unk_id,
+    split_lookup,
+    edge_to_id,
+    bad_val,
+):
     """ProcessPoolExecutor initializer: sets read-only globals once per worker."""
     global _w_token2id, _w_edge_tokens, _w_node_id_lookup, _w_edge_label_lookup
     global _w_unk_id, _w_split_lookup, _w_edge_to_id, _w_bad_val
-    _w_token2id          = token2id
-    _w_edge_tokens       = edge_tokens
-    _w_node_id_lookup    = node_id_lookup
+    _w_token2id = token2id
+    _w_edge_tokens = edge_tokens
+    _w_node_id_lookup = node_id_lookup
     _w_edge_label_lookup = edge_label_lookup
-    _w_unk_id            = unk_id
-    _w_split_lookup      = split_lookup
-    _w_edge_to_id        = edge_to_id
-    _w_bad_val           = bad_val
+    _w_unk_id = unk_id
+    _w_split_lookup = split_lookup
+    _w_edge_to_id = edge_to_id
+    _w_bad_val = bad_val
 
 
 def _encode_chunk(walks_chunk):
@@ -214,31 +222,31 @@ def _encode_chunk(walks_chunk):
     Called both from worker processes (via ProcessPoolExecutor) and directly
     from the main process when num_workers <= 1.
     """
-    token2id_get      = _w_token2id.get
-    edge_tokens_set   = _w_edge_tokens
-    node_id_lookup    = _w_node_id_lookup
+    token2id_get = _w_token2id.get
+    edge_tokens_set = _w_edge_tokens
+    node_id_lookup = _w_node_id_lookup
     edge_label_lookup = _w_edge_label_lookup
-    unk_id            = _w_unk_id
-    split_lookup_get  = _w_split_lookup.get
-    edge_to_id        = _w_edge_to_id
-    BAD               = _w_bad_val
+    unk_id = _w_unk_id
+    split_lookup_get = _w_split_lookup.get
+    edge_to_id = _w_edge_to_id
+    BAD = _w_bad_val
 
-    input_ids      = []
+    input_ids = []
     edge_split_masks = []
-    edge_ids_list  = []
+    edge_ids_list = []
 
     for walk in walks_chunk:
         walk_len = len(walk)
-        x          = [0]   * walk_len
+        x = [0] * walk_len
         split_mask = [BAD] * walk_len
-        edge_ids   = [-1]  * walk_len
+        edge_ids = [-1] * walk_len
 
         for i in range(walk_len):
             token = walk[i]
             x[i] = token2id_get(token, unk_id)
             if token in edge_tokens_set:
-                u     = node_id_lookup.get(walk[i - 1]) if i > 0 else None
-                v     = node_id_lookup.get(walk[i + 1]) if i < walk_len - 1 else None
+                u = node_id_lookup.get(walk[i - 1]) if i > 0 else None
+                v = node_id_lookup.get(walk[i + 1]) if i < walk_len - 1 else None
                 label = edge_label_lookup.get(token)
                 split_mask[i] = split_lookup_get((u, v, label), BAD)
                 if u is not None and v is not None and label is not None:
@@ -273,9 +281,9 @@ def encode_walks(
     """
     # Pre-build split lookup (O(1) per edge, built once here in the main process)
     split_lookup = {}
-    split_lookup.update({t: SplitID.TEST  for t in test_set})
-    split_lookup.update({t: SplitID.VAL   for t in val_set})
-    split_lookup.update({t: SplitID.MASK  for t in mask_set})
+    split_lookup.update({t: SplitID.TEST for t in test_set})
+    split_lookup.update({t: SplitID.VAL for t in val_set})
+    split_lookup.update({t: SplitID.MASK for t in mask_set})
     split_lookup.update({t: SplitID.TRAIN for t in train_set})
 
     edge_to_id = {
@@ -311,9 +319,9 @@ def encode_walks(
         chunk_results = list(executor.map(_encode_chunk, chunks))
 
     # Merge results in original walk order
-    input_ids      = []
+    input_ids = []
     edge_split_masks = []
-    edge_ids_list  = []
+    edge_ids_list = []
     for ids, splits, eids in chunk_results:
         input_ids.extend(ids)
         edge_split_masks.extend(splits)
@@ -466,7 +474,9 @@ def build_ragged_arrays(input_ids_list, split_masks_list, edge_ids_list, tokeniz
         flat_split_mask_np[s:e] = split_masks_list[i]
         flat_edge_ids_np[s:e] = edge_ids_list[i]
 
-    print(f"  Ragged arrays: N={N}, T={T}, ids_dtype={ids_dtype.__name__}, offsets_dtype={offsets_dtype.__name__}")
+    print(
+        f"  Ragged arrays: N={N}, T={T}, ids_dtype={ids_dtype.__name__}, offsets_dtype={offsets_dtype.__name__}"
+    )
     return {
         "offsets": torch.from_numpy(offsets_np),
         "flat_input_ids": torch.from_numpy(flat_input_ids_np),
@@ -491,45 +501,47 @@ def pad_and_build_stage_tensors(
     """
     print(f"Padding and building stage tensors for {cfg.dataset.name} dataset...")
     pad_id = int(tokenizer.PAD_ID)
-    N      = len(input_ids_list)
+    N = len(input_ids_list)
     max_len = max(len(a) for a in input_ids_list)
 
     def _np_pad(arrays: list, pad_val: int) -> torch.Tensor:
         """Fill a pre-allocated numpy array and return as a contiguous LongTensor."""
         out = np.full((N, max_len), pad_val, dtype=np.int64)
         for i, a in enumerate(arrays):
-            out[i, :len(a)] = a
+            out[i, : len(a)] = a
         return torch.from_numpy(out)
 
-    input_ids       = _np_pad(input_ids_list,        pad_id)
+    input_ids = _np_pad(input_ids_list, pad_id)
     edge_split_mask = _np_pad(edge_split_masks_list, int(SplitID.BAD))
-    edge_ids        = _np_pad(edge_ids_list,         -1)
-    attention_base  = (input_ids != pad_id).long()
+    edge_ids = _np_pad(edge_ids_list, -1)
+    attention_base = (input_ids != pad_id).long()
 
     # Reconstruct trivially-computable tensors from the padding mask.
     # real_mask[w, i] is True iff position i in walk w is a real (non-padded) token.
-    real_mask   = attention_base.bool()                                          # [N, max_len]
+    real_mask = attention_base.bool()  # [N, max_len]
 
-    positions   = torch.arange(max_len, dtype=torch.long)                       # [max_len]
-    positions   = positions.unsqueeze(0).expand(N, -1).clone()                  # [N, max_len]
+    positions = torch.arange(max_len, dtype=torch.long)  # [max_len]
+    positions = positions.unsqueeze(0).expand(N, -1).clone()  # [N, max_len]
     positions[~real_mask] = -1
 
-    walk_lengths = real_mask.long().sum(1, keepdim=True).expand(N, max_len).clone()  # [N, max_len]
+    walk_lengths = (
+        real_mask.long().sum(1, keepdim=True).expand(N, max_len).clone()
+    )  # [N, max_len]
     walk_lengths[~real_mask] = -1
 
-    walk_ids    = torch.arange(N, dtype=torch.long)                             # [N]
-    walk_ids    = walk_ids.unsqueeze(1).expand(N, max_len).clone()              # [N, max_len]
+    walk_ids = torch.arange(N, dtype=torch.long)  # [N]
+    walk_ids = walk_ids.unsqueeze(1).expand(N, max_len).clone()  # [N, max_len]
     walk_ids[~real_mask] = -1
 
     print(f"Success! ✅")
     return {
-        "input_ids":       input_ids,
+        "input_ids": input_ids,
         "edge_split_mask": edge_split_mask,
-        "attention_base":  attention_base,
-        "edge_ids":        edge_ids,
-        "walk_ids":        walk_ids,
-        "positions":       positions,
-        "walk_lengths":    walk_lengths,
+        "attention_base": attention_base,
+        "edge_ids": edge_ids,
+        "walk_ids": walk_ids,
+        "positions": positions,
+        "walk_lengths": walk_lengths,
     }
 
 
@@ -644,15 +656,16 @@ def compute_class_weights_from_base(
     valid_labels = raw_labels[raw_labels != ignore_index]
 
     if len(valid_labels) == 0:
-        print("\u26a0\ufe0f  Warning: No valid labels in train split, using uniform weights")
+        print(
+            "\u26a0\ufe0f  Warning: No valid labels in train split, using uniform weights"
+        )
         return [1.0] * num_classes
 
     # Inverse frequency (identical formula to compute_class_weights_from_train)
     class_counts = [(valid_labels == i).sum().item() for i in range(num_classes)]
     total = len(valid_labels)
     weights = [
-        total / (num_classes * count) if count > 0 else 1.0
-        for count in class_counts
+        total / (num_classes * count) if count > 0 else 1.0 for count in class_counts
     ]
     weight_sum = sum(weights)
     weights = [w / weight_sum * num_classes for w in weights]
@@ -712,7 +725,9 @@ def prepare_data(cfg):
 
         return create_stage_dataloaders(
             cache_data,
-            dynamic_train_masking=bool(getattr(cfg.model, "dynamic_train_masking", False)),
+            dynamic_train_masking=bool(
+                getattr(cfg.model, "dynamic_train_masking", False)
+            ),
             **_dataloader_kwargs(cfg),
         )
     # Profile data creation steps to help diagnose slow preprocessing
@@ -747,7 +762,13 @@ def prepare_data(cfg):
         split_lists,
         edge_ids_list,
     ) = encode_walks(
-        walks, tokenizer, edges, train_set, mask_set, val_set, test_set,
+        walks,
+        tokenizer,
+        edges,
+        train_set,
+        mask_set,
+        val_set,
+        test_set,
         num_workers=int(cfg.preprocess.num_workers),
     )
     timings["encode_walks"] = time.time() - t0

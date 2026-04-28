@@ -30,12 +30,13 @@ from src.data.prepare_data import SplitID
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
+
 def _make_cfg(data_dir: str, use_cache: bool, save: bool):
     cfg = load_config("config_toy.yaml")
     cfg.dataset.data_dir = data_dir
     cfg.preprocess.use_cache = use_cache
     cfg.preprocess.save = save
-    cfg.training.num_workers = 0       # no subprocess overhead in benchmarks
+    cfg.training.num_workers = 0  # no subprocess overhead in benchmarks
     cfg.training.persistent_workers = False
     cfg.training.pin_memory = False
     cfg.training.prefetch_factor = None
@@ -46,17 +47,25 @@ def _build_from_scratch(cfg):
     """Run the full build pipeline, return (cache_data, tokenizer, timings)."""
     timings = {}
 
-    t = time.perf_counter(); edges = get_edge_list(cfg);              timings["get_edge_list"] = time.perf_counter() - t
-    t = time.perf_counter(); train_s, mask_s, val_s, test_s = split_edges(cfg, edges);  timings["split_edges"] = time.perf_counter() - t
-    t = time.perf_counter(); walks = get_walks(cfg, edges);            timings["get_walks"] = time.perf_counter() - t
-    t = time.perf_counter(); tokenizer = get_tokenizer(cfg, walks, edges); timings["get_tokenizer"] = time.perf_counter() - t
+    t = time.perf_counter()
+    edges = get_edge_list(cfg)
+    timings["get_edge_list"] = time.perf_counter() - t
+    t = time.perf_counter()
+    train_s, mask_s, val_s, test_s = split_edges(cfg, edges)
+    timings["split_edges"] = time.perf_counter() - t
+    t = time.perf_counter()
+    walks = get_walks(cfg, edges)
+    timings["get_walks"] = time.perf_counter() - t
+    t = time.perf_counter()
+    tokenizer = get_tokenizer(cfg, walks, edges)
+    timings["get_tokenizer"] = time.perf_counter() - t
 
-    cfg.model.vocab_size   = tokenizer.vocab_size
-    cfg.model.num_classes  = tokenizer.num_edge_tokens
-    cfg.model.pad_id       = tokenizer.PAD_ID
+    cfg.model.vocab_size = tokenizer.vocab_size
+    cfg.model.num_classes = tokenizer.num_edge_tokens
+    cfg.model.pad_id = tokenizer.PAD_ID
     cfg.model.ignore_index = tokenizer.UNK_LABEL_ID
-    cfg.model.unk_id       = tokenizer.UNK_ID
-    cfg.model.mask_id      = tokenizer.MASK_ID
+    cfg.model.unk_id = tokenizer.UNK_ID
+    cfg.model.mask_id = tokenizer.MASK_ID
 
     t = time.perf_counter()
     input_lists, split_lists, eid_list = encode_walks(
@@ -70,23 +79,32 @@ def _build_from_scratch(cfg):
     timings["build_ragged_arrays"] = time.perf_counter() - t
 
     class_weights = compute_class_weights_from_base(
-        ragged["flat_input_ids"], ragged["flat_split_mask"],
-        tokenizer, cfg.model.num_classes, cfg.model.ignore_index,
+        ragged["flat_input_ids"],
+        ragged["flat_split_mask"],
+        tokenizer,
+        cfg.model.num_classes,
+        cfg.model.ignore_index,
     )
     cfg.model.class_weights = class_weights
 
     splits_dict = {"train": train_s, "mask": mask_s, "val": val_s, "test": test_s}
     metadata = {
-        "vocab_size": cfg.model.vocab_size, "num_classes": cfg.model.num_classes,
-        "pad_id": cfg.model.pad_id, "ignore_index": cfg.model.ignore_index,
-        "class_weights": class_weights, "dataset_name": cfg.dataset.name,
+        "vocab_size": cfg.model.vocab_size,
+        "num_classes": cfg.model.num_classes,
+        "pad_id": cfg.model.pad_id,
+        "ignore_index": cfg.model.ignore_index,
+        "class_weights": class_weights,
+        "dataset_name": cfg.dataset.name,
         "seed": get_seed(cfg),
     }
     cache_data = build_runtime_cache_data(
         tokenizer,
-        ragged["offsets"], ragged["flat_input_ids"],
-        ragged["flat_split_mask"], ragged["flat_edge_ids"],
-        splits_dict, metadata,
+        ragged["offsets"],
+        ragged["flat_input_ids"],
+        ragged["flat_split_mask"],
+        ragged["flat_edge_ids"],
+        splits_dict,
+        metadata,
     )
     return cache_data, tokenizer, timings
 
@@ -112,12 +130,12 @@ def _time_load(cache_path):
     return time.perf_counter() - t, data
 
 
-
 # ── main ──────────────────────────────────────────────────────────────────────
+
 
 def main():
     toy_data_dir = "data/toy"
-    real_cache   = os.path.join(toy_data_dir, "dataset_cache.pt")
+    real_cache = os.path.join(toy_data_dir, "dataset_cache.pt")
 
     print("=" * 60)
     print("BENCHMARK: prepare_data paths (toy dataset)")
@@ -148,7 +166,7 @@ def main():
         t_total = time.perf_counter()
         cache_data2, tokenizer2, timings2 = _build_from_scratch(cfg2)
         t_save = _time_save(cache_data2, tokenizer2, tmp_cache)
-        
+
         total2 = time.perf_counter() - t_total
 
         print(f"  {'step':<35} {'time (s)':>10}")
@@ -176,9 +194,9 @@ def main():
     print("SUMMARY")
     print("=" * 60)
     rows = [
-        ("Build (no save)",    total1),
-        ("Build + save",       total2),
-        ("Load from cache",    total3),
+        ("Build (no save)", total1),
+        ("Build + save", total2),
+        ("Load from cache", total3),
     ]
     baseline = total1
     for name, t in rows:

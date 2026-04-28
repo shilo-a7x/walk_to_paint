@@ -8,7 +8,13 @@ from src.data.dataset_cache import load_dataset_cache, save_dataset_cache
 from src.data.prepare_data import build_runtime_cache_data
 from src.data.stage_dataset import create_stage_dataloaders
 from src.data.tokenizer import Tokenizer
-from src.model.lit_model import LitEdgeClassifier, SPLIT_MASK, SPLIT_TEST, SPLIT_TRAIN, SPLIT_VAL
+from src.model.lit_model import (
+    LitEdgeClassifier,
+    SPLIT_MASK,
+    SPLIT_TEST,
+    SPLIT_TRAIN,
+    SPLIT_VAL,
+)
 
 
 def _build_cfg():
@@ -63,7 +69,7 @@ def _build_synthetic_cache_data():
     edge_split_masks_list = [
         np.array([-1, SPLIT_TRAIN, -1, SPLIT_MASK, -1], dtype=np.int64),
         np.array([-1, SPLIT_TRAIN, -1, SPLIT_MASK, -1], dtype=np.int64),
-        np.array([-1, SPLIT_VAL,   -1, SPLIT_TEST, -1], dtype=np.int64),
+        np.array([-1, SPLIT_VAL, -1, SPLIT_TEST, -1], dtype=np.int64),
     ]
     edge_ids_list = [
         np.array([-1, 0, -1, 1, -1], dtype=np.int64),
@@ -71,13 +77,15 @@ def _build_synthetic_cache_data():
         np.array([-1, 4, -1, 5, -1], dtype=np.int64),
     ]
 
-    ragged = build_ragged_arrays(input_ids_list, edge_split_masks_list, edge_ids_list, tok)
+    ragged = build_ragged_arrays(
+        input_ids_list, edge_split_masks_list, edge_ids_list, tok
+    )
 
     splits_dict = {
         "train": {(0, 1, 0), (2, 3, 1)},
-        "mask":  {(1, 2, 1), (3, 0, 0)},
-        "val":   {(1, 3, 1)},
-        "test":  {(3, 2, 0)},
+        "mask": {(1, 2, 1), (3, 0, 0)},
+        "val": {(1, 3, 1)},
+        "test": {(3, 2, 0)},
     }
     metadata = {
         "vocab_size": tok.vocab_size,
@@ -127,8 +135,12 @@ def test_runtime_and_loaded_cache_stage_views_are_identical(tmp_path: Path):
     )
 
     loaded_cache = load_dataset_cache(str(cache_path))
-    runtime_loaders = create_stage_dataloaders(cache_data, batch_size=2, num_workers=0, use_bucket_batching=False)
-    loaded_loaders = create_stage_dataloaders(loaded_cache, batch_size=2, num_workers=0, use_bucket_batching=False)
+    runtime_loaders = create_stage_dataloaders(
+        cache_data, batch_size=2, num_workers=0, use_bucket_batching=False
+    )
+    loaded_loaders = create_stage_dataloaders(
+        loaded_cache, batch_size=2, num_workers=0, use_bucket_batching=False
+    )
 
     for split in ("train", "val", "test"):
         runtime_ds = runtime_loaders[split].dataset
@@ -185,11 +197,18 @@ def test_dynamic_train_targets_resample_without_val_test_leakage():
     total_target_count = 0
     last_dynamic_input_ids, last_labels = None, None
     for batch in loaders["train"]:
-        dynamic_input_ids, labels = model._build_dynamic_targets_for_batch(batch[0], batch[3])
+        dynamic_input_ids, labels = model._build_dynamic_targets_for_batch(
+            batch[0], batch[3]
+        )
         count = int((labels != model.ignore_index).sum().item())
         if count > 0:
             total_target_count += count
             last_dynamic_input_ids, last_labels = dynamic_input_ids, labels
     assert total_target_count >= 1
     assert last_dynamic_input_ids is not None
-    assert torch.equal(last_dynamic_input_ids[last_labels != model.ignore_index], torch.full_like(last_dynamic_input_ids[last_labels != model.ignore_index], cfg.model.mask_id))
+    assert torch.equal(
+        last_dynamic_input_ids[last_labels != model.ignore_index],
+        torch.full_like(
+            last_dynamic_input_ids[last_labels != model.ignore_index], cfg.model.mask_id
+        ),
+    )
