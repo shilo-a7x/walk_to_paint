@@ -117,10 +117,18 @@ class PerEpochPredictionSaver(Callback):
 
                 # Store metadata (transfer to CPU in batch)
                 # Apply valid_mask on CPU after transfer for metadata
+                # In ragged mode walk_ids/walk_lengths are [B]; expand to [B, S] first.
+                _B, _S = labels.shape
+                _walk_ids = metadata["walk_ids"]
+                _walk_lengths = metadata["walk_lengths"]
+                if _walk_ids.dim() == 1:
+                    _walk_ids = _walk_ids.unsqueeze(1).expand(_B, _S)
+                if _walk_lengths.dim() == 1:
+                    _walk_lengths = _walk_lengths.unsqueeze(1).expand(_B, _S)
                 edge_ids_cpu = metadata["edge_ids"].view(-1).cpu().numpy()
-                walk_ids_cpu = metadata["walk_ids"].view(-1).cpu().numpy()
+                walk_ids_cpu = _walk_ids.reshape(-1).cpu().numpy()
                 positions_cpu = metadata["positions"].view(-1).cpu().numpy()
-                walk_lengths_cpu = metadata["walk_lengths"].view(-1).cpu().numpy()
+                walk_lengths_cpu = _walk_lengths.reshape(-1).cpu().numpy()
                 valid_mask_cpu = valid_mask.cpu().numpy()
 
                 # Convert sequence positions/lengths to EDGE counts

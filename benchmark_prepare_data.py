@@ -16,7 +16,7 @@ from src.data.prepare_data import (
     get_walks,
     get_tokenizer,
     encode_walks,
-    pad_and_build_stage_tensors,
+    build_ragged_arrays,
     build_runtime_cache_data,
     compute_class_weights_from_base,
 )
@@ -65,21 +65,13 @@ def _build_from_scratch(cfg):
     timings["encode_walks"] = time.perf_counter() - t
 
     t = time.perf_counter()
-    base_tensors = pad_and_build_stage_tensors(
-        cfg, input_lists, split_lists, eid_list, tokenizer
-    )
-    timings["pad_and_build_stage_tensors"] = time.perf_counter() - t
-
-    input_ids    = base_tensors["input_ids"]
-    edge_split   = base_tensors["edge_split_mask"]
-    attn_base    = base_tensors["attention_base"]
-    edge_ids     = base_tensors["edge_ids"]
-    walk_ids     = base_tensors["walk_ids"]
-    positions    = base_tensors["positions"]
-    walk_lengths = base_tensors["walk_lengths"]
+    ragged = build_ragged_arrays(input_lists, split_lists, eid_list, tokenizer)
+    del input_lists, split_lists, eid_list
+    timings["build_ragged_arrays"] = time.perf_counter() - t
 
     class_weights = compute_class_weights_from_base(
-        input_ids, edge_split, tokenizer, cfg.model.num_classes, cfg.model.ignore_index
+        ragged["flat_input_ids"], ragged["flat_split_mask"],
+        tokenizer, cfg.model.num_classes, cfg.model.ignore_index,
     )
     cfg.model.class_weights = class_weights
 
@@ -91,8 +83,10 @@ def _build_from_scratch(cfg):
         "seed": get_seed(cfg),
     }
     cache_data = build_runtime_cache_data(
-        walks, tokenizer, input_ids, edge_split, attn_base,
-        splits_dict, metadata, edge_ids, walk_ids, positions, walk_lengths,
+        tokenizer,
+        ragged["offsets"], ragged["flat_input_ids"],
+        ragged["flat_split_mask"], ragged["flat_edge_ids"],
+        splits_dict, metadata,
     )
     return cache_data, tokenizer, timings
 
@@ -102,12 +96,12 @@ def _time_save(cache_data, tokenizer, cache_path):
     save_dataset_cache(
         cache_path,
         tokenizer,
-        cache_data["encoded"]["input_ids"],
-        cache_data["encoded"]["edge_split_mask"],
-        cache_data["encoded"]["attention_base"],
+        cache_data["encoded"]["offsets"],
+        cache_data["encoded"]["flat_input_ids"],
+        cache_data["encoded"]["flat_split_mask"],
+        cache_data["encoded"]["flat_edge_ids"],
         cache_data["splits"],
         cache_data["metadata"],
-        edge_ids=cache_data["encoded"].get("edge_ids"),
     )
     return time.perf_counter() - t
 

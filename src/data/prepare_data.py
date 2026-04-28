@@ -418,6 +418,63 @@ def _stage_views_from_base(
     )
 
 
+def build_ragged_arrays(input_ids_list, split_masks_list, edge_ids_list, tokenizer):
+    """Build CSR ragged arrays from per-walk numpy arrays.  No global padding.
+
+    Dtype safety guards:
+      offsets:        int32 if N+1 <= 2^31-1 AND T <= 2^31-1, else int64
+      flat_input_ids: int16 if vocab_size <= 32767, int32 if <= 2^31-1, else int64
+      flat_split_mask: always int8 (values are only -1..3)
+      flat_edge_ids:  int32 if max_edge_id <= 2^31-1, else int64
+    """
+    N = len(input_ids_list)
+    lengths = np.array([len(a) for a in input_ids_list], dtype=np.int64)
+    T = int(lengths.sum())
+
+    # offsets dtype: protect against huge T or N
+    if (N + 1) > np.iinfo(np.int32).max or T > np.iinfo(np.int32).max:
+        offsets_dtype = np.int64
+    else:
+        offsets_dtype = np.int32
+    offsets_np = np.zeros(N + 1, dtype=offsets_dtype)
+    np.cumsum(lengths, out=offsets_np[1:])
+
+    # input_ids dtype
+    vocab_size = tokenizer.vocab_size
+    if vocab_size <= np.iinfo(np.int16).max:
+        ids_dtype = np.int16
+    elif vocab_size <= np.iinfo(np.int32).max:
+        ids_dtype = np.int32
+    else:
+        ids_dtype = np.int64
+
+    # edge_ids dtype
+    max_edge_id = max(
+        (int(a.max()) for a in edge_ids_list if len(a) > 0 and int(a.max()) >= 0),
+        default=0,
+    )
+    edge_ids_dtype = np.int32 if max_edge_id <= np.iinfo(np.int32).max else np.int64
+
+    flat_input_ids_np = np.empty(T, dtype=ids_dtype)
+    flat_split_mask_np = np.empty(T, dtype=np.int8)
+    flat_edge_ids_np = np.full(T, -1, dtype=edge_ids_dtype)
+
+    for i in range(N):
+        s = int(offsets_np[i])
+        e = int(offsets_np[i + 1])
+        flat_input_ids_np[s:e] = input_ids_list[i]
+        flat_split_mask_np[s:e] = split_masks_list[i]
+        flat_edge_ids_np[s:e] = edge_ids_list[i]
+
+    print(f"  Ragged arrays: N={N}, T={T}, ids_dtype={ids_dtype.__name__}, offsets_dtype={offsets_dtype.__name__}")
+    return {
+        "offsets": torch.from_numpy(offsets_np),
+        "flat_input_ids": torch.from_numpy(flat_input_ids_np),
+        "flat_split_mask": torch.from_numpy(flat_split_mask_np),
+        "flat_edge_ids": torch.from_numpy(flat_edge_ids_np),
+    }
+
+
 def pad_and_build_stage_tensors(
     cfg,
     input_ids_list,
@@ -478,15 +535,12 @@ def pad_and_build_stage_tensors(
 
 def build_runtime_cache_data(
     tokenizer,
-    input_ids,
-    edge_split_mask,
-    attention_base,
+    offsets,
+    flat_input_ids,
+    flat_split_mask,
+    flat_edge_ids,
     splits_dict,
     metadata,
-    edge_ids,
-    walk_ids,
-    positions,
-    walk_lengths,
 ):
     tokenizer_state = {
         "token2id": tokenizer.token2id,
@@ -502,16 +556,13 @@ def build_runtime_cache_data(
     }
 
     return {
-        "version": "1.2",
+        "version": "2.0",
         "tokenizer": tokenizer_state,
         "encoded": {
-            "input_ids": input_ids,
-            "edge_split_mask": edge_split_mask,
-            "attention_base": attention_base,
-            "edge_ids": edge_ids,
-            "walk_ids": walk_ids,
-            "positions": positions,
-            "walk_lengths": walk_lengths,
+            "offsets": offsets,
+            "flat_input_ids": flat_input_ids,
+            "flat_split_mask": flat_split_mask,
+            "flat_edge_ids": flat_edge_ids,
         },
         "splits": splits_dict,
         "metadata": metadata,
@@ -589,7 +640,7 @@ def compute_class_weights_from_base(
         print("\u26a0\ufe0f  Warning: No MASK positions found, using uniform weights")
         return [1.0] * num_classes
 
-    raw_labels = id2class[input_ids[target_positions]]
+    raw_labels = id2class[input_ids[target_positions].long()]
     valid_labels = raw_labels[raw_labels != ignore_index]
 
     if len(valid_labels) == 0:
@@ -616,6 +667,9 @@ def _dataloader_kwargs(cfg) -> dict:
         pin_memory=bool(getattr(cfg.training, "pin_memory", True)),
         persistent_workers=bool(getattr(cfg.training, "persistent_workers", True)),
         prefetch_factor=int(getattr(cfg.training, "prefetch_factor", 2)),
+        use_bucket_batching=bool(getattr(cfg.training, "bucket_batching", True)),
+        bucket_width=int(getattr(cfg.training, "bucket_width", 16)),
+        seed=int(get_seed(cfg)),
     )
 
 
@@ -698,30 +752,18 @@ def prepare_data(cfg):
     )
     timings["encode_walks"] = time.time() - t0
 
-    # Free the walks list — it is no longer needed and holds ~1-2 GB at real scale.
-    del walks
-
     t0 = time.time()
-    base_tensors = pad_and_build_stage_tensors(
-        cfg,
-        input_lists,
-        split_lists,
-        edge_ids_list,
-        tokenizer,
-    )
-    timings["pad_and_build_stage_tensors"] = time.time() - t0
+    ragged = build_ragged_arrays(input_lists, split_lists, edge_ids_list, tokenizer)
+    del input_lists, split_lists, edge_ids_list  # free memory
+    timings["build_ragged_arrays"] = time.time() - t0
 
-    input_ids       = base_tensors["input_ids"]
-    edge_split_mask = base_tensors["edge_split_mask"]
-    attention_base  = base_tensors["attention_base"]
-    edge_ids        = base_tensors["edge_ids"]
-    walk_ids        = base_tensors["walk_ids"]
-    positions       = base_tensors["positions"]
-    walk_lengths    = base_tensors["walk_lengths"]
-
-    # Compute class weights directly from base tensors — no stage view materialization.
+    # Compute class weights directly from flat arrays.
     class_weights = compute_class_weights_from_base(
-        input_ids, edge_split_mask, tokenizer, cfg.model.num_classes, cfg.model.ignore_index
+        ragged["flat_input_ids"],
+        ragged["flat_split_mask"],
+        tokenizer,
+        cfg.model.num_classes,
+        cfg.model.ignore_index,
     )
     cfg.model.class_weights = class_weights
     print(f"✓ Class weights computed from train split: {class_weights}")
@@ -743,34 +785,28 @@ def prepare_data(cfg):
     }
     cache_data = build_runtime_cache_data(
         tokenizer,
-        input_ids,
-        edge_split_mask,
-        attention_base,
+        ragged["offsets"],
+        ragged["flat_input_ids"],
+        ragged["flat_split_mask"],
+        ragged["flat_edge_ids"],
         splits_dict,
         metadata,
-        edge_ids,
-        walk_ids,
-        positions,
-        walk_lengths,
     )
 
-    # Save dataset cache if requested.
     if cfg.preprocess.save:
         print(f"Saving dataset cache to {dataset_cache_path}...")
-
         size_mb = save_dataset_cache(
             dataset_cache_path,
             tokenizer,
-            input_ids,
-            edge_split_mask,
-            attention_base,
+            ragged["offsets"],
+            ragged["flat_input_ids"],
+            ragged["flat_split_mask"],
+            ragged["flat_edge_ids"],
             splits_dict,
             metadata,
-            edge_ids=edge_ids,
         )
         print(f"✓ Dataset cache saved ({size_mb:.1f} MB)")
 
-    # Print a short profile summary for debugging
     try:
         print("Data creation profiling (seconds):")
         for k, v in timings.items():

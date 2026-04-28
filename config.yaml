@@ -108,6 +108,8 @@ training:
     pin_memory: true # Pin memory for faster GPU transfer
     persistent_workers: true # Keep workers alive between epochs (faster with num_workers > 0)
     prefetch_factor: 2 # Batches prefetched per worker
+    bucket_batching: true    # Bucket walks by length for shorter batches (faster transformer)
+    bucket_width: 16         # Bucket granularity in tokens (smaller = tighter grouping)
 
     # Optional non-standard callbacks (disable for faster baseline training)
     callbacks:

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import torch
 from omegaconf import OmegaConf
 
@@ -55,56 +56,28 @@ def _build_synthetic_cache_data():
     ]
     tok.fit(walks)
 
-    input_ids = torch.tensor(
-        [tok.encode(walk) for walk in walks],
-        dtype=torch.long,
-    )
-    edge_split_mask = torch.tensor(
-        [
-            [-1, SPLIT_TRAIN, -1, SPLIT_MASK, -1],
-            [-1, SPLIT_TRAIN, -1, SPLIT_MASK, -1],
-            [-1, SPLIT_VAL, -1, SPLIT_TEST, -1],
-        ],
-        dtype=torch.long,
-    )
-    attention_base = torch.ones_like(input_ids)
-    edge_ids = torch.tensor(
-        [
-            [-1, 0, -1, 1, -1],
-            [-1, 2, -1, 3, -1],
-            [-1, 4, -1, 5, -1],
-        ],
-        dtype=torch.long,
-    )
-    walk_ids = torch.tensor(
-        [
-            [0, 0, 0, 0, 0],
-            [1, 1, 1, 1, 1],
-            [2, 2, 2, 2, 2],
-        ],
-        dtype=torch.long,
-    )
-    positions = torch.tensor(
-        [
-            [0, 1, 2, 3, 4],
-            [0, 1, 2, 3, 4],
-            [0, 1, 2, 3, 4],
-        ],
-        dtype=torch.long,
-    )
-    walk_lengths = torch.tensor(
-        [
-            [5, 5, 5, 5, 5],
-            [5, 5, 5, 5, 5],
-            [5, 5, 5, 5, 5],
-        ],
-        dtype=torch.long,
-    )
+    from src.data.prepare_data import build_ragged_arrays, build_runtime_cache_data
+
+    # Per-walk numpy arrays matching encode_walks output format
+    input_ids_list = [np.array(tok.encode(walk), dtype=np.int64) for walk in walks]
+    edge_split_masks_list = [
+        np.array([-1, SPLIT_TRAIN, -1, SPLIT_MASK, -1], dtype=np.int64),
+        np.array([-1, SPLIT_TRAIN, -1, SPLIT_MASK, -1], dtype=np.int64),
+        np.array([-1, SPLIT_VAL,   -1, SPLIT_TEST, -1], dtype=np.int64),
+    ]
+    edge_ids_list = [
+        np.array([-1, 0, -1, 1, -1], dtype=np.int64),
+        np.array([-1, 2, -1, 3, -1], dtype=np.int64),
+        np.array([-1, 4, -1, 5, -1], dtype=np.int64),
+    ]
+
+    ragged = build_ragged_arrays(input_ids_list, edge_split_masks_list, edge_ids_list, tok)
+
     splits_dict = {
         "train": {(0, 1, 0), (2, 3, 1)},
-        "mask": {(1, 2, 1), (3, 0, 0)},
-        "val": {(1, 3, 1)},
-        "test": {(3, 2, 0)},
+        "mask":  {(1, 2, 1), (3, 0, 0)},
+        "val":   {(1, 3, 1)},
+        "test":  {(3, 2, 0)},
     }
     metadata = {
         "vocab_size": tok.vocab_size,
@@ -117,15 +90,12 @@ def _build_synthetic_cache_data():
     }
     cache_data = build_runtime_cache_data(
         tok,
-        input_ids,
-        edge_split_mask,
-        attention_base,
+        ragged["offsets"],
+        ragged["flat_input_ids"],
+        ragged["flat_split_mask"],
+        ragged["flat_edge_ids"],
         splits_dict,
         metadata,
-        edge_ids,
-        walk_ids,
-        positions,
-        walk_lengths,
     )
     return cache_data, tok
 
@@ -148,17 +118,17 @@ def test_runtime_and_loaded_cache_stage_views_are_identical(tmp_path: Path):
     save_dataset_cache(
         str(cache_path),
         tok,
-        cache_data["encoded"]["input_ids"],
-        cache_data["encoded"]["edge_split_mask"],
-        cache_data["encoded"]["attention_base"],
+        cache_data["encoded"]["offsets"],
+        cache_data["encoded"]["flat_input_ids"],
+        cache_data["encoded"]["flat_split_mask"],
+        cache_data["encoded"]["flat_edge_ids"],
         cache_data["splits"],
         cache_data["metadata"],
-        edge_ids=cache_data["encoded"]["edge_ids"],
     )
 
     loaded_cache = load_dataset_cache(str(cache_path))
-    runtime_loaders = create_stage_dataloaders(cache_data, batch_size=2, num_workers=0)
-    loaded_loaders = create_stage_dataloaders(loaded_cache, batch_size=2, num_workers=0)
+    runtime_loaders = create_stage_dataloaders(cache_data, batch_size=2, num_workers=0, use_bucket_batching=False)
+    loaded_loaders = create_stage_dataloaders(loaded_cache, batch_size=2, num_workers=0, use_bucket_batching=False)
 
     for split in ("train", "val", "test"):
         runtime_ds = runtime_loaders[split].dataset
@@ -185,6 +155,7 @@ def test_dynamic_train_targets_resample_without_val_test_leakage():
         batch_size=2,
         num_workers=0,
         dynamic_train_masking=True,
+        use_bucket_batching=False,
     )
     model = LitEdgeClassifier(cfg)
 

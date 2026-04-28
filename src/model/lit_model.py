@@ -145,7 +145,7 @@ class LitEdgeClassifier(pl.LightningModule):
         if pool_edge_ids.numel() == 0:
             raise RuntimeError("dynamic_train_masking pool is empty")
 
-        pool_edge_classes = id2class[input_ids[pool_mask]].long().cpu()
+        pool_edge_classes = id2class[input_ids[pool_mask].long()].long().cpu()
         valid = pool_edge_classes != self.ignore_index
         if not valid.any():
             raise RuntimeError("dynamic_train_masking pool has no valid classes")

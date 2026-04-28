@@ -1,10 +1,12 @@
 """
 Dataset cache format for data pipeline.
 
-Single file stores: tokenizer, encoded tensors (input_ids, edge_split_mask,
-attention_base, edge_ids), splits, and metadata.  Walks list and redundant
-tensors (walk_ids, positions, walk_lengths) are intentionally excluded to
-keep the file small and load times fast.
+v2.0 (current): Ragged/CSR format.  Single file stores tokenizer, CSR arrays
+(offsets, flat_input_ids, flat_split_mask, flat_edge_ids), splits, and metadata.
+No global padding — walks are stored at their natural length.  Dtype is chosen
+by the caller to minimise memory (int16/int32/int64 for ids; int8 for split mask).
+
+v1.x (legacy): Padded 2D tensors — triggers a rebuild warning on load.
 """
 
 import os
@@ -17,22 +19,21 @@ from src.data.tokenizer import Tokenizer
 def save_dataset_cache(
     cache_path: str,
     tokenizer: Tokenizer,
-    input_ids: torch.Tensor,
-    edge_split_mask: torch.Tensor,
-    attention_base: torch.Tensor,
+    offsets: torch.Tensor,
+    flat_input_ids: torch.Tensor,
+    flat_split_mask: torch.Tensor,
+    flat_edge_ids: torch.Tensor,
     splits: Dict[str, Set[Tuple[int, int, int]]],
     metadata: Dict[str, Any],
-    edge_ids: torch.Tensor = None,
-):
-    """
-    Save all preprocessing results to a single dataset cache file.
+) -> float:
+    """Save ragged (CSR) dataset cache v2.0.
 
-    Walks list is not saved — it is never needed after encoding and is the
-    dominant source of serialization cost at scale.
-    walk_ids / positions / walk_lengths are not saved — they are trivially
-    reconstructable from attention_base in StageViewDataset at load time.
+    No global padding.  Dtype is chosen by the caller via build_ragged_arrays:
+      offsets:        int32 or int64
+      flat_input_ids: int16 (vocab<=32767), int32, or int64
+      flat_split_mask: int8
+      flat_edge_ids:  int32 or int64
     """
-
     tokenizer_state = {
         "token2id": tokenizer.token2id,
         "id2token": tokenizer.id2token,
@@ -45,38 +46,28 @@ def save_dataset_cache(
         "vocab_size": tokenizer.vocab_size,
         "num_edge_tokens": tokenizer.num_edge_tokens,
     }
-
     splits_serializable = {
         k: [tuple(int(x) for x in edge) for edge in v] for k, v in splits.items()
     }
-
-    encoded = {
-        "input_ids": input_ids,
-        "edge_split_mask": edge_split_mask,
-        "attention_base": attention_base,
-    }
-
-    if edge_ids is not None:
-        encoded["edge_ids"] = edge_ids
-
-    # walk_ids / positions / walk_lengths are NOT saved — reconstructed at load time.
-    # walks list is NOT saved — not needed after encoding.
-
     cache_data = {
-        "version": "1.2",
+        "version": _CURRENT_VERSION,
         "tokenizer": tokenizer_state,
-        "encoded": encoded,
+        "encoded": {
+            "offsets": offsets,
+            "flat_input_ids": flat_input_ids,
+            "flat_split_mask": flat_split_mask,
+            "flat_edge_ids": flat_edge_ids,
+        },
         "splits": splits_serializable,
         "metadata": metadata,
     }
-
     torch.save(cache_data, cache_path)
     size_mb = os.path.getsize(cache_path) / (1024 * 1024)
     return size_mb
 
 
-_CURRENT_VERSION = "1.2"
-_LEGACY_VERSIONS = {"1.0", "1.1"}
+_CURRENT_VERSION = "2.0"
+_LEGACY_VERSIONS = {"1.0", "1.1", "1.2"}
 
 
 def load_dataset_cache(cache_path: str, use_mmap: bool = False) -> Dict[str, Any]:

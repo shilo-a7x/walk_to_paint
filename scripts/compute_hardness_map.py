@@ -34,7 +34,7 @@ from torch.utils.data import DataLoader
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.data.stage_dataset import StageViewDataset  # noqa: E402
+from src.data.stage_dataset import StageViewDataset, ragged_collate_fn  # noqa: E402
 from src.model.model import TransformerModel  # noqa: E402
 
 
@@ -76,7 +76,11 @@ def _target_rows_by_max_walk_edges(labels, metadata, ignore_index: int, max_walk
         return torch.zeros(B, dtype=torch.bool, device=labels.device)
 
     walk_lengths = metadata["walk_lengths"].to(labels.device)
-    target_walk_token_len = walk_lengths[rows, cols].long().clamp(min=1)
+    # ragged mode: walk_lengths is [B] (scalar per walk); padded: [B, S]
+    if walk_lengths.dim() == 1:
+        target_walk_token_len = walk_lengths[rows].long().clamp(min=1)
+    else:
+        target_walk_token_len = walk_lengths[rows, cols].long().clamp(min=1)
     # Tokenized walk shape is [node, edge, node, ...], so edges=(tokens-1)//2.
     target_walk_edges = (target_walk_token_len - 1) // 2
 
@@ -106,31 +110,7 @@ class FullPoolMinerDataset(torch.utils.data.Dataset):
     def __init__(self, cache_data: dict, selected_edge_ids=None):
         enc = cache_data["encoded"]
         tok = cache_data["tokenizer"]
-
-        self.input_ids = enc["input_ids"]
-        self.edge_split_mask = enc["edge_split_mask"]
-        self.attention_base = enc["attention_base"]
-        self.edge_ids = enc.get("edge_ids")
-
-        # Reconstruct walk_ids/positions/walk_lengths from attention_base when absent
-        # (v1.2+ caches no longer store these redundant tensors).
-        N, seq_len = self.attention_base.shape
-
-        if enc.get("walk_ids") is not None:
-            self.walk_ids = enc["walk_ids"]
-        else:
-            self.walk_ids = torch.arange(N, dtype=torch.long).unsqueeze(1).expand(N, seq_len)
-
-        if enc.get("positions") is not None:
-            self.positions = enc["positions"]
-        else:
-            self.positions = torch.arange(seq_len, dtype=torch.long).unsqueeze(0).expand(N, seq_len)
-
-        if enc.get("walk_lengths") is not None:
-            self.walk_lengths = enc["walk_lengths"]
-        else:
-            lengths = self.attention_base.sum(dim=1, dtype=torch.long)
-            self.walk_lengths = lengths.unsqueeze(1).expand(N, seq_len)
+        self._ragged = "offsets" in enc
 
         self.mask_id = tok["MASK_ID"]
         self.ignore_index = tok["UNK_LABEL_ID"]
@@ -142,6 +122,33 @@ class FullPoolMinerDataset(torch.utils.data.Dataset):
             if tok_id is not None:
                 self.id2class[int(tok_id)] = int(class_id)
 
+        if self._ragged:
+            self.offsets = enc["offsets"]
+            self.flat_input_ids = enc["flat_input_ids"]
+            self.flat_split_mask = enc["flat_split_mask"]
+            self.flat_edge_ids = enc["flat_edge_ids"]
+            self._N = len(self.offsets) - 1
+        else:
+            self.input_ids = enc["input_ids"]
+            self.edge_split_mask = enc["edge_split_mask"]
+            self.attention_base = enc["attention_base"]
+            self.edge_ids = enc.get("edge_ids")
+
+            N, seq_len = self.attention_base.shape
+            if enc.get("walk_ids") is not None:
+                self.walk_ids = enc["walk_ids"]
+            else:
+                self.walk_ids = torch.arange(N, dtype=torch.long).unsqueeze(1).expand(N, seq_len)
+            if enc.get("positions") is not None:
+                self.positions = enc["positions"]
+            else:
+                self.positions = torch.arange(seq_len, dtype=torch.long).unsqueeze(0).expand(N, seq_len)
+            if enc.get("walk_lengths") is not None:
+                self.walk_lengths = enc["walk_lengths"]
+            else:
+                lengths = self.attention_base.sum(dim=1, dtype=torch.long)
+                self.walk_lengths = lengths.unsqueeze(1).expand(N, seq_len)
+
         # _selected_lookup: bool tensor [max_edge_id+1], True = this edge is a target.
         # None means expose all pool edges (eval pass or non-dynamic mode).
         self._selected_lookup: torch.Tensor | None = None
@@ -149,7 +156,8 @@ class FullPoolMinerDataset(torch.utils.data.Dataset):
 
     def update_selected(self, selected_edge_ids):
         """Precompute a bool lookup table so __getitem__ is O(S) not O(S*K)."""
-        if selected_edge_ids is None or self.edge_ids is None:
+        _has_edge_ids = self._ragged or (not self._ragged and getattr(self, "edge_ids", None) is not None)
+        if selected_edge_ids is None or not _has_edge_ids:
             self._selected_lookup = None
         elif selected_edge_ids.numel() == 0:
             self._selected_lookup = torch.zeros(1, dtype=torch.bool)
@@ -160,9 +168,55 @@ class FullPoolMinerDataset(torch.utils.data.Dataset):
             self._selected_lookup = lookup
 
     def __len__(self):
+        if self._ragged:
+            return self._N
         return len(self.input_ids)
 
     def __getitem__(self, idx):
+        if self._ragged:
+            return self._getitem_ragged(idx)
+        return self._getitem_padded(idx)
+
+    def _getitem_ragged(self, idx):
+        s = int(self.offsets[idx])
+        e = int(self.offsets[idx + 1])
+        L = e - s
+
+        input_ids = self.flat_input_ids[s:e].to(torch.long)
+        split_mask = self.flat_split_mask[s:e].to(torch.long)
+        attention_mask = torch.ones(L, dtype=torch.long)
+
+        in_pool = (split_mask == self._TRAIN) | (split_mask == self._MASK)
+        disallowed = (split_mask != self._BAD) & (~in_pool)
+
+        labels = torch.full((L,), self.ignore_index, dtype=torch.long)
+        if in_pool.any():
+            target_pos = in_pool.clone()
+            if self._selected_lookup is not None:
+                edge_ids_row = self.flat_edge_ids[s:e].to(torch.long)
+                lookup = self._selected_lookup
+                clipped = edge_ids_row.clamp(0, lookup.numel() - 1)
+                selected_mask = lookup[clipped] & (edge_ids_row >= 0)
+                target_pos = target_pos & selected_mask
+            if target_pos.any():
+                labels[target_pos] = self.id2class[input_ids[target_pos]]
+                input_ids[target_pos] = self.mask_id
+
+        input_ids[disallowed] = self.mask_id
+        attention_mask[disallowed] = 0
+
+        edge_ids = self.flat_edge_ids[s:e].to(torch.long)
+        metadata = {
+            "edge_ids": edge_ids,
+            "walk_ids": torch.tensor(idx, dtype=torch.long),
+            "positions": torch.arange(L, dtype=torch.long),
+            "walk_lengths": torch.tensor(L, dtype=torch.long),
+            "edge_split_mask": split_mask,
+            "edge_classes": self.id2class[self.flat_input_ids[s:e].to(torch.long)],
+        }
+        return input_ids, labels, attention_mask, metadata
+
+    def _getitem_padded(self, idx):
         input_ids = self.input_ids[idx].clone()
         split_mask = self.edge_split_mask[idx]
         attention_mask = self.attention_base[idx].clone()
@@ -212,11 +266,17 @@ def _build_pool_unique_edges(
     """Return (unique_edge_ids [P], unique_edge_classes [P]) for the full TRAIN+MASK pool."""
     enc = cache_data["encoded"]
     tok = cache_data["tokenizer"]
-    edge_split = enc["edge_split_mask"]    # [N, S]
-    edge_ids_t = enc.get("edge_ids")        # [N, S]
-    input_ids_all = enc["input_ids"]        # [N, S]
+    ragged = "offsets" in enc
+    if ragged:
+        edge_split = enc["flat_split_mask"].long()
+        edge_ids_t = enc["flat_edge_ids"].long()
+        input_ids_all = enc["flat_input_ids"].long()
+    else:
+        edge_split = enc["edge_split_mask"]    # [N, S]
+        edge_ids_t = enc.get("edge_ids")        # [N, S]
+        input_ids_all = enc["input_ids"]        # [N, S]
 
-    if edge_ids_t is None:
+    if not ragged and edge_ids_t is None:
         raise RuntimeError("cache is missing edge_ids — cannot build dynamic pool")
 
     vocab_size = tok["vocab_size"]
@@ -320,9 +380,17 @@ def main() -> None:
     meta = cache_data["metadata"]
     vocab_size = int(meta["vocab_size"])
     ignore_index = int(meta["ignore_index"])
+    _ragged = "offsets" in cache_data["encoded"]
+    _collate = ragged_collate_fn(int(meta["pad_id"]), ignore_index) if _ragged else None
 
     # Infer max_walk_length from sequence length: seq_len = 2*mwl + 1
-    seq_len = int(cache_data["encoded"]["input_ids"].shape[1])
+    enc = cache_data["encoded"]
+    if "input_ids" in enc:
+        seq_len = int(enc["input_ids"].shape[1])
+    else:
+        # v2.0 ragged: infer from the longest walk in the cache
+        offsets = enc["offsets"]
+        seq_len = int((offsets[1:] - offsets[:-1]).max().item())
     max_walk_length = (seq_len - 1) // 2
 
     cfg = _build_tiny_cfg(meta, max_walk_length)
@@ -337,7 +405,7 @@ def main() -> None:
         pool_unique_eids, pool_unique_cls = _build_pool_unique_edges(cache_data, ignore_index)
         # target_ratio: fraction of pool that becomes masked each epoch
         #   = |MASK edges| / (|TRAIN| + |MASK|)  (mirrors _sample_epoch_targets)
-        enc_split = cache_data["encoded"]["edge_split_mask"]
+        enc_split = cache_data["encoded"].get("flat_split_mask", cache_data["encoded"].get("edge_split_mask"))
         n_train_pos = int((enc_split == 0).sum().item())
         n_mask_pos  = int((enc_split == 1).sum().item())
         target_ratio = n_mask_pos / max(1, n_train_pos + n_mask_pos)
@@ -371,6 +439,7 @@ def main() -> None:
             shuffle=True,
             num_workers=0,
             pin_memory=device.type == "cuda",
+            collate_fn=_collate,
         )
 
         total_loss = 0.0
@@ -434,6 +503,7 @@ def main() -> None:
         batch_size=args.batch_size,
         shuffle=False,
         num_workers=0,
+        collate_fn=_collate,
     )
 
     with torch.no_grad():
