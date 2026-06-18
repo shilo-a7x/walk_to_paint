@@ -1,4 +1,5 @@
 import json
+import warnings
 import numpy as np
 
 
@@ -38,14 +39,23 @@ class Tokenizer:
                     label = int(token.split(self.DELIMITER, 1)[1])
                     self._token_to_edge_label[token] = label
                 except (IndexError, ValueError):
-                    pass
+                    warnings.warn(
+                        f"Tokenizer: cannot parse integer label from edge token {token!r}; "
+                        "it will not appear in _token_to_edge_label and will get sort key 0 "
+                        "in _build_edge_label_map (may cause incorrect class assignment).",
+                        stacklevel=2,
+                    )
             elif token.startswith(self.NODE_PREFIX):
                 self._node_tokens.add(token)
                 try:
                     node_id = int(token.split(self.DELIMITER, 1)[1])
                     self._token_to_node_id[token] = node_id
                 except (IndexError, ValueError):
-                    pass
+                    warnings.warn(
+                        f"Tokenizer: cannot parse integer node id from node token {token!r}; "
+                        "it will not appear in _token_to_node_id.",
+                        stacklevel=2,
+                    )
 
     def fit(self, walks, edges=None):
         for walk in walks:
@@ -59,15 +69,23 @@ class Tokenizer:
         self._build_edge_label_map()
 
     def _build_edge_label_map(self):
-        """Create mapping from edge label tokens to [0, num_classes)"""
+        """Create mapping from edge label tokens to [0, num_classes).
+
+        Tokens are sorted by their numeric sign value (ascending) so that the
+        most negative sign always gets class 0 and the most positive sign always
+        gets the highest class ID.  For binary datasets (-1/+1):
+            class 0 = distrust (E_-1), class 1 = trust (E_1)  ← conventional
+        Safe for multi-label: -10 → 0, -9 → 1, ..., +10 → 20.
+        """
         self.edge_label2id = {}
         self.id2edge_label = {}
-        current = 0
-        for token in self.token2id:
-            if self.is_edge(token):
-                self.edge_label2id[token] = current
-                self.id2edge_label[current] = token
-                current += 1
+        edge_tokens = sorted(
+            self._edge_tokens,
+            key=lambda t: self._token_to_edge_label.get(t, 0),
+        )
+        for current, token in enumerate(edge_tokens):
+            self.edge_label2id[token] = current
+            self.id2edge_label[current] = token
 
     def encode_edge_label(self, token_or_id):
         """Convert edge token (str or int) to class ID in [0, num_classes)"""

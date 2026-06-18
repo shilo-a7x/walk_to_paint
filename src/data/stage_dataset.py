@@ -1,11 +1,9 @@
 """
-Stage-view dataset: ragged (CSR) v2.0 + padded v1.x backward compat.
+Stage-view dataset: ragged CSR v2.0.
 
-Ragged mode: walks stored as flat arrays + offsets. __getitem__ slices by walk.
-             Collate pads to batch-max length (not global max).
-             BucketBatchSampler groups walks by length for fewer wasted padding tokens.
-
-Padded mode: existing v1.x behavior unchanged.
+Walks are stored as flat arrays + offsets. __getitem__ slices by walk index.
+Collate pads to batch-max length (not global max).
+BucketBatchSampler groups walks by length for fewer wasted padding tokens.
 """
 
 import math
@@ -26,7 +24,7 @@ class SplitID(IntEnum):
 
 
 class StageViewDataset(Dataset):
-    """Stage-specific view over a cached dataset. Supports ragged (v2.0) and padded (v1.x)."""
+    """Stage-specific view over a cached dataset (ragged CSR v2.0)."""
 
     def __init__(
         self,
@@ -35,8 +33,6 @@ class StageViewDataset(Dataset):
         dynamic_train_masking: bool = False,
     ):
         enc = cache_data["encoded"]
-        self._ragged = "offsets" in enc
-
         tokenizer = cache_data["tokenizer"]
         self.mask_id = tokenizer["MASK_ID"]
         self.ignore_index = tokenizer["UNK_LABEL_ID"]
@@ -68,86 +64,36 @@ class StageViewDataset(Dataset):
         else:
             raise ValueError("Stage must be 'train', 'val', or 'test'")
 
-        if self._ragged:
-            self.offsets = enc["offsets"]  # int32 or int64 [N+1]
-            self.flat_input_ids = enc["flat_input_ids"]  # int16/int32/int64 [T]
-            self.flat_split_mask = enc["flat_split_mask"]  # int8 [T]
-            self.flat_edge_ids = enc["flat_edge_ids"]  # int32/int64 [T]
-            self._N = len(self.offsets) - 1
-            # lengths[i] = real token count for walk i — used by BucketBatchSampler
-            self.lengths = (self.offsets[1:] - self.offsets[:-1]).to(torch.long)
-        else:
-            # Padded mode (v1.x) — original code unchanged
-            self.input_ids = enc["input_ids"]
-            self.edge_split_mask = enc["edge_split_mask"]
-            self.attention_base = enc["attention_base"]
-            self.edge_ids = enc.get("edge_ids")
-
-            N, seq_len = self.attention_base.shape
-            if enc.get("walk_ids") is not None:
-                self.walk_ids = enc["walk_ids"]
-            else:
-                self.walk_ids = (
-                    torch.arange(N, dtype=torch.long).unsqueeze(1).expand(N, seq_len)
-                )
-            if enc.get("positions") is not None:
-                self.positions = enc["positions"]
-            else:
-                self.positions = (
-                    torch.arange(seq_len, dtype=torch.long)
-                    .unsqueeze(0)
-                    .expand(N, seq_len)
-                )
-            if enc.get("walk_lengths") is not None:
-                self.walk_lengths = enc["walk_lengths"]
-            else:
-                lengths = self.attention_base.sum(dim=1, dtype=torch.long)
-                self.walk_lengths = lengths.unsqueeze(1).expand(N, seq_len)
+        self.offsets = enc["offsets"]  # int32 or int64 [N+1]
+        self.flat_input_ids = enc["flat_input_ids"]  # int16/int32/int64 [T]
+        self.flat_split_mask = enc["flat_split_mask"]  # int8 [T]
+        self.flat_edge_ids = enc["flat_edge_ids"]  # int32/int64 [T]
+        self._N = len(self.offsets) - 1
+        # lengths[i] = real token count for walk i — used by BucketBatchSampler
+        self.lengths = (self.offsets[1:] - self.offsets[:-1]).to(torch.long)
+        # Pin to shared memory so forked DataLoader workers read without copying
+        for arr in [self.offsets, self.flat_input_ids, self.flat_split_mask, self.flat_edge_ids]:
+            arr.share_memory_()
 
     def __len__(self):
-        if self._ragged:
-            return self._N
-        return len(self.input_ids)
+        return self._N
 
-    # ------------------------------------------------------------------ #
-    # Compatibility properties for code that accesses padded-mode attrs   #
-    # (e.g. LitEdgeClassifier._build_dynamic_train_pool).                 #
-    # In ragged mode, expose the flat (1-D) arrays under the old names.   #
-    # ------------------------------------------------------------------ #
+    # Properties exposing flat 1-D arrays under the padded-mode names.
+    # Used by LitEdgeClassifier._build_dynamic_train_pool and similar callers.
     @property
     def input_ids(self):
-        if self._ragged:
-            return self.flat_input_ids
-        return self.__dict__["input_ids"]
-
-    @input_ids.setter
-    def input_ids(self, value):
-        self.__dict__["input_ids"] = value
+        return self.flat_input_ids
 
     @property
     def edge_split_mask(self):
-        if self._ragged:
-            return self.flat_split_mask
-        return self.__dict__["edge_split_mask"]
-
-    @edge_split_mask.setter
-    def edge_split_mask(self, value):
-        self.__dict__["edge_split_mask"] = value
+        return self.flat_split_mask
 
     @property
     def edge_ids(self):
-        if self._ragged:
-            return self.flat_edge_ids
-        return self.__dict__.get("edge_ids")
-
-    @edge_ids.setter
-    def edge_ids(self, value):
-        self.__dict__["edge_ids"] = value
+        return self.flat_edge_ids
 
     def __getitem__(self, idx):
-        if self._ragged:
-            return self._getitem_ragged(idx)
-        return self._getitem_padded(idx)
+        return self._getitem_ragged(idx)
 
     def _getitem_ragged(self, idx):
         s = int(self.offsets[idx])
@@ -190,48 +136,6 @@ class StageViewDataset(Dataset):
             "edge_classes": edge_classes,
         }
         return input_ids, labels, attention_mask, metadata
-
-    def _getitem_padded(self, idx):
-        input_ids = self.input_ids[idx].clone()
-        split_mask = self.edge_split_mask[idx]
-        attention_mask = self.attention_base[idx].clone()
-
-        is_edge = split_mask != SplitID.BAD
-        target_edges = split_mask == self.target_split
-
-        allowed_edges = torch.zeros_like(split_mask, dtype=torch.bool)
-        for split_id in self.allowed_splits:
-            allowed_edges |= split_mask == split_id
-        disallowed_edges = is_edge & (~allowed_edges)
-
-        labels = torch.full_like(input_ids, self.ignore_index)
-        if target_edges.any() and not (
-            self.stage == "train" and self.dynamic_train_masking
-        ):
-            labels[target_edges] = self.id2class[input_ids[target_edges]]
-
-        if not (self.stage == "train" and self.dynamic_train_masking):
-            input_ids[target_edges] = self.mask_id
-        input_ids[disallowed_edges] = self.mask_id
-        attention_mask[disallowed_edges] = 0
-
-        if (
-            self.edge_ids is not None
-            and self.walk_ids is not None
-            and self.positions is not None
-            and self.walk_lengths is not None
-        ):
-            metadata = {
-                "edge_ids": self.edge_ids[idx],
-                "walk_ids": self.walk_ids[idx],
-                "positions": self.positions[idx],
-                "walk_lengths": self.walk_lengths[idx],
-                "edge_split_mask": split_mask,
-                "edge_classes": self.id2class[self.input_ids[idx]],
-            }
-            return input_ids, labels, attention_mask, metadata
-
-        return input_ids, labels, attention_mask
 
 
 def ragged_collate_fn(pad_id: int, ignore_index: int):
@@ -343,14 +247,11 @@ def create_stage_dataloaders(
     bucket_width: int = 16,
     seed: int = 0,
 ):
-    ragged = "offsets" in cache_data.get("encoded", {})
-
     if pin_memory is None:
         pin_memory = torch.cuda.is_available()
     if pin_memory:
         try:
-            key = "flat_input_ids" if ragged else "input_ids"
-            t = cache_data["encoded"][key]
+            t = cache_data["encoded"]["flat_input_ids"]
             if t.untyped_storage().filename() is not None:
                 pin_memory = False
         except (AttributeError, TypeError, KeyError):
@@ -372,13 +273,12 @@ def create_stage_dataloaders(
         cache_data, stage="test", dynamic_train_masking=False
     )
 
-    if ragged:
-        tokenizer = cache_data["tokenizer"]
-        collate = ragged_collate_fn(
-            int(tokenizer["PAD_ID"]), int(tokenizer["UNK_LABEL_ID"])
-        )
+    tokenizer = cache_data["tokenizer"]
+    collate = ragged_collate_fn(
+        int(tokenizer["PAD_ID"]), int(tokenizer["UNK_LABEL_ID"])
+    )
 
-        if use_bucket_batching:
+    if use_bucket_batching:
             train_sampler = BucketBatchSampler(
                 lengths=train_dataset.lengths.tolist(),
                 batch_size=batch_size,
@@ -393,15 +293,43 @@ def create_stage_dataloaders(
                 collate_fn=collate,
                 **dataloader_kwargs,
             )
-        else:
-            train_loader = DataLoader(
-                train_dataset,
-                batch_size=batch_size,
-                shuffle=True,
-                collate_fn=collate,
-                **dataloader_kwargs,
-            )
+    else:
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            collate_fn=collate,
+            **dataloader_kwargs,
+        )
 
+    if use_bucket_batching:
+        val_sampler = BucketBatchSampler(
+            lengths=val_dataset.lengths.tolist(),
+            batch_size=batch_size,
+            bucket_width=bucket_width,
+            shuffle=False,
+            seed=seed,
+        )
+        val_loader = DataLoader(
+            val_dataset,
+            batch_sampler=val_sampler,
+            collate_fn=collate,
+            **dataloader_kwargs,
+        )
+        test_sampler = BucketBatchSampler(
+            lengths=test_dataset.lengths.tolist(),
+            batch_size=batch_size,
+            bucket_width=bucket_width,
+            shuffle=False,
+            seed=seed,
+        )
+        test_loader = DataLoader(
+            test_dataset,
+            batch_sampler=test_sampler,
+            collate_fn=collate,
+            **dataloader_kwargs,
+        )
+    else:
         val_loader = DataLoader(
             val_dataset,
             batch_size=batch_size,
@@ -416,11 +344,5 @@ def create_stage_dataloaders(
             collate_fn=collate,
             **dataloader_kwargs,
         )
-    else:
-        # Padded mode — full backward compat, no collate_fn needed
-        padded_kwargs = {"batch_size": batch_size, **dataloader_kwargs}
-        train_loader = DataLoader(train_dataset, shuffle=True, **padded_kwargs)
-        val_loader = DataLoader(val_dataset, shuffle=False, **padded_kwargs)
-        test_loader = DataLoader(test_dataset, shuffle=False, **padded_kwargs)
 
     return {"train": train_loader, "val": val_loader, "test": test_loader}

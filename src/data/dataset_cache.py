@@ -10,6 +10,7 @@ v1.x (legacy): Padded 2D tensors — triggers a rebuild warning on load.
 """
 
 import os
+import warnings
 import torch
 from typing import Dict, Set, Tuple, Any
 
@@ -129,13 +130,22 @@ def tokenizer_from_cache(cache_data: Dict[str, Any]) -> Tokenizer:
                 label = int(token.split(tok.DELIMITER, 1)[1])
                 tok._token_to_edge_label[token] = label
             except (IndexError, ValueError):
-                pass
+                warnings.warn(
+                    f"dataset_cache: cannot parse integer label from edge token {token!r} "
+                    "during tokenizer reconstruction from cache; token will get sort key 0 "
+                    "in _build_edge_label_map (may cause incorrect class assignment).",
+                    stacklevel=2,
+                )
         elif token.startswith(tok.NODE_PREFIX):
             tok._node_tokens.add(token)
             try:
                 node_id = int(token.split(tok.DELIMITER, 1)[1])
                 tok._token_to_node_id[token] = node_id
             except (IndexError, ValueError):
-                pass
+                warnings.warn(
+                    f"dataset_cache: cannot parse integer node id from node token {token!r} "
+                    "during tokenizer reconstruction from cache.",
+                    stacklevel=2,
+                )
 
     return tok

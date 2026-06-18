@@ -36,9 +36,28 @@ dataset:
     val_ratio: 0.1
     test_ratio: 0.1
     # Default data processing
-    binary: false
+    binary: true
     remove_self_loops: true
     multiedge_handling: keep
+
+    # Walk sampling strategy (coverage-aware options)
+    # uniform         — standard random walks (default, backward-compatible)
+    # guaranteed      — anchor walks that guarantee 100% val/test edge coverage
+    # neg_emphasis    — bias walk starts toward training-negative-edge nodes
+    # inv_degree      — start probability ∝ 1/degree (counteracts degree² visit bias)
+    # node2vec        — biased transitions with return param p and in-out param q
+    # edge_seeded     — online min-heap: always seed from least-traversed edge
+    # neg_traversal   — walks that explicitly traverse a training negative edge
+    # set_cover       — greedy set-cover selection from a large candidate pool
+    # cov_restart     — restart from most-uncovered node instead of uniform
+    # sign_alt        — prefer sign-alternating transitions (train edges only)
+    # smart           — ensemble of guaranteed + neg_emphasis + edge_seeded
+    walk_strategy: uniform
+    walk_neg_emphasis_fraction: 0.5 # fraction of walks seeded near neg-edge nodes
+    walk_set_cover_multiplier: 4 # candidate pool = num_walks × multiplier
+    walk_p: 1.0 # node2vec return param (>1 discourages backtrack)
+    walk_q: 1.0 # node2vec in-out param (>1 = DFS-like)
+    walk_k_min: 1 # k_cover: minimum visits guaranteed per edge
 
 # Default model architecture (tunable per dataset)
 model:
@@ -62,12 +81,25 @@ model:
     node_replace_prob: 0.2 # fraction of node tokens to replace
     node_replace_unk_ratio: 0.7 # of replaced tokens: fraction set to [UNK]
 
+    # ── Local attention window ──────────────────────────────────────────────
+    # Cap self-attention to |i-j| <= local_attention_window token positions
+    # (banded mask). null = unrestricted (full attention, default).
+    local_attention_window: null
+
     # ── H: Hard-node reweighting ────────────────────────────────────────────
     # Scale each walk's loss by (1 + λ · avg_hardness_of_adjacent_nodes).
     # Set hardness_map_path to the output of compute_hardness_map.py.
     # Leave null to disable H (useful for E0/E12/E13 ablations).
     hardness_lambda: 1.0
     hardness_map_path: null # path to hardness_map.pt, or null
+
+    # ── OWL: Occurrence-Weighted Loss ───────────────────────────────────────
+    # Up-weight rare/uncovered TRAIN∪MASK edges at loss time.
+    # Generate the weight tensor with: compute_occurrence_weights.py
+    # Set occurrence_weight_path to the saved .pt file to enable; null = disabled.
+    occurrence_weight_path: null # path to *_occurrence_weights.pt, or null
+    occurrence_weight_fn: sqrt # sqrt | linear | log  (used by compute script)
+    occurrence_weight_ceiling: 5.0 # weight for zero-coverage edges (used by compute script)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Miner configuration (used by compute_hardness_map.py / pipeline entry point)
@@ -109,7 +141,7 @@ training:
     persistent_workers: true # Keep workers alive between epochs (faster with num_workers > 0)
     prefetch_factor: 2 # Batches prefetched per worker
     bucket_batching: true # Bucket walks by length for shorter batches (faster transformer)
-    bucket_width: 16 # Bucket granularity in tokens (smaller = tighter grouping)
+    bucket_width: 4 # Bucket granularity in tokens (benchmark: 4 gives 1.2% vs 7.8% padding waste at width=16)
 
     # Optional non-standard callbacks (disable for faster baseline training)
     callbacks:

@@ -1,7 +1,0 @@
-Dataset,Model,Agg_Train_AUC,Agg_Val_AUC,Agg_Test_AUC,Transformer_Val_AUC,Transformer_Test_AUC,Delta_Val,Delta_Test
-wiki-rfa,logistic,0.8270,0.8307,0.8273,0.8090,0.8198,.0217,.0075
-wiki-rfa,mlp,0.8286,0.8296,0.8275,0.8090,0.8198,.0206,.0077
-slashdot090221,logistic,0.8480,0.8515,0.8502,0.7860,0.8029,.0655,.0473
-slashdot090221,mlp,0.8447,0.8485,0.8460,0.7860,0.8029,.0625,.0431
-epinions,logistic,0.9079,0.9120,0.9085,0.8933,0.8852,.0187,.0233
-epinions,mlp,0.9205,0.9191,0.9184,0.8933,0.8852,.0258,.0332

@@ -78,6 +78,20 @@ class LitEdgeClassifier(pl.LightningModule):
         else:
             self.hardness_map_tensor = None
 
+        # ── OWL: Occurrence-Weighted Loss ───────────────────────────────────
+        owl_path = getattr(self.cfg.model, "occurrence_weight_path", None)
+        if owl_path:
+            owl_tensor = torch.load(
+                str(owl_path), map_location="cpu", weights_only=True
+            )
+            self.register_buffer("occurrence_weight_tensor", owl_tensor.float())
+            print(
+                f"✓ Loaded OWL weight tensor from {owl_path} "
+                f"(edges={owl_tensor.shape[0]})"
+            )
+        else:
+            self.occurrence_weight_tensor = None
+
     def forward(self, input_ids):
         return self.model(input_ids)
 
@@ -303,8 +317,11 @@ class LitEdgeClassifier(pl.LightningModule):
             if self.class_weights is not None
             else None
         )
-        if stage == "train" and self.hardness_map_tensor is not None:
-            # Hard-node reweighting: weight each walk by hardness of adjacent nodes
+        use_hardness = stage == "train" and self.hardness_map_tensor is not None
+        use_owl      = stage == "train" and self.occurrence_weight_tensor is not None
+
+        if use_hardness or use_owl:
+            # Unified composite-weight path (supports hardness, OWL, or both)
             B, S = labels.shape
             loss_flat = F.cross_entropy(
                 logits.view(-1, logits.size(-1)),
@@ -315,22 +332,37 @@ class LitEdgeClassifier(pl.LightningModule):
             )
             loss_2d = loss_flat.view(B, S)
             target_mask = labels != self.ignore_index  # [B, S]
-
-            # Per-walk target position (argmax finds first True; OK for 1 mask/walk)
-            target_pos = target_mask.long().argmax(dim=1)  # [B]
-            seq_idx = torch.arange(B, device=logits.device)
-            left_pos = (target_pos - 1).clamp(min=0)
-            right_pos = (target_pos + 1).clamp(max=S - 1)
-
-            # Use original input_ids for node lookup (before any replacement/masking)
-            left_toks = input_ids[seq_idx, left_pos]
-            right_toks = input_ids[seq_idx, right_pos]
-            h_left = self.hardness_map_tensor[left_toks]  # [B]
-            h_right = self.hardness_map_tensor[right_toks]  # [B]
-            walk_weights = 1.0 + self.hardness_lambda * (h_left + h_right) / 2.0  # [B]
-
             target_float = target_mask.float()
-            weighted = (loss_2d * walk_weights.unsqueeze(1) * target_float).sum()
+
+            # Start with a uniform composite weight of 1.0
+            composite = torch.ones(B, S, device=logits.device)
+
+            if use_hardness:
+                # Per-walk scalar: weight by hardness of nodes flanking the target edge
+                target_pos = target_mask.long().argmax(dim=1)  # [B]
+                seq_idx = torch.arange(B, device=logits.device)
+                left_pos = (target_pos - 1).clamp(min=0)
+                right_pos = (target_pos + 1).clamp(max=S - 1)
+                # Use original input_ids for node lookup (before any replacement)
+                left_toks = input_ids[seq_idx, left_pos]
+                right_toks = input_ids[seq_idx, right_pos]
+                h_left  = self.hardness_map_tensor[left_toks]   # [B]
+                h_right = self.hardness_map_tensor[right_toks]  # [B]
+                walk_w = 1.0 + self.hardness_lambda * (h_left + h_right) / 2.0  # [B]
+                composite = composite * walk_w.unsqueeze(1)  # broadcast [B, 1] → [B, S]
+
+            if use_owl:
+                # Per-position scalar: inverse-occurrence weight for each target edge
+                edge_ids_batch = metadata["edge_ids"]  # [B, S]
+                safe_eids = edge_ids_batch.clamp(min=0)
+                owl_w = self.occurrence_weight_tensor[safe_eids]  # [B, S]
+                # Positions with no valid edge (edge_id == -1) get neutral weight 1.0
+                owl_w = torch.where(
+                    edge_ids_batch >= 0, owl_w, torch.ones_like(owl_w)
+                )
+                composite = composite * owl_w
+
+            weighted = (loss_2d * composite * target_float).sum()
             loss = weighted / target_float.sum().clamp(min=1.0)
         else:
             loss = F.cross_entropy(

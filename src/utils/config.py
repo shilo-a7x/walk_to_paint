@@ -205,6 +205,15 @@ def validate_config(cfg, context: str = "train") -> None:
         if not _is_number(node_noise_sigma) or float(node_noise_sigma) < 0.0:
             _invalid("model.node_noise_sigma", node_noise_sigma, "node_noise_sigma >= 0.0")
 
+    local_attention_window = _get("model.local_attention_window", _MISSING)
+    if local_attention_window is not _MISSING and local_attention_window is not None:
+        if not _is_int(local_attention_window) or int(local_attention_window) < 0:
+            _invalid(
+                "model.local_attention_window",
+                local_attention_window,
+                "null or non-negative integer",
+            )
+
     node_replace_prob = _get("model.node_replace_prob", _MISSING)
     if node_replace_prob is not _MISSING and node_replace_prob is not None:
         if not _is_number(node_replace_prob) or not (0.0 <= float(node_replace_prob) <= 1.0):
@@ -293,6 +302,46 @@ def validate_config(cfg, context: str = "train") -> None:
     preprocess_save = _get("preprocess.save", _MISSING)
     if preprocess_save is not _MISSING and not isinstance(preprocess_save, bool):
         _invalid("preprocess.save", preprocess_save, "boolean")
+
+    walk_strategy = _get("dataset.walk_strategy", _MISSING)
+    if walk_strategy is not _MISSING and walk_strategy is not None:
+        _allowed_walk_strategies = {
+            "uniform", "guaranteed", "neg_emphasis", "inv_degree", "node2vec",
+            "edge_seeded", "neg_traversal", "set_cover", "cov_restart",
+            "sign_alt", "smart",
+        }
+        if str(walk_strategy) not in _allowed_walk_strategies:
+            _invalid(
+                "dataset.walk_strategy",
+                walk_strategy,
+                f"one of {sorted(_allowed_walk_strategies)}",
+            )
+
+    walk_neg_emphasis_fraction = _get("dataset.walk_neg_emphasis_fraction", _MISSING)
+    if walk_neg_emphasis_fraction is not _MISSING and walk_neg_emphasis_fraction is not None:
+        if not _is_number(walk_neg_emphasis_fraction) or not (
+            0.0 <= float(walk_neg_emphasis_fraction) <= 1.0
+        ):
+            _invalid(
+                "dataset.walk_neg_emphasis_fraction",
+                walk_neg_emphasis_fraction,
+                "0.0 <= walk_neg_emphasis_fraction <= 1.0",
+            )
+
+    walk_set_cover_multiplier = _get("dataset.walk_set_cover_multiplier", _MISSING)
+    if walk_set_cover_multiplier is not _MISSING and walk_set_cover_multiplier is not None:
+        if not _is_number(walk_set_cover_multiplier) or float(walk_set_cover_multiplier) < 1.0:
+            _invalid(
+                "dataset.walk_set_cover_multiplier",
+                walk_set_cover_multiplier,
+                "walk_set_cover_multiplier >= 1.0",
+            )
+
+    for param in ("walk_p", "walk_q"):
+        val = _get(f"dataset.{param}", _MISSING)
+        if val is not _MISSING and val is not None:
+            if not _is_number(val) or float(val) <= 0.0:
+                _invalid(f"dataset.{param}", val, f"{param} > 0.0")
 
     class_weights = None
     class_weights_path = None

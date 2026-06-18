@@ -27,7 +27,8 @@ def _build_adj(edges):
 
 
 def _sample_chunk(
-    nodes, nbrs, lbls, num_walks, max_walk_length, start_idx, end_idx, base_seed, task_id=0
+    nodes, nbrs, lbls, num_walks, max_walk_length, start_idx, end_idx, base_seed,
+    task_id=0, novelty_bias=0.0
 ):
     """Sample a chunk of walks [start_idx, end_idx) using NumPy RNG (fast).
     
@@ -54,13 +55,23 @@ def _sample_chunk(
         curr = start
         
         # Generate walk steps
+        visit_count: dict = defaultdict(int) if novelty_bias > 0.0 else {}
         for _ in range(max_walk_length):
             neigh = nbrs.get(curr)
             if neigh is None or len(neigh) == 0:
                 break
-            idx = rng.integers(0, len(neigh))
+            if novelty_bias > 0.0:
+                weights = np.exp(-novelty_bias * np.array(
+                    [visit_count.get(int(n), 0) for n in neigh], dtype=np.float64
+                ))
+                weights /= weights.sum()
+                idx = int(rng.choice(len(neigh), p=weights))
+            else:
+                idx = int(rng.integers(0, len(neigh)))
             next_node = int(neigh[idx])
             edge_label = int(lbls[curr][idx])
+            if novelty_bias > 0.0:
+                visit_count[next_node] = visit_count.get(next_node, 0) + 1
             walk_tokens.append(f"E_{edge_label}")
             walk_tokens.append(f"N_{next_node}")
             walk_nodes.append(next_node)
@@ -71,7 +82,8 @@ def _sample_chunk(
 
 
 def sample_random_walks(
-    edges, num_walks=100, max_walk_length=16, num_workers=1, seed=None
+    edges, num_walks=100, max_walk_length=16, num_workers=1, seed=None,
+    novelty_bias=0.0
 ):
     """
     Fast random-walk sampler with optional multiprocessing.
@@ -109,7 +121,8 @@ def sample_random_walks(
 
     if num_workers == 1:
         _, walks = _sample_chunk(
-            nodes, nbrs, lbls, num_walks, max_walk_length, 0, num_walks, base_seed=base_seed, task_id=0
+            nodes, nbrs, lbls, num_walks, max_walk_length, 0, num_walks,
+            base_seed=base_seed, task_id=0, novelty_bias=novelty_bias
         )
         return walks
 
@@ -130,7 +143,8 @@ def sample_random_walks(
     # Results include task_id to preserve ordering across different systems
     with mp.Pool(processes=len(tasks)) as pool:
         results = pool.starmap(
-            partial(_sample_chunk, nodes, nbrs, lbls, num_walks, max_walk_length),
+            partial(_sample_chunk, nodes, nbrs, lbls, num_walks, max_walk_length,
+                    novelty_bias=novelty_bias),
             [(start, end, base_seed, task_id) for start, end, base_seed, task_id in tasks],
         )
 

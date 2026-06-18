@@ -18,6 +18,10 @@ class TransformerModel(nn.Module):
         self.node_context_mode = str(getattr(cfg.model, "node_context_mode", "none"))
         self.node_mask_prob = float(getattr(cfg.model, "node_mask_prob", 0.0))
         self.node_noise_sigma = float(getattr(cfg.model, "node_noise_sigma", 0.0))
+        local_attention_window = getattr(cfg.model, "local_attention_window", None)
+        self.local_attention_window = (
+            int(local_attention_window) if local_attention_window is not None else None
+        )
         pad_id = cfg.model.pad_id
         self.embed = nn.Embedding(
             cfg.model.vocab_size, cfg.model.embedding_dim, padding_idx=pad_id
@@ -59,5 +63,13 @@ class TransformerModel(nn.Module):
         else:
             src_key_padding_mask = None
 
-        x = self.transformer(x, src_key_padding_mask=src_key_padding_mask)
+        if self.local_attention_window is not None:
+            seq_len = input_ids.size(1)
+            pos = torch.arange(seq_len, device=input_ids.device)
+            dist = (pos.unsqueeze(0) - pos.unsqueeze(1)).abs()
+            attn_mask = dist > self.local_attention_window
+        else:
+            attn_mask = None
+
+        x = self.transformer(x, mask=attn_mask, src_key_padding_mask=src_key_padding_mask)
         return self.out(x)

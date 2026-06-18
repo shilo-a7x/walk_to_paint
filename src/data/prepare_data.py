@@ -3,7 +3,6 @@ import time
 import torch
 import numpy as np
 from enum import IntEnum
-from torch.nn.utils.rnn import pad_sequence
 from sklearn.model_selection import train_test_split
 from concurrent.futures import ProcessPoolExecutor
 
@@ -152,7 +151,7 @@ def split_edges(cfg, edges):
     return train_set, mask_set, val_set, test_set
 
 
-def get_walks(cfg, edges):
+def get_walks(cfg, edges, train_set=None, mask_set=None, val_set=None, test_set=None):
     print(f"Sampling random walks from {cfg.dataset.name} dataset...")
 
     walk_workers = int(getattr(cfg.preprocess, "num_workers", 1))
@@ -160,13 +159,29 @@ def get_walks(cfg, edges):
     # Use canonical seed from reproducibility config (imported at top)
     walk_seed = get_seed(cfg)
 
-    walks = sample_random_walks(
-        edges,
-        num_walks=int(cfg.dataset.num_walks),
-        max_walk_length=cfg.dataset.max_walk_length,
-        num_workers=walk_workers,
-        seed=walk_seed,
-    )
+    strategy = str(getattr(cfg.dataset, "walk_strategy", "uniform"))
+
+    if strategy == "uniform":
+        walks = sample_random_walks(
+            edges,
+            num_walks=int(cfg.dataset.num_walks),
+            max_walk_length=cfg.dataset.max_walk_length,
+            num_workers=walk_workers,
+            seed=walk_seed,
+        )
+    else:
+        from src.data.coverage_aware_sampler import sample_walks as _sample_coverage_walks
+        walks = _sample_coverage_walks(
+            edges=edges,
+            cfg=cfg,
+            seed=walk_seed,
+            num_workers=walk_workers,
+            train_set=train_set,
+            mask_set=mask_set,
+            val_set=val_set,
+            test_set=test_set,
+        )
+
     print(f"Success! ✅")
     return walks
 
@@ -272,8 +287,8 @@ def encode_walks(
     """Walk encoding returning numpy int64 arrays.
 
     Returns 3 lists (input_ids, edge_split_masks, edge_ids) as np.int64 arrays per walk.
-    positions / walk_ids / walk_lengths are trivially reconstructable after padding and
-    are therefore NOT computed here — see pad_and_build_stage_tensors.
+    positions / walk_ids / walk_lengths are reconstructable from the walk lengths after
+    CSR array construction and are therefore NOT computed here.
 
     When num_workers > 1, walks are split into equal chunks and encoded in parallel
     using ProcessPoolExecutor.  Shared read-only state (tokenizer dicts, split lookup,
@@ -328,102 +343,6 @@ def encode_walks(
         edge_ids_list.extend(eids)
 
     return input_ids, edge_split_masks, edge_ids_list
-
-
-def _stage_views_from_base(
-    input_ids: torch.Tensor,
-    edge_split_mask: torch.Tensor,
-    tokenizer: Tokenizer,
-    edge_ids: torch.Tensor,
-    walk_ids: torch.Tensor,
-    positions: torch.Tensor,
-    walk_lengths: torch.Tensor,
-):
-    """
-    Build per-stage (input_ids, labels, attention_mask) with those rules:
-      Train: allowed = TRAIN; target = MASK
-      Val:   allowed = TRAIN|MASK; target = VAL
-      Test:  allowed = TRAIN|MASK|VAL; target = TEST
-    """
-    ignore_index = tokenizer.UNK_LABEL_ID
-    pad_id = int(tokenizer.PAD_ID)
-    mask_id = int(tokenizer.MASK_ID)
-
-    # base attention (nodes + all edges visible initially)
-    base_attn = (input_ids != pad_id).long()
-    is_edge_pos = edge_split_mask != SplitID.BAD
-    # map token_id -> class_id (for labels)
-    id2class = torch.full((tokenizer.vocab_size,), ignore_index, dtype=torch.long)
-    for class_id, edge_tok in tokenizer.id2edge_label.items():
-        tok_id = tokenizer.token2id.get(edge_tok, None)
-        if tok_id is not None:
-            id2class[tok_id] = int(class_id)
-
-    def build_for_stage(allowed_splits, target_split: int):
-        # attention: start from base and zero-out disallowed edges
-        attn = base_attn.clone()
-        allowed_edges = torch.zeros_like(edge_split_mask, dtype=torch.bool)
-        for s in allowed_splits:
-            allowed_edges |= edge_split_mask == s
-        disallowed_edges = is_edge_pos & (~allowed_edges)
-        attn[disallowed_edges] = 0
-
-        # input ids: mask only target edges; mask disallowed edges too
-        x = input_ids.clone()
-        target_edges = edge_split_mask == target_split
-        # labels from original token ids (before overwrite)
-        labels = torch.full_like(input_ids, ignore_index)
-        if target_edges.any():
-            labels[target_edges] = id2class[x[target_edges]]
-        # replace target edges with MASK token id
-        x[target_edges] = mask_id
-        # mask disallowed edges but don't give them labels (keep ignore_index)
-        x[disallowed_edges] = mask_id
-
-        return x, labels, attn
-
-    # Stage definitions - include target splits in allowed splits for attention
-    train_allowed = [SplitID.TRAIN, SplitID.MASK]  # Include MASK (target) in allowed
-    val_allowed = [
-        SplitID.TRAIN,
-        SplitID.MASK,
-        SplitID.VAL,
-    ]  # Include VAL (target) in allowed
-    test_allowed = [
-        SplitID.TRAIN,
-        SplitID.MASK,
-        SplitID.VAL,
-        SplitID.TEST,
-    ]  # Include TEST (target) in allowed
-
-    train_x, train_y, train_attn = build_for_stage(train_allowed, SplitID.MASK)
-    val_x, val_y, val_attn = build_for_stage(val_allowed, SplitID.VAL)
-    test_x, test_y, test_attn = build_for_stage(test_allowed, SplitID.TEST)
-
-    train_meta = {
-        "edge_ids": edge_ids,
-        "walk_ids": walk_ids,
-        "positions": positions,
-        "walk_lengths": walk_lengths,
-    }
-    val_meta = {
-        "edge_ids": edge_ids,
-        "walk_ids": walk_ids,
-        "positions": positions,
-        "walk_lengths": walk_lengths,
-    }
-    test_meta = {
-        "edge_ids": edge_ids,
-        "walk_ids": walk_ids,
-        "positions": positions,
-        "walk_lengths": walk_lengths,
-    }
-
-    return (
-        (train_x, train_y, train_attn, train_meta),
-        (val_x, val_y, val_attn, val_meta),
-        (test_x, test_y, test_attn, test_meta),
-    )
 
 
 def build_ragged_arrays(input_ids_list, split_masks_list, edge_ids_list, tokenizer):
@@ -485,66 +404,6 @@ def build_ragged_arrays(input_ids_list, split_masks_list, edge_ids_list, tokeniz
     }
 
 
-def pad_and_build_stage_tensors(
-    cfg,
-    input_ids_list,
-    edge_split_masks_list,
-    edge_ids_list,
-    tokenizer,
-):
-    """Pad variable-length numpy arrays and reconstruct all base tensors.
-
-    Opt 2a: positions / walk_ids / walk_lengths are reconstructed vectorially from
-            the padding mask — no per-walk allocation or pad_sequence call needed.
-    Opt 2b: inputs are numpy int64 arrays; numpy fill + torch.from_numpy is ~10x
-            faster than pad_sequence on lists of torch tensors.
-    """
-    print(f"Padding and building stage tensors for {cfg.dataset.name} dataset...")
-    pad_id = int(tokenizer.PAD_ID)
-    N = len(input_ids_list)
-    max_len = max(len(a) for a in input_ids_list)
-
-    def _np_pad(arrays: list, pad_val: int) -> torch.Tensor:
-        """Fill a pre-allocated numpy array and return as a contiguous LongTensor."""
-        out = np.full((N, max_len), pad_val, dtype=np.int64)
-        for i, a in enumerate(arrays):
-            out[i, : len(a)] = a
-        return torch.from_numpy(out)
-
-    input_ids = _np_pad(input_ids_list, pad_id)
-    edge_split_mask = _np_pad(edge_split_masks_list, int(SplitID.BAD))
-    edge_ids = _np_pad(edge_ids_list, -1)
-    attention_base = (input_ids != pad_id).long()
-
-    # Reconstruct trivially-computable tensors from the padding mask.
-    # real_mask[w, i] is True iff position i in walk w is a real (non-padded) token.
-    real_mask = attention_base.bool()  # [N, max_len]
-
-    positions = torch.arange(max_len, dtype=torch.long)  # [max_len]
-    positions = positions.unsqueeze(0).expand(N, -1).clone()  # [N, max_len]
-    positions[~real_mask] = -1
-
-    walk_lengths = (
-        real_mask.long().sum(1, keepdim=True).expand(N, max_len).clone()
-    )  # [N, max_len]
-    walk_lengths[~real_mask] = -1
-
-    walk_ids = torch.arange(N, dtype=torch.long)  # [N]
-    walk_ids = walk_ids.unsqueeze(1).expand(N, max_len).clone()  # [N, max_len]
-    walk_ids[~real_mask] = -1
-
-    print(f"Success! ✅")
-    return {
-        "input_ids": input_ids,
-        "edge_split_mask": edge_split_mask,
-        "attention_base": attention_base,
-        "edge_ids": edge_ids,
-        "walk_ids": walk_ids,
-        "positions": positions,
-        "walk_lengths": walk_lengths,
-    }
-
-
 def build_runtime_cache_data(
     tokenizer,
     offsets,
@@ -581,51 +440,6 @@ def build_runtime_cache_data(
     }
 
 
-def compute_class_weights_from_train(train_pack, ignore_index, num_classes):
-    """Compute class weights from train split only (inverse frequency).
-
-    Args:
-        train_pack: Tuple of (input_ids, labels, attention_mask, metadata) from train split
-        ignore_index: Label value to ignore in computation
-        num_classes: Number of classes
-
-    Returns:
-        List of weights (one per class), normalized
-    """
-    # Unpack 4-tuple (always with metadata)
-    _, labels, _, _ = train_pack
-
-    # Flatten and filter out ignore_index
-    all_labels = labels.view(-1)
-    valid_labels = all_labels[all_labels != ignore_index]
-
-    if len(valid_labels) == 0:
-        print("⚠️  Warning: No valid labels in train split, using uniform weights")
-        return [1.0] * num_classes
-
-    # Count samples per class
-    class_counts = []
-    for i in range(num_classes):
-        count = (valid_labels == i).sum().item()
-        class_counts.append(count)
-
-    # Inverse frequency formula
-    total = len(valid_labels)
-    weights = []
-    for count in class_counts:
-        if count > 0:
-            weight = total / (num_classes * count)
-        else:
-            weight = 1.0
-        weights.append(weight)
-
-    # Normalize to sum to num_classes
-    weight_sum = sum(weights)
-    weights = [w / weight_sum * num_classes for w in weights]
-
-    return weights
-
-
 def compute_class_weights_from_base(
     input_ids: torch.Tensor,
     edge_split_mask: torch.Tensor,
@@ -636,10 +450,9 @@ def compute_class_weights_from_base(
     """Compute class weights from train-target (MASK) edges in base tensors.
 
     Avoids materializing any stage views — reads labels directly from the
-    MASK positions in edge_split_mask.  Drop-in replacement for the old
-    compute_class_weights_from_train(train_pack, ...) flow.
+    MASK positions in edge_split_mask.
     """
-    # Build token_id -> class_id mapping (same logic as _stage_views_from_base)
+    # Build token_id -> class_id mapping
     id2class = torch.full((tokenizer.vocab_size,), ignore_index, dtype=torch.long)
     for class_id, edge_tok in tokenizer.id2edge_label.items():
         tok_id = tokenizer.token2id.get(edge_tok, None)
@@ -661,7 +474,7 @@ def compute_class_weights_from_base(
         )
         return [1.0] * num_classes
 
-    # Inverse frequency (identical formula to compute_class_weights_from_train)
+    # Inverse frequency formula
     class_counts = [(valid_labels == i).sum().item() for i in range(num_classes)]
     total = len(valid_labels)
     weights = [
@@ -742,7 +555,11 @@ def prepare_data(cfg):
     timings["split_edges"] = time.time() - t0
 
     t0 = time.time()
-    walks = get_walks(cfg, edges)
+    walks = get_walks(
+        cfg, edges,
+        train_set=train_set, mask_set=mask_set,
+        val_set=val_set, test_set=test_set,
+    )
     timings["get_walks"] = time.time() - t0
 
     t0 = time.time()

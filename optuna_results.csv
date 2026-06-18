@@ -1,2 +1,0 @@
-rank,trial_number,val_auc,model.nhead,model.embedding_dim,dataset.max_walk_length,dataset.num_walks,training.lr,training.weight_decay,training.batch_size,training.gradient_clip_val,training.early_stopping_patience,model.hidden_dim,model.nlayers,model.dropout,training.epochs
-1,8,-0.0,4,8,16,2543744,3.424917663186197e-05,1.9412698299370375e-06,128,1.0123322107618138,18,128,4,0.49248665508646333,7
