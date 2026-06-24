@@ -44,6 +44,7 @@ from node_mi_structural_embedding import DATASET_CONFIGS, load_dataset_cfg  # no
 
 MAX_SAMPLES_DEFAULT = 20000
 HOP_TOKEN_WIDTH = 2  # 1 graph-hop = 2 token positions
+ONE_HOP_RADIUS = 2   # |i-j| <= 2  <=>  within 1 graph-hop
 TWO_HOP_RADIUS = 4   # |i-j| <= 4  <=>  within 2 graph-hops
 
 
@@ -113,7 +114,14 @@ def load_model_and_dataset(ds_name, cfg, stage="test"):
 # ── Core analysis ───────────────────────────────────────────────────────────────
 
 def analyse_dataset(ds_name, cfg, out_dir, stage="test", max_samples=MAX_SAMPLES_DEFAULT,
-                     batch_size=64, device="cpu"):
+                     batch_size=64, device="cpu", return_per_example=False, node_id_of=None):
+    """return_per_example: if True, also returns result["per_example"], a list of
+    per-masked-target dicts (eff_dist, frac_beyond_1hop, both averaged over layers/heads
+    -- already computed internally below, just not retained by default -- plus u/v node
+    ids decoded from the flanking node tokens if node_id_of is given). Used by Lead 3
+    Step 3 (scripts/lead3_attention_ambiguity.py) to bin per-example attention behavior
+    by a per-edge ambiguity score; dataset-level aggregates (returned either way) are
+    unaffected by this flag."""
     print(f"\n{'=' * 80}\nDATASET: {ds_name}\n{'=' * 80}")
     t0 = time.time()
 
@@ -145,6 +153,7 @@ def analyse_dataset(ds_name, cfg, out_dir, stage="test", max_samples=MAX_SAMPLES
     sum_eff = np.zeros((nlayers, nhead), dtype=np.float64)
     hist = np.zeros((nlayers, nhead, max_dist + 1), dtype=np.float64)
     n_targets = 0
+    per_example = [] if return_per_example else None
 
     with torch.no_grad():
         for batch in loader:
@@ -167,6 +176,12 @@ def analyse_dataset(ds_name, cfg, out_dir, stage="test", max_samples=MAX_SAMPLES
             dist = (j_idx.unsqueeze(0) - cols_d.unsqueeze(1)).abs()  # [M, S]
             dist_flat = dist.reshape(-1)
 
+            if return_per_example:
+                M = rows.numel()
+                eff_sum_per_example = torch.zeros(M, device=device)
+                frac_beyond_1hop_sum_per_example = torch.zeros(M, device=device)
+                beyond_1hop_mask = (dist > ONE_HOP_RADIUS).float()  # [M, S]
+
             for l, layer in enumerate(model.transformer.layers):
                 attn = layer.last_attn_weights  # [B, nhead, S, S]
                 sel = attn[rows_d, :, cols_d, :]  # [M, nhead, S]
@@ -179,6 +194,30 @@ def analyse_dataset(ds_name, cfg, out_dir, stage="test", max_samples=MAX_SAMPLES
                         weights=valid[:, h, :].reshape(-1).cpu().numpy(),
                         minlength=max_dist + 1,
                     )
+                if return_per_example:
+                    eff_sum_per_example += eff.mean(dim=1)  # avg over heads, this layer
+                    frac_beyond = (valid * beyond_1hop_mask.unsqueeze(1)).sum(dim=2)  # [M, nhead]
+                    frac_beyond_1hop_sum_per_example += frac_beyond.mean(dim=1)
+
+            if return_per_example:
+                eff_mean = (eff_sum_per_example / nlayers).cpu().numpy()
+                frac_beyond_1hop_mean = (frac_beyond_1hop_sum_per_example / nlayers).cpu().numpy()
+                ids_np = input_ids.cpu().numpy()
+                am_np = attention_mask.cpu().numpy()
+                rows_np, cols_np = rows.numpy(), cols.numpy()
+                for m in range(rows.numel()):
+                    row, i = int(rows_np[m]), int(cols_np[m])
+                    rec = {"eff_dist": float(eff_mean[m]),
+                           "frac_beyond_1hop": float(frac_beyond_1hop_mean[m]),
+                           "u": None, "v": None}
+                    if node_id_of is not None:
+                        u_pos, v_pos = i - 1, i + 1
+                        if 0 <= u_pos < S and 0 <= v_pos < S \
+                                and am_np[row, u_pos] and am_np[row, v_pos]:
+                            utok, vtok = int(ids_np[row, u_pos]), int(ids_np[row, v_pos])
+                            rec["u"] = node_id_of.get(utok)
+                            rec["v"] = node_id_of.get(vtok)
+                    per_example.append(rec)
 
             n_targets += rows.numel()
 
@@ -212,7 +251,7 @@ def analyse_dataset(ds_name, cfg, out_dir, stage="test", max_samples=MAX_SAMPLES
     plt.close(fig)
     print(f"  ✓ Saved {os.path.basename(out_png)}")
 
-    return {
+    result = {
         "n_targets": n_targets,
         "nlayers": nlayers,
         "nhead": nhead,
@@ -222,6 +261,9 @@ def analyse_dataset(ds_name, cfg, out_dir, stage="test", max_samples=MAX_SAMPLES
         "frac_beyond_2hop": frac_beyond_2hop,
         "pmf": pmf,
     }
+    if return_per_example:
+        result["per_example"] = per_example
+    return result
 
 
 # ── Report ──────────────────────────────────────────────────────────────────────

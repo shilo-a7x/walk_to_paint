@@ -81,6 +81,14 @@ DATASET_CONFIGS = {
         "exp_dir":    "outputs/transformer_incremental/slashdot090221_seed42_nw5000000_mw80_bs1024_ep50_20260420-134149",
         "best_epoch": 20,
     },
+    # Lead 2 Step 4: synthetic "inverted fog" graph (no trained walk-model
+    # checkpoint yet -- exp_dir/best_epoch are placeholders, unused by
+    # edge_sign_mi_vs_distance_v3.py's MI-only calibration check).
+    "synthetic-fog": {
+        "ds_name":    "synthetic-fog",
+        "exp_dir":    None,
+        "best_epoch": None,
+    },
 }
 
 # ── Canonical edge loader (identical to training pipeline) ────────────────────

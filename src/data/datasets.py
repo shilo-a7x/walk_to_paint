@@ -377,6 +377,7 @@ DATASET_LOADERS = {
     "toy": load_toy,
     "epinions": load_epinions,
     "slashdot090221": load_slashdot,
+    "synthetic-fog": load_bitcoin,
 }
 
 

@@ -475,6 +475,7 @@ def analyse_dataset(ds_name: str, cfg: dict, out_dir: str,
         ax.set_xlabel("hop d")
         ax.set_ylabel("MI (bits)")
         ax.set_xticks(hops)
+        ax.set_ylim(bottom=0, top=0.30)
         if fi == 0:
             ax.legend(fontsize=7)
     for fi in range(n_feat, nrows * ncols):
@@ -485,7 +486,7 @@ def analyse_dataset(ds_name: str, cfg: dict, out_dir: str,
         f"(anchors={len(anchors):,})",
         fontsize=11)
     fig.tight_layout()
-    save_path = os.path.join(out_dir, f"node_mi_{ds_name}.png")
+    save_path = os.path.join(out_dir, f"node_mi_{ds_name}_limited.png")
     fig.savefig(save_path, dpi=110)
     plt.close(fig)
     print(f"  ✓ Saved {os.path.basename(save_path)}")

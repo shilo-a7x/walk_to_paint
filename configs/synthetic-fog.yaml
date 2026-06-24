@@ -1,0 +1,30 @@
+# Synthetic "inverted fog" dataset (Lead 2 Step 4): bitcoin-alpha's real
+# topology with resampled signs designed to have ~0 MI at d=1 hop and
+# substantial MI at d=2 hops -- the opposite profile from every real
+# dataset. See scripts/generate_synthetic_fog_graph.py.
+# Merges with base config.yaml - only overrides dataset-specific values
+
+dataset:
+    name: synthetic-fog
+    data_dir: data/synthetic-fog
+    edge_list_file: synthetic_fog.csv
+    binary: true
+    remove_self_loops: true
+    multiedge_handling: keep
+    max_walk_length: 80
+    num_walks: 5000000
+
+model:
+    embedding_dim: 64
+    hidden_dim: 128
+    nhead: 4
+    nlayers: 3
+    dropout: 0.20
+
+training:
+    batch_size: 1024
+    epochs: 50
+    lr: 0.0016
+    weight_decay: 1.0e-4
+    early_stopping_patience: 15
+    gradient_clip_val: 0.54
