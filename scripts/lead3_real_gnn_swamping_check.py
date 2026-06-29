@@ -37,8 +37,11 @@ import numpy as np
 from scripts.lead3_synthetic_swamping import run_setting
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ART_DIR = os.path.join(ROOT, "outputs", "lead2_gnn_bottleneck")
-OUT_DIR = os.path.join(ROOT, "outputs", "lead3_swamping")
+# Overridable so the canonical-split rerun reads the canonical edge-sensitivity
+# artifacts (LEAD2_ART_DIR=outputs/lead2_gnn_bottleneck_canonical) and writes to
+# an isolated dir (LEAD3_OUT_DIR=outputs/lead3_swamping_canonical).
+ART_DIR = os.path.join(ROOT, os.environ.get("LEAD2_ART_DIR", "outputs/lead2_gnn_bottleneck"))
+OUT_DIR = os.path.join(ROOT, os.environ.get("LEAD3_OUT_DIR", "outputs/lead3_swamping"))
 
 DATASETS = ["bitcoin-alpha", "bitcoin-otc", "epinions", "wiki-elec", "wiki-rfa", "slashdot090221"]
 MODELS = ["CSG", "GINEConv"]

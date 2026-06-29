@@ -44,9 +44,15 @@ from scripts.mi_pca_binning_utils import mi_pca_bins
 ALL_DATASETS = ["bitcoin-alpha", "bitcoin-otc", "epinions",
                 "wiki-elec", "wiki-rfa", "slashdot090221"]
 
+# Path roots overridable via env so the canonical-split rerun can point at the
+# isolated artifacts (RESULTS_ROOT_NAME=results_our_splits_canonical,
+# SPLITS_DIRNAME=splits_canonical) without disturbing the defaults.
+RESULTS_ROOT_NAME = os.environ.get("RESULTS_ROOT_NAME", "results_our_splits")
+SPLITS_DIRNAME = os.environ.get("SPLITS_DIRNAME", "splits")
+
 MODEL_ARTIFACT_PATHS = {
-    "GINEConv": "baselines/GINEConv/results_our_splits/{ds}/GINEConv/seed42/best_epoch_artifacts.pkl",
-    "CSG":      "baselines/CSG/results_our_splits/{ds}/CSG/seed42/best_epoch_artifacts.pkl",
+    "GINEConv": f"baselines/GINEConv/{RESULTS_ROOT_NAME}/{{ds}}/GINEConv/seed42/best_epoch_artifacts.pkl",
+    "CSG":      f"baselines/CSG/{RESULTS_ROOT_NAME}/{{ds}}/CSG/seed42/best_epoch_artifacts.pkl",
 }
 
 
@@ -70,7 +76,7 @@ def load_train_edges(ds_name: str):
     """Returns (src, dst, sign) int64/int64/float32 arrays for TRAINING-split
     edges only -- the only edges that actually fed into h_v^(1) during the
     forward pass that produced the cached artifact."""
-    splits_path = os.path.join(ROOT, "baselines", "splits", f"{ds_name}.pt")
+    splits_path = os.path.join(ROOT, "baselines", SPLITS_DIRNAME, f"{ds_name}.pt")
     splits = torch.load(splits_path, weights_only=False)
     ei = splits["edge_index"]
     ew = splits["edge_weight"]

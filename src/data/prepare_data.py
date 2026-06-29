@@ -499,20 +499,64 @@ def _dataloader_kwargs(cfg) -> dict:
     )
 
 
+def _keyed_cache_path(cfg):
+    """Cache filename keyed by (walk_strategy, num_walks, max_walk_length, seed[, k]).
+
+    Isolation guarantee: every distinct sampling config writes its OWN cache file,
+    so a new sampler can never silently load or overwrite the legacy
+    `dataset_cache.pt` that the current SOTA runs and all research Leads depend on.
+    The legacy file is read-only here (reused for uniform runs whose budget matches;
+    see prepare_data) and is never a SAVE target.
+    """
+    strategy = str(getattr(cfg.dataset, "walk_strategy", "uniform"))
+    nw = int(cfg.dataset.num_walks)
+    mw = int(cfg.dataset.max_walk_length)
+    seed = int(get_seed(cfg))
+    parts = [strategy, f"nw{nw}", f"mw{mw}", f"seed{seed}"]
+    if "k_cover" in strategy:
+        parts.insert(1, f"k{int(getattr(cfg.dataset, 'walk_k_min', 1))}")
+    return os.path.join(cfg.dataset.data_dir, "dataset_cache__" + "_".join(parts) + ".pt")
+
+
+def _cache_num_walks(cache_path, use_mmap=False):
+    """Cheaply read the walk count (== len(offsets)-1) from a cache file."""
+    cd = load_dataset_cache(cache_path, use_mmap=use_mmap)
+    return int(cd["encoded"]["offsets"].shape[0] - 1)
+
+
 def prepare_data(cfg):
-    dataset_cache_path = os.path.join(cfg.dataset.data_dir, "dataset_cache.pt")
+    strategy = str(getattr(cfg.dataset, "walk_strategy", "uniform"))
+    keyed_path = _keyed_cache_path(cfg)
+    legacy_path = os.path.join(cfg.dataset.data_dir, "dataset_cache.pt")
+    # SAVE always targets the keyed path (legacy dataset_cache.pt is never overwritten).
+    dataset_cache_path = keyed_path
 
     # Warn when caller asked for cache but it doesn't exist yet — avoids silent rebuild.
-    if cfg.preprocess.use_cache and not cache_exists(dataset_cache_path):
+    if cfg.preprocess.use_cache and not cache_exists(keyed_path) and not cache_exists(legacy_path):
         print(
             f"⚠️  use_cache=True but no cache found at {dataset_cache_path} "
             "\u2014 building from scratch."
         )
 
-    if cfg.preprocess.use_cache and cache_exists(dataset_cache_path):
-        use_mmap = bool(getattr(cfg.preprocess, "use_mmap", False))
-        print(f"Loading dataset cache from {dataset_cache_path} (mmap={use_mmap})...")
-        cache_data = load_dataset_cache(dataset_cache_path, use_mmap=use_mmap)
+    use_mmap = bool(getattr(cfg.preprocess, "use_mmap", False))
+    load_path = None
+    if cfg.preprocess.use_cache:
+        if cache_exists(keyed_path):
+            load_path = keyed_path
+        elif strategy == "uniform" and cache_exists(legacy_path):
+            # Back-compat: reuse the legacy uniform cache only if its budget matches,
+            # so existing SOTA caches are not needlessly rebuilt.
+            legacy_nw = _cache_num_walks(legacy_path, use_mmap=use_mmap)
+            if legacy_nw == int(cfg.dataset.num_walks):
+                load_path = legacy_path
+                print(f"Reusing legacy cache {legacy_path} (uniform, nw={legacy_nw} matches).")
+            else:
+                print(f"WARNING: legacy cache nw={legacy_nw} != config nw="
+                      f"{int(cfg.dataset.num_walks)} -- building keyed cache instead.")
+
+    if load_path is not None:
+        print(f"Loading dataset cache from {load_path} (mmap={use_mmap})...")
+        cache_data = load_dataset_cache(load_path, use_mmap=use_mmap)
 
         # Update config with metadata
         cfg.model.vocab_size = cache_data["metadata"]["vocab_size"]

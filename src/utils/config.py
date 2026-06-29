@@ -308,7 +308,7 @@ def validate_config(cfg, context: str = "train") -> None:
         _allowed_walk_strategies = {
             "uniform", "guaranteed", "neg_emphasis", "inv_degree", "node2vec",
             "edge_seeded", "neg_traversal", "set_cover", "cov_restart",
-            "sign_alt", "smart",
+            "sign_alt", "smart", "k_cover",
         }
         if str(walk_strategy) not in _allowed_walk_strategies:
             _invalid(

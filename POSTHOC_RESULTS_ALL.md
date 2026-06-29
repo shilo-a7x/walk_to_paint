@@ -1,5 +1,11 @@
 # Walk-to-Paint: Comprehensive Posthoc Results
 
+> **⚠️ SUPERSEDED for absolute SOTA numbers (2026-06-29).** AUCs and the `E14_HARDNODE_L10`
+> tag below are the **old uniform-sampler** results (~85–88% walk coverage on sparse graphs).
+> Current full-coverage SOTA is **E15 k_cover k=5** — see
+> `outputs/walk_coverage_analysis/E15_SWEEP_RESULTS.md` and `CLAUDE.md`'s SOTA table.
+> Aggregator-ranking conclusions still hold; only the absolute numbers/budgets are stale.
+
 > **Encoding**: class 0 = distrust/negative, class 1 = trust/positive, q_j = P(class 1).  
 > **Metric**: Edge-level test AUC (for aggregation models) / direct test AUC (for baselines).  
 > **Seed**: 42 for all experiments.  

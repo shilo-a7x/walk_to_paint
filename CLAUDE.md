@@ -50,8 +50,25 @@ python optuna_run.py --dataset <ds> --n-trials 100 --device <N>
 
 ## Canonical splits
 
-train:val:test = 0.8:0.1:0.1, seed=42.
-baselines/ uses identical splits (verified) — comparison is apples-to-apples.
+train:val:test = 0.8:0.1:0.1, seed=42 (walk model: nested 4-way train0.48/mask0.32/val0.1/test0.1).
+
+**CORRECTION (was wrong):** the old claim "baselines/ uses identical splits — apples-to-apples"
+does NOT hold. The legacy `baselines/splits/*.pt` and SGA CSVs were generated *independently* of
+the walk split (different RNG + fabricated reverse edges), so walk-test and GNN-test overlapped
+only ~10%. Fixed by `baselines/prepare_splits.py::build_canonical_split`, which re-derives the
+baseline artifacts from the frozen walk split (`data/<ds>/dataset_cache.pt["splits"]`) into
+isolated `baselines/splits_canonical/`. Full story: `SPLIT_PROVENANCE.md` (+ `FABRICATED_REVERSE_EDGES.md`).
+
+**Walk coverage caveat — RESOLVED (2026-06-29) by the E15 k_cover k=5 sampler.** The old
+uniform sampler only predicted a test edge if it appeared in a sampled walk, so on sparse
+graphs it evaluated a *subset* of the nominal test split (bitcoin-alpha/otc 100%, slashdot 98%,
+epinions 88%, wiki-rfa 86%, wiki-elec 85%) while GNNs saw all of it. The new edge-anchored
+`k_cover` sampler (`walk_strategy=k_cover`, `walk_k_min=5`) drives **node AND edge coverage to
+~100% on all 6** while matching/beating uniform AUC (and improving it on the same edges where
+coverage was low). The SOTA table below is now the E15 full-coverage model — no coverage
+footnote. Old uniform-E14 numbers are in parentheses. Details: `WALK_COVERAGE.md`,
+`outputs/walk_coverage_analysis/E15_SWEEP_RESULTS.md`,
+`~/.claude/plans/plan-a-fix-for-glimmering-panda.md`.
 
 ## Walk encoding
 
@@ -61,17 +78,40 @@ Token layout: N_u0, E_s1, N_u1, E_s2, ... (alternating node/edge).
 
 ## Current SOTA (func_logit_power, test AUC)
 
-| Dataset         | Baseline (best GNN) | Ours  | LocalAttn4 |
-|-----------------|---------------------|-------|------------|
-| bitcoin-alpha   | 0.8804 (GSGNN+SGA)  | 0.9131| 0.9370     |
-| bitcoin-otc     | 0.9086 (GSGNN+SGA)  | 0.9431| 0.9337     |
-| epinions        | 0.9113 (CSG-GSGNN)  | 0.9311| 0.9445     |
-| wiki-elec       | 0.8840 (CSG-GSGNN)  | 0.8928| 0.8917     |
-| wiki-rfa        | 0.8673 (CSG-GSGNN)  | 0.8810| 0.8882     |
-| slashdot090221  | 0.8845 (SNEA)       | 0.8952| 0.8958     |
+**Walk numbers are now the E15 k_cover k=5 full-coverage model** (~100% node+edge coverage
+on all 6). Old uniform-E14 numbers in parentheses (had the ~85–88% coverage caveat on the
+sparse graphs). The baseline column shows the **canonical-split** best GNN (re-run on the
+unified walk-derived split, `baselines/all_results_canonical.csv`); pre-canonical best-GNN in
+its own parentheses. **On the identical shared test edges the walk model beats EVERY GNN on all
+6 datasets, both attention variants** (apples-to-apples; full matched table in
+`outputs/walk_coverage_analysis/E15_SWEEP_RESULTS.md`, older canonical detail in
+`CANONICAL_RERUN_FINDINGS.md` §1a). With full coverage the walk now also wins on each-model's-
+own-full-test on all 6 — the prior wiki-elec/wiki-rfa "SiGAT marginally higher" exception was
+purely a coverage artifact and is gone.
 
-Experiment tag for current SOTA: E14_HARDNODE_L10
-LocalAttn4 tag: E14_HARDNODE_L10_LOCALATTN4_20260615-150214
+| Dataset         | Canon best-GNN (old)              | Ours (E14)      | LocalAttn4 (E14) |
+|-----------------|-----------------------------------|-----------------|------------------|
+| bitcoin-alpha   | 0.9051 SGA-GSGNN (0.8804)         | 0.9251 (0.9131) | 0.9362 (0.9370)  |
+| bitcoin-otc     | 0.8972 SNEA (0.9086)              | 0.9427 (0.9431) | 0.9410 (0.9337)  |
+| epinions        | 0.9146 SiGAT (0.9113)             | 0.9562 (0.9311) | 0.9568 (0.9445)  |
+| wiki-elec       | 0.8930 SiGAT (0.8840)             | 0.9016 (0.8928) | 0.9038 (0.8917)  |
+| wiki-rfa        | 0.8831 SiGAT (0.8673)             | 0.8932 (0.8810) | 0.8916 (0.8882)  |
+| slashdot090221  | 0.8587 SiGAT (0.8845)             | 0.9012 (0.8952) | 0.8984 (0.8958)  |
+
+E15 per-dataset best budgets (k_cover k=5, mw80): alpha 5M/5M, otc 2M/1M, epinions 3M/2M,
+wiki-elec 0.5M/0.5M, wiki-rfa 1M/1M, slashdot 5M/3M (full/local). wiki-elec & wiki-rfa AUC
+*drops* past the minimum covering budget (over-saturation on small dense graphs) — ship the
+smallest covering budget there.
+
+Apples-to-apples (shared edges) best GNN is always lower still — e.g. epinions GINE
+0.8642 / SiGAT 0.9109, slashdot GINE 0.7869 / SiGAT 0.8571. SE-SGformer excluded from
+"best GNN": its KNN discriminator emits hard labels, so its AUC is really balanced
+accuracy (~0.57–0.73, same as pre-canonical — not a regression; see findings doc §3).
+
+Experiment tag for current SOTA: E15_SWEEP_k5 / E15_COVERAGE_KCOVER_K5 (k_cover k=5; isolated
+keyed caches `data/<ds>/dataset_cache__k_cover_k5_nw<nw>_mw80_seed42.pt`; winner run dirs listed
+in `E15_SWEEP_RESULTS.md`). Prior uniform SOTA was E14_HARDNODE_L10 /
+E14_HARDNODE_L10_LOCALATTN4_20260615-150214 (artifacts untouched).
 
 ## Training feature flags (confirmed beneficial — already config.yaml defaults)
 
@@ -93,8 +133,9 @@ and CSR ragged-tensor caching (see git history of src/data/, "Implement ragged (
 for dataset caching and loading"). **Any new feature, experiment, or training mechanic must
 consider hardware/time efficiency from the start** — don't bolt something on that silently
 reintroduces O(n²) padding or defeats the CSR caching. When in doubt, benchmark before and
-after. See plan-performance.md for an open investigation into whether local-attention's
-masked-SDPA path is actually fast.
+after. **2026-06-28: local attention's masked-SDPA path WAS slow (37% wall-clock / 4x memory
+vs. full attention) — fixed in `src/model/model.py` (`LocalAttentionEncoderLayer`), see
+plan-performance.md for the diagnosis.**
 
 ## Key file locations
 
@@ -104,38 +145,92 @@ masked-SDPA path is actually fast.
 - Shared edge loader: scripts/balance_theory_paths.py → load_edges_canonical()
 - Hardness miner: scripts/compute_hardness_map.py
 - Analysis scripts: scripts/edge_sign_mi_vs_distance_v3.py, scripts/node_mi_structural_embedding.py,
-                    scripts/attention_analysis.py, scripts/lead4_entropy_heterogeneity.py
+                    scripts/attention_analysis.py, scripts/lead4_entropy_heterogeneity.py,
+                    scripts/lead4_twohop_path_consistency.py
 - MI reports: outputs/mi_analysis_package.zip (full), outputs/mi_vs_dist/, outputs/node_mi_structural/,
               outputs/attention_analysis/
-- Lead 4 report/data: outputs/lead4_entropy_heterogeneity/report.md (+ raw_data.txt, computed_data.pkl,
-              predictions_raw.pkl — the last holds per-edge (u,v,y,p) for all 4 models × 6 datasets,
-              reusable for any future per-edge investigation without rerunning models)
+- Lead 4 report/data: outputs/lead4_entropy_heterogeneity/report.md (+ raw_data.txt, computed_data.pkl).
+              Now CANONICAL-NATIVE (shared-edge): reads predictions_raw_canonical.pkl (built by
+              baselines/postprocess_canonical.py), restricts every model to the shared (walk-covered)
+              edge set so all 4 models are bucketed over IDENTICAL edges with identical per-cell n.
+              predictions_raw_canonical.pkl holds per-edge (u,v,y,p) for all 4 models × 6 datasets in
+              one raw (u,v) id space — reusable for any future per-edge investigation without rerunning
+              models. Bucket sweep is powers of 2 (--n-buckets 2 4 8 16 32).
+- Lead 4b report/data: outputs/lead4_twohop_path_consistency/report.md (+ raw_data.txt, computed_data.pkl) —
+              reuses the same predictions_raw_canonical.pkl via lead4_entropy_heterogeneity.load_shared_predictions.
+              Now has THREE path-direction variants for edge (u,v): `out` = forward 2-hop consistency from
+              target v (v->m->k), `in` = backward 2-hop consistency into source u (s->t->u), `inout` = pool
+              the out (from v) and in (into u) (total,consistent) counts into ONE tally for that edge before
+              taking entropy (not a separate undirected traversal). Bars grow from a 0.5 baseline, walk=blue
+              vs GNN=orange, shared n shown under each x-tick, bucket sweep powers of 2 (2 4 8 16 32).
 - Baselines: baselines/all_results.csv, baselines/<model>/results_our_splits/
+- **FABRICATED_REVERSE_EDGES.md** — read before using `baselines/splits/<ds>.pt`'s `edge_index` as
+              "all edges of the graph" for any per-edge/per-node diagnostic: 14–48% of its edges
+              (worse on epinions/wiki-elec/wiki-rfa/slashdot090221) are fabricated reverse mirrors with
+              no real counterpart. Use `build_real_dense_edge_set()` (in lead4_entropy_heterogeneity.py)
+              to filter them out first. Does NOT affect the SOTA table below. **Also documents a
+              SECOND, UNRESOLVED issue**: even after that fix, the walk model's test split and the GNN
+              baselines' test split are ~independent random samples of the same edge pool (≈10%
+              overlap on all 6 datasets, not a subset) — any edge-level walk-vs-GNN bucket comparison
+              (Lead 4, Lead 4b, likely Lead 1) has no shared ground truth underneath it. Needs a
+              deliberate decision (intersect vs. re-evaluate vs. accept+caveat), not a quick filter.
 
 ## Hardness map paths (E14 production)
 
 bitcoin-alpha: outputs/transformer_incremental/bitcoin-alpha_seed42_nw5000000_mw80_bs1024_ep75_20260423-111407/artifacts/E14_HARDNODE_L10/hardness_map.pt
 (others: same structure, check outputs/<dataset>/<run>/artifacts/E14_HARDNODE_L10/hardness_map.pt)
 
-## Research status (as of 2026-06-23)
+## Research status (as of 2026-06-26)
 
-COMPLETED:
+**Central question:** the walk-Transformer beats every GNN/SGNN baseline by
+3–5pp AUC on all 6 datasets despite edge-sign MI collapsing 10–1000× beyond
+1 hop. Leads 1–4b below investigate why. **Full synthesis, always read this
+first:** `RESEARCH_LEADS_SUMMARY.md` (supervisor-facing, kept in sync with
+the per-lead files below). Per-lead detail lives in its own file — don't
+duplicate findings here, just point to them:
 
-- MI analysis: edge-sign MI collapses 10–1000× at d=1→2 on all 6 datasets
-- Node-feature MI: embeddings are 1-hop local; HITS shows weak structural MI at d>1
-- Attention analysis: full-attention model attends far (mean 9–16 tokens) despite empty signal
-- LocalAttn4 experiment: restricting to ±2 hops is better on 4/6 datasets (+0.004 mean AUC)
-- **Lead 1 (GNN over-averaging):** Comprehensive cross-dataset analysis (6 datasets, 4 measurement steps) shows sign-heterogeneity-driven cancellation is universal (r≈−0.96) but modest (~5–9% norm loss). Degree-stratified gap shows no consistent pattern. Aggregator choice is dataset-dependent (sum on small/sparse, mean on large/dense), not primarily cancellation-driven. Depth beyond 2 is universally harmful. See LEAD1_GNN_OVER_AVERAGING_REPORT.md for full analysis. **Conclusion: Walk model's advantage is not primarily explained by over-averaging; Leads 2 & 3 remain stronger candidates.**
-- **Lead 2 (GNN bottleneck):** Comprehensive cross-dataset analysis (6 datasets, both GINEConv/CSG) shows the 1-hop bottleneck is real and measurable (`h_v^(1)` retains genuine but partial, NMI 0.008–0.27, neighbor-sign info; per-edge dilution confirmed monotonic with degree on all 6). But bypassing it (oracle ablation) only helps AUC on GINEConv (6/6, substantially on epinions/slashdot090221) — CSG gains on just 1/6. Walk-transformer's own relay-token MI doesn't track GINEConv's oracle-gain pattern either (Step 2's relay-MI numbers were corrected post-hoc for a walk-distance-vs-true-BFS-distance bug — slashdot090221 0.28→0.1717, epinions 0.10→0.0505; `attention_analysis.py` flagged as likely sharing the same bug, not yet fixed). Synthetic "inverted fog" stress-test graph (Step 4) was calibrated successfully but abandoned at Step 5: GNN baselines use fixed non-trainable random node features, so they can't learn the synthetic graph's signal regardless of bottleneck, while the walk-transformer's trainable per-node embeddings would confound any comparison. **Follow-up (attention-weight diagnostic):** integrated SiGAT (GAT-style, 38-channel) as a new canonical-splits baseline and as a literal-attention-weight probe. Bucketed MI shows attention weight tracks true downstream importance cleanly on the **positive**-edge channel (monotonic, all 6 datasets) but breaks down on the **negative**-edge channel for bitcoin-otc and epinions specifically — a low-mid-attention bucket carries MORE real neighbor-sign information than the highest-attention bucket (bitcoin-otc 0.137 vs 0.052 NMI, epinions 0.127 vs 0.101 NMI) — a genuine "good information through an under-weighted pipe" case, sign-asymmetric and dataset-specific, not universal. See LEAD2_GNN_BOTTLENECK_STATUS.md and outputs/lead2_gnn_bottleneck/SUMMARY.txt for full analysis. **Conclusion: the bottleneck is a real information-loss mechanism but not sufficient alone to explain a uniform walk-model AUC advantage across datasets/architectures — contributes specifically to GINEConv's gap on a subset of datasets. The attention-weight follow-up adds a second, narrower finding: even where the model uses literal attention, negative-edge importance can be systematically under-weighted on specific datasets.**
-- **Lead 3 (first-hop signal swamping / "fog of war"):** Synthetic SNR test confirms mean aggregation severely degrades a weak target signal as diluter count/magnitude grow (down to chance AUC), while concatenation stays flat — swamping is real in the idealized case. Plugging Lead 2's measured real-GNN dilution levels into that synthetic curve shows all 6 datasets/both architectures land in "destroyed" recoverability outside the lowest-degree bucket. But the walk-model's attention shows NO adaptive compensation for it: attention-mass-beyond-1-hop vs. 1-hop sign-agreement ambiguity is weakly *positively* correlated on all 6 datasets (Pearson 0.02–0.23) — opposite of the predicted sign, meaning attention reaches further when 1-hop evidence is already unambiguous, not when it's weak. See LEAD3_FOG_OF_WAR_REPORT.md for full analysis (includes a caught/fixed id-space bug: tokenizer node ids are raw dataset ids, not `baselines/splits/*.pt`'s remapped contiguous ids — read training out-edges from `dataset_cache.pt["splits"]["train"]` instead). **Conclusion: swamping is a real GNN failure mode the walk-model structurally avoids (independent attention slots vs. forced shared sum), but the avoidance is not an adaptive/learned compensation mechanism — it's a byproduct of the architecture, not evidence of selective far-attention.**
-- **Lead 4 (node sign-entropy heterogeneity vs. AUC):** Bins test edges by source/target node sign-entropy (4 directional variants: out_out, in_in, out_in, inout_inout; binary Shannon entropy over ALL edges train+val+test, not train-only) and compares per-cell AUC across `walk_full`, `walk_localattn4`, GINEConv, SiGAT on all 6 datasets. Walk-model predictions use the same `func_logit_power` posthoc aggregator as the project's reported SOTA (theta read from existing `run_posthoc.py` artifacts — `*_posthoc_enc_fixed` for full attention, `localattn4_posthoc` for LocalAttn4 — never refit; verified to exactly reproduce the SOTA AUC table above). Preliminary pattern (bitcoin-alpha checked in detail, full sweep done for all 6): GNN baselines (GINEConv, SiGAT) degrade sharply on high-sign-entropy (heterogeneous) nodes — e.g. bitcoin-alpha GINEConv 0.93→0.69 AUC, SiGAT 0.76→0.16 AUC low- vs. high-entropy — while walk models stay near-ceiling in the cells where AUC is even defined (many high-entropy cells are single-class or below the n=20 sample floor, so "n/a" there isn't yet a clean comparison). Not yet given a final causal conclusion — see outputs/lead4_entropy_heterogeneity/report.md for full per-dataset tables/heatmaps/raw_data.txt before drawing one.
+**2026-06-26 canonical-split rerun — `CANONICAL_RERUN_FINDINGS.md`.** All Leads
+were re-derived on the unified canonical split (shared ground truth, not the old
+~10%-overlap edge samples). Headline strengthens (walk beats every GNN on identical
+edges, all 6); Leads 1/2/3 hold; Lead 4/4b is **entropy-variant-dependent** — weak for
+`out_in`, strong/robust for `in_in` (NOT the uniform retraction first reported).
+
+**2026-06-29 E15 full-coverage rerun — `outputs/lead4_entropy_heterogeneity/E15_FULLCOVERAGE_RERUN_NOTE.md`.**
+`predictions_raw_canonical.pkl` rebuilt from the E15 k_cover full-coverage walk runs (walk now
+100% covers every test set; GNNs unchanged) and Leads 1/4/4b rerun on identical full-coverage
+edges. **Lead 4/4b variant-dependent picture HOLDS and slightly STRENGTHENS** — the `in_in`
+differential degradation survives on the now-complete edge set (resolving the "different-edges
+artifact" worry); `out_in` stays weak. Walk advantage is NOT a uniform offset — it concentrates
+in heterogeneous in-anchored neighborhoods. Pre-rerun reports backed up under
+`outputs/_pre_e15_lead_backup_<ts>/`.
+
+| Lead | One-line verdict | Detail |
+|---|---|---|
+| MI / attention baseline | Edge-sign MI collapses 10–1000× at d=1→2; full-attention model still attends far (mean 9–16 tokens, **provisional**, see Lead 2's bug note below); LocalAttn4 (±2 hop) competitive/better on 4/6 datasets | `outputs/mi_analysis_package.zip`, `outputs/attention_analysis/` |
+| Lead 1 — GNN over-averaging | Cancellation is real, universal (r≈−0.96), but modest (~5–9%) — not the primary driver | `LEAD1_GNN_OVER_AVERAGING_REPORT.md` |
+| Lead 2 — GNN bottleneck (+ SiGAT attention-weight follow-up) | Bottleneck real (NMI 0.008–0.27) but oracle-bypass gain is architecture/dataset-dependent (GINEConv 6/6, CSG 1/6); SiGAT attention-weight diagnostic found negative-edge "good info through bad pipe" on bitcoin-otc/epinions | `LEAD2_GNN_BOTTLENECK_STATUS.md` |
+| Lead 3 — fog of war / swamping | Swamping is real and severe in theory, but walk-model attention shows no adaptive compensation for it — robustness is structural, not learned | `LEAD3_FOG_OF_WAR_REPORT.md` |
+| Lead 4 / 4b — entropy heterogeneity | **Variant-dependent, CONFIRMED on E15 full coverage (2026-06-29).** GNN baselines degrade more than the walk as sign-heterogeneity rises for the `in_in` variant — strong & robust on all 6 (best-GNN drop − walk drop = +0.015..+0.34, ≥ the prior ~88%-cov values); `out_out`/`inout_inout` positive 5/6 (wiki-elec ~null); `out_in` weak/mixed. Survives on identical full-coverage edges ⇒ the walk advantage concentrates in heterogeneous in-anchored neighborhoods, NOT a uniform offset. (Earlier "RETRACTED / uniform offset" reading was the `out_in`-only view.) | `outputs/lead4_entropy_heterogeneity/E15_FULLCOVERAGE_RERUN_NOTE.md`, `outputs/lead4_entropy_heterogeneity/`, `outputs/lead4_twohop_path_consistency/` |
+
+**Known data-quality caveats (read before any new edge-level diagnostic):**
+- `FABRICATED_REVERSE_EDGES.md` — `baselines/splits/<ds>.pt`'s `edge_index`
+  has 14–48% fabricated reverse-mirror edges; use `build_real_dense_edge_set()`.
+  Also documents an unresolved second issue: walk-model vs. GNN test splits
+  are ~independent samples of the same edge pool (~10% overlap), affecting
+  any edge-level walk-vs-GNN bucket comparison (Leads 1, 4, 4b).
+- Lead 2's Step 2 found a walk-token-position-vs-true-BFS-distance bug
+  (fixed there); `scripts/attention_analysis.py` likely shares the same bug
+  and has **not** been fixed — the "attends far despite empty signal"
+  number above is provisional pending that fix.
 
 OPEN WORKSTREAMS (see plan files in ~/.claude/plans/):
 
-- plan-research-leads.md       ← active, top priority
+- plan-research-leads.md       ← active, top priority (Leads 1–4b above)
+- Lead 5/6 subplans            ← ensemble effect + trainable-features/capacity/training-regime parity (post Lead 4b follow-ups, see plan index in ~/.claude/plans/)
 - plan-stats-rigor.md          ← optuna rewrite + multiple splits + cross-validation
 - plan-hardness-miner.md       ← improve miner model, calibrate hardness_lambda
-- plan-performance.md          ← efficiency of local attention + model implementation
+- plan-performance.md          ← Issue 1 (local attn slower than full attn) RESOLVED 2026-06-28,
+  fixed in src/model/model.py; Issues 2/3 deprioritized, see plan file
 - plan-side-quests-misc.md     ← config cleanup, repo hygiene, walk-length sweep, OWL removal
 
 ## Session management tips

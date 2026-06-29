@@ -36,10 +36,14 @@ sys.path.insert(0, os.path.join(ROOT, "baselines", "CSG"))
 ALL_DATASETS = ["bitcoin-alpha", "bitcoin-otc", "epinions",
                 "wiki-elec", "wiki-rfa", "slashdot090221"]
 N_BUCKETS = 4
+# Path roots overridable via env for the canonical-split rerun (see
+# lead2_gnn_bottleneck_mi.py) -- defaults preserve the original behavior.
+RESULTS_ROOT_NAME = os.environ.get("RESULTS_ROOT_NAME", "results_our_splits")
+SPLITS_DIRNAME = os.environ.get("SPLITS_DIRNAME", "splits")
 
 
 def load_splits(ds_name: str):
-    splits = torch.load(os.path.join(ROOT, "baselines", "splits", f"{ds_name}.pt"),
+    splits = torch.load(os.path.join(ROOT, "baselines", SPLITS_DIRNAME, f"{ds_name}.pt"),
                          weights_only=False)
     ei = splits["edge_index"]
     ew = splits["edge_weight"]
@@ -70,7 +74,7 @@ def quantile_buckets(values: np.ndarray, n_buckets: int = N_BUCKETS):
 def gineconv_sensitivity(ds_name: str, art_dir: str = "seed42"):
     from model import GINEConvNet
 
-    art_path = os.path.join(ROOT, "baselines", "GINEConv", "results_our_splits",
+    art_path = os.path.join(ROOT, "baselines", "GINEConv", RESULTS_ROOT_NAME,
                              ds_name, "GINEConv", art_dir, "best_epoch_artifacts.pkl")
     with open(art_path, "rb") as f:
         art = pickle.load(f)
@@ -146,7 +150,7 @@ def gineconv_sensitivity(ds_name: str, art_dir: str = "seed42"):
 def signedgcn_sensitivity(ds_name: str, art_dir: str = "seed42"):
     from torch_geometric.nn import SignedGCN
 
-    art_path = os.path.join(ROOT, "baselines", "CSG", "results_our_splits",
+    art_path = os.path.join(ROOT, "baselines", "CSG", RESULTS_ROOT_NAME,
                              ds_name, "CSG", art_dir, "best_epoch_artifacts.pkl")
     with open(art_path, "rb") as f:
         art = pickle.load(f)
@@ -155,7 +159,7 @@ def signedgcn_sensitivity(ds_name: str, art_dir: str = "seed42"):
               f"updated run_with_our_splits.py) -- skipping")
         return None
 
-    splits = torch.load(os.path.join(ROOT, "baselines", "splits", f"{ds_name}.pt"),
+    splits = torch.load(os.path.join(ROOT, "baselines", SPLITS_DIRNAME, f"{ds_name}.pt"),
                          weights_only=False)
     ei, ew, trn_mask = splits["edge_index"], splits["edge_weight"], splits["trn_mask"]
     num_nodes = int(ei.max().item()) + 1

@@ -2,6 +2,20 @@
 
 > **Purpose:** This document lets any colleague with repo access fully understand, reproduce, and extend this research. Read top-to-bottom once; use section headers to jump back later.
 
+> **⚠️ STATUS UPDATE (2026-06-29) — read before trusting result tables below.** Two things in
+> this overview are superseded:
+> 1. **SOTA numbers.** Tables in §1 (Comparison), §9 (best aggregator), and §11 (Results) are
+>    the **old uniform-sampler / E14_HARDNODE_L10** numbers. Current SOTA is the **E15
+>    `k_cover` k=5** full-coverage model — see the SOTA table in `CLAUDE.md` and
+>    `outputs/walk_coverage_analysis/E15_SWEEP_RESULTS.md`. The qualitative story (walk beats
+>    every GNN on all 6) holds and is now *stronger* (full coverage + same-partition splits).
+> 2. **The "walk-coverage gap" is RESOLVED**, not open: the E15 edge-anchored sampler gives
+>    ~100% node+edge coverage on all 6 (`WALK_COVERAGE.md`). Treat every "walk coverage is
+>    lower / open" note below as historical.
+>
+> Also note: **OWL (occurrence-weighted loss) is dead code** (out of scope, never adopted) —
+> ignore the `occurrence_weight_path` / OWL references in §6 and §13.
+
 ---
 
 ## Table of Contents
@@ -42,7 +56,7 @@ Real-world signed graphs arise in:
 1. **Severe class imbalance.** Positive edges dominate in all six datasets (77–94%), yet the negative edges are the informative ones for downstream applications (fraud detection, conflict prediction).
 2. **No node features.** We have only graph topology and edge signs — no user profiles, timestamps, or content.
 3. **Structural sparsity.** Even in the largest dataset (epinions, 841k edges), many nodes have low degree and appear rarely in training context.
-4. **Walk-coverage gap.** Any single random walk visits a tiny fraction of all edges; the model must generalise from walk-sampled context to unseen edges.
+4. **Walk-coverage gap.** Any single random walk visits a tiny fraction of all edges; the model must generalise from walk-sampled context to unseen edges. *(Note: the related evaluation-coverage gap — the walk model only scoring edges that appear in a sampled walk — is RESOLVED as of 2026-06-29 by the E15 k_cover sampler; see `WALK_COVERAGE.md`.)*
 
 ### Our approach
 
@@ -60,7 +74,19 @@ Convert the graph into **random walk sequences** of alternating node and edge to
 | wiki-rfa | ~0.80 | — | ~0.85 | **0.882** |
 | slashdot | ~0.83 | — | ~0.88 | **0.895** |
 
-**Table B — same-split, verified comparison.** `baselines/` contains independent re-implementations of several GNN/SGNN baselines (CSG, CSG-GSGNN, CopulaLSP, GSGNN+SGA, SiGAT+SGA, SE-SGformer, SNEA), trained and evaluated on **our exact canonical splits** (`baselines/splits/<dataset>.pt`, produced via `baselines/collect_all_results.py` from each model's `results_our_splits/` directory; raw numbers in `baselines/all_results.csv`). The table below compares the best such baseline per dataset against our model's test AUC (from §11):
+**Table B — same-split, verified comparison.** `baselines/` contains independent re-implementations of several GNN/SGNN baselines (CSG, CSG-GSGNN, CopulaLSP, GSGNN+SGA, SiGAT+SGA, SE-SGformer, SNEA), trained and evaluated on our splits. The table below compares the best such baseline per dataset against our model's test AUC (from §11).
+
+> **⚠️ This table is doubly superseded (2026-06-29):**
+> 1. The "best GNN" column is from the **old `baselines/splits/*.pt`**, which turned out to be
+>    generated *independently* of the walk split (~10% edge overlap, plus fabricated reverse
+>    edges) — NOT the apples-to-apples comparison it claims to be. The corrected
+>    **canonical-split** rerun is in `CANONICAL_RERUN_FINDINGS.md` / `baselines/all_results_canonical.csv`
+>    (see also `SPLIT_PROVENANCE.md`, `FABRICATED_REVERSE_EDGES.md`).
+> 2. The "Ours" column is the **old uniform-sampler** walk model; current SOTA is **E15
+>    k_cover k=5** (CLAUDE.md). On identical, full-coverage, same-partition edges the walk
+>    model beats **every** GNN on **all 6** datasets, both attention variants.
+>
+> The original (now-stale) table is retained below for provenance:
 
 | Dataset | Best GNN/SGNN baseline (model, AUC) | Ours (test AUC) | Margin |
 |---|---|---|---|
@@ -169,7 +195,7 @@ sample_random_walks(edges, num_walks, max_walk_length, num_workers, seed)
    - Follow outgoing edges at random until `max_walk_length` tokens or a dead end
 3. Use multiprocessing (8 workers by default); results sorted by task ID for reproducibility
 
-**Walk strategy** (`dataset.walk_strategy`): The default is `uniform`. Many alternatives are implemented (`guaranteed`, `neg_emphasis`, `node2vec`, `edge_seeded`, etc.) but `uniform` is the best-performing baseline in practice.
+**Walk strategy** (`dataset.walk_strategy`): The config default is `uniform`. Many alternatives are implemented (`guaranteed`, `neg_emphasis`, `node2vec`, `edge_seeded`, etc.). **Current SOTA (2026-06-29) uses `k_cover` with `walk_k_min=5`** — an edge-anchored sampler that visits every edge ≥5× and drives node+edge coverage to ~100% on all 6 (matches/beats uniform AUC). See `WALK_COVERAGE.md`, `src/data/coverage_aware_sampler.py::k_cover_walks_fast`. `uniform` was the best-performing baseline among the older strategies but has the coverage gap on sparse graphs.
 
 **Walk counts per dataset:**
 
@@ -314,7 +340,7 @@ Applied to `F.cross_entropy(..., weight=class_weights)`. Example for bitcoin-alp
 | Flag | What it does | Key param |
 |------|-------------|-----------|
 | `model.hardness_lambda > 0` | Per-sample reweighting by adjacent node hardness | `hardness_lambda: 1.0` |
-| `occurrence_weight_path` | Up-weight edges with low walk coverage (OWL) | `occurrence_weight_fn: sqrt` |
+| ~~`occurrence_weight_path`~~ | **DEAD CODE (OWL) — never adopted, out of scope.** Up-weighted low-coverage edges; superseded by the k_cover sampler addressing coverage at the source | — |
 
 ---
 
@@ -536,6 +562,10 @@ Results saved to `<exp-dir>/<checkpoint_stem>_posthoc/`.
 
 ## 11. Results
 
+> **⚠️ Superseded (2026-06-29).** The tables below are the old uniform-sampler
+> `E14_HARDNODE_L10` results. Current SOTA is **E15 k_cover k=5** — see `CLAUDE.md` and
+> `outputs/walk_coverage_analysis/E15_SWEEP_RESULTS.md`. Retained for provenance.
+
 ### Best test AUC (experiment tag: `E14_HARDNODE_L10`)
 
 | Dataset | Walks | Transformer walk AUC | Best edge AUC | Best aggregator | Gain |
@@ -654,7 +684,9 @@ Results: `outputs/mi_vs_dist/mi_vs_dist_report_v3.txt`, PNG plots `outputs/mi_vs
 
 5. **Per-source MI rise at d=3–7 for large graphs (epinions, bitcoin-otc):** The v3 exact computation shows NMI rising from d=2 back up at d=3–7 for some datasets. This is real (not sampling noise) — it may reflect structural effects like hub nodes that organise their neighbourhoods consistently. Not yet explained.
 
-6. **OWL (Occurrence-Weighted Loss):** The implementation exists but has not been systematically evaluated across all datasets. May help for edges in low-coverage parts of the graph.
+6. ~~**OWL (Occurrence-Weighted Loss):**~~ **CLOSED — dead code, dropped.** Coverage is now
+   handled at the sampling source by the E15 k_cover sampler (~100% coverage), so up-weighting
+   low-coverage edges in the loss is moot. Do not revive.
 
 ---
 
@@ -785,7 +817,7 @@ Most important knobs in `config.yaml` / `configs/<dataset>.yaml`:
 |-----|---------|-------|---------|
 | `dataset.num_walks` | 5M | Yes | More walks = better coverage but slower |
 | `dataset.max_walk_length` | 80 | Yes | Longer walks = more context per walk |
-| `dataset.walk_strategy` | `uniform` | No | `uniform` is best; others are experimental |
+| `dataset.walk_strategy` | `uniform` | No | **SOTA uses `k_cover` (+`walk_k_min=5`)** for ~100% coverage; `uniform` is the best older strategy but under-covers sparse graphs |
 | `dataset.binary` | `true` | No | Always `true` — drops neutral edges |
 | `dataset.multiedge_handling` | varies | No | `most_recent` for bitcoin; `keep` for others |
 | `model.embedding_dim` | 64 | Yes | Tune with Optuna |

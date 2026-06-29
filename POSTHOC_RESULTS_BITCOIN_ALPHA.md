@@ -1,5 +1,11 @@
 # Post-hoc Aggregator Results — bitcoin-alpha
 
+> **⚠️ SUPERSEDED for absolute SOTA numbers (2026-06-29).** The `E14_HARDNODE_L10`
+> backbone / epoch-24 / 5M-uniform numbers below are the old uniform-sampler results.
+> Current full-coverage SOTA is **E15 k_cover k=5** (bitcoin-alpha 5M, full 0.9251 /
+> LocalAttn4 0.9362) — see `outputs/walk_coverage_analysis/E15_SWEEP_RESULTS.md` and
+> `CLAUDE.md`. Aggregator-comparison conclusions still hold; absolute AUCs are stale.
+
 ## Dataset & Experiment
 
 | Property | Value |

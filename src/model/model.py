@@ -1,6 +1,52 @@
 import torch.nn as nn
 import torch
+import torch.nn.functional as F
 import math
+
+
+class LocalAttentionEncoderLayer(nn.TransformerEncoderLayer):
+    """TransformerEncoderLayer whose self-attention bypasses nn.MultiheadAttention's
+    mask handling and calls scaled_dot_product_attention directly with a mask
+    broadcastable over heads, shape (bsz, 1, L, S).
+
+    Why: nn.MultiheadAttention combines an explicit attn_mask with
+    src_key_padding_mask by materializing a (bsz * nhead, L, S) tensor (see
+    F.multi_head_attention_forward), which the SDPA backward pass then has to
+    retain per layer. At this model's shape (embedding_dim=32, nhead=8 -> head_dim=4,
+    seq_len up to 161, batch=1024) that turns a banded local-attention mask plus the
+    routine padding mask (always present once batching variable-length walks) into a
+    ~4x memory / ~35-40% wall-clock regression vs. full attention, measured on an L40S
+    (see plan-performance.md Issue 1). Keeping the mask at (bsz, 1, L, S) lets SDPA's
+    own kernel broadcast across heads instead of materializing per-head copies, which
+    recovers attention-call cost to within noise of full attention's masked case.
+    Only used for the local_attention_window path; full attention keeps the stock
+    nn.TransformerEncoderLayer untouched.
+    """
+
+    def _sa_block(self, x, attn_mask, key_padding_mask, is_causal=False):
+        mha = self.self_attn
+        bsz, seq_len, embed_dim = x.shape
+        nhead = mha.num_heads
+        head_dim = embed_dim // nhead
+
+        qkv = F.linear(x, mha.in_proj_weight, mha.in_proj_bias)
+        q, k, v = qkv.chunk(3, dim=-1)
+        q = q.view(bsz, seq_len, nhead, head_dim).transpose(1, 2)
+        k = k.view(bsz, seq_len, nhead, head_dim).transpose(1, 2)
+        v = v.view(bsz, seq_len, nhead, head_dim).transpose(1, 2)
+
+        mask = None
+        if attn_mask is not None:
+            mask = attn_mask.view(1, 1, seq_len, seq_len)
+        if key_padding_mask is not None:
+            kp = key_padding_mask.view(bsz, 1, 1, seq_len)
+            mask = kp if mask is None else mask + kp
+
+        dropout_p = mha.dropout if self.training else 0.0
+        attn_out = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=dropout_p)
+        attn_out = attn_out.transpose(1, 2).reshape(bsz, seq_len, embed_dim)
+        out = mha.out_proj(attn_out)
+        return self.dropout1(out)
 
 
 def get_sinusoidal_encoding(length, dim):
@@ -31,7 +77,12 @@ class TransformerModel(nn.Module):
             "pos_encoder",
             get_sinusoidal_encoding(max_length, cfg.model.embedding_dim),
         )
-        encoder_layer = nn.TransformerEncoderLayer(
+        encoder_layer_cls = (
+            LocalAttentionEncoderLayer
+            if self.local_attention_window is not None
+            else nn.TransformerEncoderLayer
+        )
+        encoder_layer = encoder_layer_cls(
             d_model=cfg.model.embedding_dim,
             nhead=cfg.model.nhead,
             dim_feedforward=cfg.model.hidden_dim,

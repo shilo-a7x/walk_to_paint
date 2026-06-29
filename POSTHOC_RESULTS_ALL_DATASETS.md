@@ -1,5 +1,12 @@
 # Post-Hoc Aggregation Results — All Datasets
 
+> **⚠️ SUPERSEDED for absolute SOTA numbers (2026-06-29).** The AUCs and `E14_HARDNODE_L10`
+> tag below are the **old uniform-sampler** results (~85–88% walk coverage on the sparse
+> graphs). The current full-coverage SOTA is the **E15 k_cover k=5** model — see
+> `outputs/walk_coverage_analysis/E15_SWEEP_RESULTS.md` and the SOTA table in `CLAUDE.md`.
+> The aggregator-ranking findings on this page (which `func_*`/`lgbm` wins per dataset, and
+> why) still stand; only the absolute AUCs/budgets are stale.
+
 All six datasets evaluated under the same experimental tag (`E14_HARDNODE_L10`) and the same 36 functional aggregators.  
 For bitcoin-alpha's full detail (including `lgbm_attention`, `lgbm_set_attention`, neural MIL, subsample θ\* comparisons) see [POSTHOC_RESULTS_BITCOIN_ALPHA.md](POSTHOC_RESULTS_BITCOIN_ALPHA.md).  
 Run script: [scripts/run_func_all_datasets.sh](scripts/run_func_all_datasets.sh) | Log: [logs/func_all_datasets.log](logs/func_all_datasets.log)

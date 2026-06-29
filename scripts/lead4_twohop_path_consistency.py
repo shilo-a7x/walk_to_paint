@@ -1,96 +1,109 @@
 """
-Lead 4b -- 2-hop sign-path-consistency heterogeneity vs. AUC.
+Lead 4b -- 2-hop sign-path-consistency heterogeneity vs. AUC (canonical, shared-edge).
 
 Same spirit as lead4_entropy_heterogeneity.py (binned AUC vs. a heterogeneity
-score, with compute/plot stages separated so plot styling can be iterated on
-without recomputation) but with a DIFFERENT heterogeneity definition, and
-ONE value per EDGE rather than a (source, target) pair feeding a 2D grid.
+score, compute/plot stages separated so plot styling can be iterated without
+recomputation) but with a DIFFERENT heterogeneity definition and ONE value per
+EDGE (anchored at the target node v) instead of a (source, target) pair feeding a
+2D grid -- so the plot is a 1D binned bar chart (one bucket group per entropy
+range, one bar per model) rather than a heatmap.
 
-For a test edge (u, v): the edge's heterogeneity score is computed entirely
-from the TARGET node v's own 2-hop out-paths. Every (v -> m) out-edge
-followed by every (m -> k) out-edge of m forms a 2-hop path v->m->k. The
-path is consistent if both edges share the same sign (+/+ or -/-),
-inconsistent otherwise (+/- or -/+). Worked example: v has out-edges (v,x)
-negative and (v,y) positive; x has 3 out-edges (2 positive, 1 negative); y
-has 2 out-edges (2 positive). v has 3+2=5 two-hop paths total: via x,
-(neg,pos) x2 inconsistent + (neg,neg) x1 consistent; via y, (pos,pos) x2
-consistent. So 3/5 of v's two-hop paths are consistent -> p=3/5.
-p = consistent-fraction, turned into the SAME binary Shannon entropy used by
-lead4_entropy_heterogeneity.py: H(p) = -p*log2(p) - (1-p)*log2(1-p).
-H=0 -> a path's second-hop sign is fully predictable from the first hop
-(locally "balanced" 2-hop neighborhood around v), H=1 -> maximally
-unpredictable (50/50 consistent/inconsistent). Edges whose target v has zero
-2-hop out-paths (no out-edges, or none of v's out-neighbors have any
-out-edges themselves) are dropped -- no signal available, same convention as
-the original script.
+Same-edge ground truth, same machinery as Lead 4: per-edge predictions are read
+from `predictions_raw_canonical.pkl` and restricted to the SHARED edge set via
+`lead4_entropy_heterogeneity.load_shared_predictions`, so every model is bucketed
+over the *identical* edges. A direct consequence: for a given bucket the sample
+count `n` is the SAME for all models (same edges, same target-node entropy
+lookup), so `n` is shown ONCE under each x-axis tick instead of per bar.
 
-Computed over ALL edges of the dataset (train+val+test), for the same
-no-leakage reasoning as lead4_entropy_heterogeneity.py: this is a diagnostic
-grouping of already-trained models' predictions, not a training-time
-feature.
+**2-hop path-consistency entropy**, for edge `(u, v)`:
+  - `out`   : forward 2-hop paths from the TARGET `v -> m -> k` (using only
+              out-edges, twice). Consistent if `sign(v->m) == sign(m->k)`.
+  - `in`    : backward 2-hop paths into the SOURCE `s -> t -> u` (using only
+              in-edges, twice -- i.e. who points at `u`, and who points at
+              that). Consistent if `sign(s->t) == sign(t->u)`.
+  - `inout` : pool the `out` counts (from `v`) and the `in` counts (into `u`)
+              for this specific edge into ONE (total, consistent) tally before
+              computing entropy -- not a separate undirected traversal.
+A path is *consistent* if both its edges share the same sign (`+/+` or `-/-`).
+`p` = consistent fraction, turned into binary Shannon entropy
+`H(p) = -p*log2(p) - (1-p)*log2(1-p)`: `H=0` -> a path's second-hop sign is
+fully predictable from the first (locally "balanced"), `H=1` -> maximally
+unpredictable. `out`/`in` are per-node lookups (`v` / `u` respectively);
+`inout` is necessarily per-EDGE since it mixes counts from both endpoints.
+Edges with zero applicable 2-hop paths (for that variant) are dropped.
+Each variant gets its own bar-chart set + combined plot.
 
-One dimension, not two: unlike the original entropy's out/in/inout x out/in
-variant menu and its (source, target) 2D grid, this measure is intrinsically
-edge-level (anchored at the target) -- so the AUC-vs-heterogeneity plot here
-is a 1D binned bar chart (one bar group per entropy bucket, one bar per
-model), not a heatmap.
+Computed over ALL edges of the dataset (train+val+test) from the canonical edge
+list (raw ids -- same id space the predictions live in), a diagnostic grouping of
+already-trained models' predictions, no leakage. No model reloading / no SiGAT
+refit: those happened upstream; this only builds adjacency, bins, and plots.
 
-Reuses already-computed per-edge predictions: NO model re-loading, NO
-walk-occurrence aggregation, NO SiGAT classifier refit. Reads
-predictions_raw.pkl produced by `lead4_entropy_heterogeneity.py --mode
-compute` (or `all`) -- outputs/lead4_entropy_heterogeneity/predictions_raw.pkl
-by default -- which already holds, per (dataset, model), per-edge (u, v, y,
-p) in that model's own node-id space (raw tokenizer ids for
-walk_full/walk_localattn4, dense baselines/splits ids for GINEConv/SiGAT).
-Only the all-edges adjacency needed for the new heterogeneity score is built
-from scratch here, once per (dataset, id-space) and shared across the 2
-models that use each space.
-
-    # compute per-edge (ent, y, p) once, save to disk
+    # compute per-edge (ent, y, p) for every variant, save to disk
     python scripts/lead4_twohop_path_consistency.py --mode compute --datasets all
 
-    # replot from saved data, as many times as you like, with new styling
-    python scripts/lead4_twohop_path_consistency.py --mode plot --n-buckets 5 --min-cell-n 15
+    # replot from saved data with new styling / bucket sweep
+    python scripts/lead4_twohop_path_consistency.py --mode plot --n-buckets 2 3 4
 
-    # default: do both in one go
+    # default: both
     python scripts/lead4_twohop_path_consistency.py --mode all --datasets all
 """
 import argparse
 import os
-import pickle
 import sys
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
 from sklearn.metrics import roc_auc_score
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from scripts.node_mi_structural_embedding import DATASET_CONFIGS, load_edges_canonical
+from scripts import lead4_entropy_heterogeneity as L4
 from scripts.lead4_entropy_heterogeneity import (
-    DATASETS, MODELS, _ds_key, bin_edges, digitize,
-    OUT_DIR_DEFAULT as LEAD4_OUT_DIR_DEFAULT,
-    PREDICTIONS_FILENAME as LEAD4_PREDICTIONS_FILENAME,
+    DATASETS, MODELS, WALK_MODELS, _ds_key, _fmt_signed, _fmt_edge,
+    load_shared_predictions, save_data, load_data,
+    CANON_PREDICTIONS_DEFAULT, N_BUCKETS_DEFAULT,
 )
 
+VARIANTS = ["out", "in", "inout"]
 OUT_DIR_DEFAULT = os.path.join(ROOT, "outputs", "lead4_twohop_path_consistency")
 DATA_FILENAME = "computed_data.pkl"
 MIN_TOTAL_DEFAULT = 40
 MIN_CELL_N_DEFAULT = 20
 
+# walk = cool (blues), GNN = warm (oranges) -- the walk-vs-GNN contrast we care about
+MODEL_COLOR = {
+    "walk_full":       "#08519c",  # dark blue
+    "walk_localattn4": "#6baed6",  # light blue
+    "GINEConv":        "#a63603",  # dark orange
+    "SiGAT":           "#fd8d3c",  # light orange
+}
 
-# ── 2-hop path-consistency entropy (per node, looked up by target only) ──────
 
-def build_out_adj(edge_triples):
-    """edge_triples: iterable of (u, v, sign) -> {u: [(v, sign), ...]}."""
-    out_adj = {}
+def _model_label(model):
+    return f"{model} ({'walk' if model in WALK_MODELS else 'GNN'})"
+
+
+# ── 2-hop path-consistency counts ────────────────────────────────────────────
+
+def build_adj_out(edge_triples):
+    """{u: [(v, s)]} -- out-edges. Used to walk forward from a node."""
+    adj = {}
     for u, v, s in edge_triples:
-        out_adj.setdefault(u, []).append((v, s))
-    return out_adj
+        adj.setdefault(u, []).append((v, s))
+    return adj
+
+
+def build_adj_in(edge_triples):
+    """{v: [(u, s)]} -- in-edges (predecessors). Used to walk backward into a
+    node, i.e. n's in-adjacency entry for `n` lists `(predecessor, sign)`."""
+    adj = {}
+    for u, v, s in edge_triples:
+        adj.setdefault(v, []).append((u, s))
+    return adj
 
 
 def binary_entropy_from_p(p):
@@ -99,59 +112,64 @@ def binary_entropy_from_p(p):
     return float(-(p * np.log2(p) + (1 - p) * np.log2(1 - p)))
 
 
-def twohop_consistency_entropy(out_adj):
-    """{node: entropy} for every node with >=1 two-hop out-path (n->m->k),
-    per the module docstring's worked example. Nodes with zero two-hop paths
-    are dropped entirely (no key) -- no signal available. Used here ONLY as
-    the target-node lookup for an edge's heterogeneity score."""
-    entropy = {}
-    for n, edges1 in out_adj.items():
+def twohop_counts(adj):
+    """{node: (total, consistent)} for every node with >=1 two-hop path
+    n -> m -> k traversed via `adj` (works identically whether `adj` is
+    out-adjacency, giving forward paths, or in-adjacency, giving backward
+    paths -- consistency only compares the two hop signs). Nodes with zero
+    two-hop paths are omitted."""
+    counts = {}
+    for n, edges1 in adj.items():
         total, consistent = 0, 0
         for m, s1 in edges1:
-            for _, s2 in out_adj.get(m, []):
+            for _, s2 in adj.get(m, []):
                 total += 1
                 if s1 == s2:
                     consistent += 1
-        if total == 0:
-            continue
-        entropy[n] = binary_entropy_from_p(consistent / total)
-    return entropy
+        if total > 0:
+            counts[n] = (total, consistent)
+    return counts
 
 
-def get_dataset_adjacencies(ds_name):
-    """Returns (raw_adj, dense_adj): all-edges out-adjacency in the two
-    node-id spaces used across the 4 models -- raw tokenizer ids
-    (walk_full/walk_localattn4, from the canonical edge list) and dense
-    baselines/splits ids (GINEConv/SiGAT, from baselines/splits/<ds>.pt) --
-    built once per dataset, reused for both models sharing each space."""
-    cfg = DATASET_CONFIGS[_ds_key(ds_name)]
-    raw_edges = load_edges_canonical(cfg["ds_name"])
-    raw_adj = build_out_adj(raw_edges)
-
-    splits_path = os.path.join(ROOT, "baselines", "splits", f"{ds_name}.pt")
-    splits = torch.load(splits_path, weights_only=False)
-    ei, ew = splits["edge_index"], splits["edge_weight"]
-    dense_triples = list(zip(ei[0].tolist(), ei[1].tolist(), ew.int().tolist()))
-    dense_adj = build_out_adj(dense_triples)
-
-    return raw_adj, dense_adj
+def _entropy_from_count(c):
+    if c is None or c[0] == 0:
+        return None
+    total, consistent = c
+    return binary_entropy_from_p(consistent / total)
 
 
-ID_SPACE = {
-    "walk_full": "raw", "walk_localattn4": "raw",
-    "GINEConv": "dense", "SiGAT": "dense",
-}
+def _entropy_pooled(c1, c2):
+    """Pool two (total, consistent) tallies into one entropy -- combine the
+    counts BEFORE computing entropy, not an average of two entropies."""
+    total = (c1[0] if c1 else 0) + (c2[0] if c2 else 0)
+    if total == 0:
+        return None
+    consistent = (c1[1] if c1 else 0) + (c2[1] if c2 else 0)
+    return binary_entropy_from_p(consistent / total)
 
 
-# ── Compute stage: raw per-edge (ent, y, p) records ───────────────────────────
-# ent is a property of the EDGE, taken entirely from its target node v's
-# 2-hop path-consistency entropy -- u plays no role in this measure.
+def make_entropy_fns(out_counts, in_counts):
+    """Per-edge (u, v) -> entropy, for each variant.
+      out   : v's forward 2-hop consistency (v -> m -> k), anchored at TARGET.
+      in    : u's backward 2-hop consistency (s -> t -> u), anchored at SOURCE.
+      inout : pool v's out-counts and u's in-counts into ONE tally for this
+              edge -- necessarily per-edge (mixes both endpoints' counts),
+              unlike out/in which are really per-node lookups.
+    """
+    return {
+        "out": lambda u, v: _entropy_from_count(out_counts.get(v)),
+        "in": lambda u, v: _entropy_from_count(in_counts.get(u)),
+        "inout": lambda u, v: _entropy_pooled(out_counts.get(v), in_counts.get(u)),
+    }
 
-def collect_model_records(uvyp, ent_lookup, min_total):
-    v, y, p = uvyp["v"], uvyp["y"], uvyp["p"]
+
+# ── Compute stage ────────────────────────────────────────────────────────────
+
+def collect_model_records(uvyp, entropy_fn, min_total):
+    u, v, y, p = uvyp["u"], uvyp["v"], uvyp["y"], uvyp["p"]
     ent, yy, pp = [], [], []
-    for vi, yi, pi in zip(v, y, p):
-        e = ent_lookup.get(int(vi))
+    for ui, vi, yi, pi in zip(u, v, y, p):
+        e = entropy_fn(int(ui), int(vi))
         if e is None:
             continue
         ent.append(e); yy.append(yi); pp.append(pi)
@@ -160,64 +178,40 @@ def collect_model_records(uvyp, ent_lookup, min_total):
     return {"ent": np.array(ent), "y": np.array(yy), "p": np.array(pp)}
 
 
-def compute_all(datasets, predictions_path, min_total):
-    with open(predictions_path, "rb") as f:
-        predictions = pickle.load(f)
-
+def compute_all(predictions, datasets, variants, min_total):
+    """predictions: shared-edge {ds: {model: {u,v,y,p}}}. One pair of 2-hop
+    count tables (out-anchored, in-anchored) per dataset from the real
+    canonical edge list, shared by all models. Returns
+    data[ds][variant][model] = record | None."""
     data = {}
     for ds_name in datasets:
         print(f"\n{'=' * 72}\n{ds_name}\n{'=' * 72}")
-        if ds_name not in predictions:
-            print(f"  no cached predictions for {ds_name} in {predictions_path}, skipping")
-            data[ds_name] = {}
-            continue
-
-        raw_adj, dense_adj = get_dataset_adjacencies(ds_name)
-        ent_by_space = {
-            "raw": twohop_consistency_entropy(raw_adj),
-            "dense": twohop_consistency_entropy(dense_adj),
-        }
-
-        data[ds_name] = {}
-        for model in MODELS:
-            uvyp = predictions[ds_name].get(model)
-            if uvyp is None:
-                data[ds_name][model] = None
-                print(f"  {model}: no data")
-                continue
-            rec = collect_model_records(uvyp, ent_by_space[ID_SPACE[model]], min_total)
-            if rec is None:
-                print(f"  {model}: insufficient samples after entropy lookup")
-            else:
-                auc = roc_auc_score(rec["y"], rec["p"])
-                print(f"  {model}: n={len(rec['y'])}, overall_auc={auc:.4f}")
-            data[ds_name][model] = rec
-
+        edges = load_edges_canonical(DATASET_CONFIGS[_ds_key(ds_name)]["ds_name"])
+        out_counts = twohop_counts(build_adj_out(edges))
+        in_counts = twohop_counts(build_adj_in(edges))
+        entropy_fns = make_entropy_fns(out_counts, in_counts)
+        data[ds_name] = {var: {} for var in variants}
+        for var in variants:
+            fn = entropy_fns[var]
+            for model in MODELS:
+                r = predictions.get(ds_name, {}).get(model)
+                if r is None or not len(r["u"]):
+                    data[ds_name][var][model] = None
+                    continue
+                rec = collect_model_records(r, fn, min_total)
+                data[ds_name][var][model] = rec
+                if rec is not None and var == variants[0] and model == MODELS[0]:
+                    auc = roc_auc_score(rec["y"], rec["p"]) if len(set(rec["y"])) > 1 else float("nan")
+                    print(f"  [{var}] {model}: n={len(rec['y'])}, auc={auc:.4f}")
     return data
 
 
-def save_data(data, path):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "wb") as f:
-        pickle.dump(data, f)
-    print(f"\n✓ Computed data saved to {path}")
-
-
-def load_data(path):
-    with open(path, "rb") as f:
-        return pickle.load(f)
-
-
-# ── Plot stage: 1D binning + per-bucket AUC + bar charts + report ────────────
-# bin_edges/digitize (quantile vs. fixed edges) are imported unchanged from
-# lead4_entropy_heterogeneity.py; everything below is 1D since this
-# heterogeneity score is a single number per edge, not a (source, target) pair.
+# ── Plot stage: 1D binning + per-bucket AUC + bar charts + report ─────────────
 
 def auc_by_bin(ent, y, p, n_buckets, min_n, binning):
-    edges = bin_edges(ent, n_buckets, binning)
-    bins = digitize(ent, edges)
+    edges = L4.bin_edges(ent, n_buckets, binning)
+    bins = L4.digitize(ent, edges)
     n_bins = len(edges) - 1
-
     auc = np.full(n_bins, np.nan)
     counts = np.zeros(n_bins, dtype=int)
     y, p = np.asarray(y), np.asarray(p)
@@ -229,45 +223,42 @@ def auc_by_bin(ent, y, p, n_buckets, min_n, binning):
     return auc, counts, edges
 
 
-MODEL_COLOR = {m: c for m, c in zip(MODELS, plt.cm.tab10(np.linspace(0, 1, len(MODELS))))}
-
-
-def _annotate_bar(ax, x, auc_val, count, min_n, top):
-    """Mirrors lead4_entropy_heterogeneity.py's _annotate_cell three cases,
-    adapted to a bar (label placed above the bar / baseline)."""
-    if count == 0:
-        return
-    if not np.isnan(auc_val):
-        ax.text(x, auc_val + 0.015, f"{auc_val:.2f}\n(n={count})", ha="center", va="bottom", fontsize=6)
-    elif count < min_n:
-        ax.text(x, 0.02, f"n={count}\n(<{min_n})", ha="center", va="bottom", fontsize=6, color="dimgray")
-    else:
-        ax.text(x, 0.02, f"n={count}\n(1 class)", ha="center", va="bottom", fontsize=6, color="dimgray")
+def _ylo(results, models_present):
+    """y-axis bottom: 0.5, dropped only as far as needed to show any sub-0.5
+    bucket (so 'start from 0.5' holds in the common all-good case but real
+    below-chance buckets aren't silently clipped)."""
+    finite = [a for m in models_present for a in results[m][0] if not np.isnan(a)]
+    return min(0.5, min(finite) - 0.02) if finite else 0.5
 
 
 def _draw_bars(ax, results, min_n, title=None, show_xlabels=True):
-    """results: {model: (auc, counts, edges) or None}. Returns the shared bin
-    edges (taken from whichever model has data) for the caller's x-tick labels."""
+    """results: {model: (auc, counts, edges) | None}. Bars grow from a 0.5
+    baseline (height = AUC - 0.5). n is identical across models (shared edges),
+    so it is shown ONCE under each x tick. Returns shared bin edges."""
     models_present = [m for m in MODELS if results.get(m) is not None]
     if not models_present:
         ax.axis("off")
         return None
     edges_ref = results[models_present[0]][2]
+    counts_ref = results[models_present[0]][1]  # same for every model
     n_bins = len(edges_ref) - 1
     width = 0.8 / len(models_present)
     for mi, model in enumerate(models_present):
-        auc, counts, _ = results[model]
+        auc, _, _ = results[model]
         x = np.arange(n_bins) + (mi - (len(models_present) - 1) / 2) * width
-        heights = np.nan_to_num(auc, nan=0.0)
-        ax.bar(x, heights, width=width, color=MODEL_COLOR[model], label=model)
-        for xi, a, c in zip(x, auc, counts):
-            _annotate_bar(ax, xi, a, c, min_n, 1.0)
+        heights = np.where(np.isnan(auc), 0.0, auc - 0.5)
+        ax.bar(x, heights, width=width, bottom=0.5, color=MODEL_COLOR[model],
+               label=_model_label(model))
+        for xi, a in zip(x, auc):
+            if not np.isnan(a):
+                ax.text(xi, max(a, 0.5) + 0.004, f"{a:.2f}", rotation=90,
+                        ha="center", va="bottom", fontsize=5)
     ax.axhline(0.5, color="gray", linestyle="--", linewidth=0.8)
-    ax.set_ylim(0.0, 1.08)
+    ax.set_ylim(_ylo(results, models_present), 1.04)
     ax.set_xticks(range(n_bins))
     if show_xlabels:
-        ax.set_xticklabels([f"{edges_ref[i]:.2f}-{edges_ref[i+1]:.2f}" for i in range(n_bins)],
-                            fontsize=7, rotation=30, ha="right")
+        ax.set_xticklabels([f"{_fmt_edge(edges_ref[i])}-{_fmt_edge(edges_ref[i+1])}\n[n={counts_ref[i]}]"
+                            for i in range(n_bins)], fontsize=6)
     else:
         ax.set_xticklabels([])
     if title:
@@ -275,32 +266,29 @@ def _draw_bars(ax, results, min_n, title=None, show_xlabels=True):
     return edges_ref
 
 
-def plot_models(ds_name, results, out_dir, dpi, min_n, suffix=""):
-    """results: {model: (auc, counts, edges) or None}."""
+def plot_models(ds_name, variant, results, out_dir, dpi, min_n, suffix=""):
     if not any(v is not None for v in results.values()):
         return
-    fig, ax = plt.subplots(figsize=(8, 4.5))
-    _draw_bars(ax, results, min_n, title=f"{ds_name}: AUC vs. target-node 2-hop path-consistency entropy")
-    ax.set_xlabel("target-node 2-hop path-consistency entropy (bits)")
-    ax.set_ylabel("AUC")
-    ax.legend(fontsize=8, loc="lower right")
+    fig, ax = plt.subplots(figsize=(8, 4.6))
+    _draw_bars(ax, results, min_n,
+               title=f"{ds_name}: AUC vs. target-node 2-hop path-consistency entropy ({variant})")
+    ax.set_xlabel("target-node 2-hop path-consistency entropy (bits)  [n = shared bucket size]")
+    ax.set_ylabel("AUC (bars from 0.5 baseline)")
+    ax.legend(fontsize=8, loc="lower left", title="walk = blue · GNN = orange", title_fontsize=8)
     fig.tight_layout()
-    save_path = os.path.join(out_dir, f"{ds_name}{suffix}.png")
+    save_path = os.path.join(out_dir, f"{ds_name}_{variant}{suffix}.png")
     fig.savefig(save_path, dpi=dpi)
     plt.close(fig)
     print(f"  saved {save_path}")
 
 
-def plot_combined(ds_results, out_dir, dpi, min_n, suffix=""):
-    """ds_results: {dataset: {model: (auc, counts, edges) or None}}. Caller
-    must pass results computed with binning='fixed' so bucket edges (and
-    therefore x-axis ranges) are comparable across the dataset subplots."""
+def plot_combined(variant, ds_results, out_dir, dpi, min_n, suffix=""):
     datasets_present = [d for d in ds_results if any(v is not None for v in ds_results[d].values())]
     if not datasets_present:
         return
     n_cols = 2
     n_rows = (len(datasets_present) + n_cols - 1) // n_cols
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(6.5 * n_cols, 3.6 * n_rows), squeeze=False)
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(7 * n_cols, 3.8 * n_rows), squeeze=False)
     for idx, ds_name in enumerate(datasets_present):
         r, c = divmod(idx, n_cols)
         _draw_bars(axes[r][c], ds_results[ds_name], min_n, title=ds_name)
@@ -308,21 +296,22 @@ def plot_combined(ds_results, out_dir, dpi, min_n, suffix=""):
         r, c = divmod(idx, n_cols)
         axes[r][c].axis("off")
     handles, labels = next(
-        ax.get_legend_handles_labels() for row in axes for ax in row if ax.has_data()
-    )
-    fig.legend(handles, labels, loc="upper center", ncol=len(MODELS), fontsize=9, bbox_to_anchor=(0.5, 1.02))
-    fig.suptitle("All datasets: AUC vs. target-node 2-hop path-consistency entropy", y=1.06)
-    fig.tight_layout(rect=[0, 0, 1, 0.94])
-    save_path = os.path.join(out_dir, f"ALL_DATASETS{suffix}.png")
+        ax.get_legend_handles_labels() for row in axes for ax in row if ax.has_data())
+    fig.suptitle(f"All datasets: AUC vs. target-node 2-hop path-consistency entropy "
+                 f"({variant} paths)  ·  n shown under each tick is shared across models", y=0.995)
+    fig.legend(handles, labels, loc="upper center", ncol=len(MODELS), fontsize=9,
+               title="walk = blue · GNN = orange", title_fontsize=9, bbox_to_anchor=(0.5, 0.965))
+    fig.tight_layout(rect=[0, 0, 1, 0.92])
+    save_path = os.path.join(out_dir, f"ALL_DATASETS_{variant}{suffix}.png")
     fig.savefig(save_path, dpi=dpi)
     plt.close(fig)
     print(f"  saved {save_path}")
 
 
-def low_high_summary_md(results):
-    """Markdown table: lowest-entropy bucket vs. highest-entropy bucket AUC,
-    per model."""
+def low_high_summary_md(variant, results):
     lines = [
+        f"**variant = `{variant}` paths**",
+        "",
         "| model | low-entropy AUC (n) | high-entropy AUC (n) | drop (low - high) |",
         "|---|---|---|---|",
     ]
@@ -335,21 +324,18 @@ def low_high_summary_md(results):
         lo_s = f"{lo:.4f}" if not np.isnan(lo) else "n/a"
         hi_s = f"{hi:.4f}" if not np.isnan(hi) else "n/a"
         drop = (lo - hi) if (not np.isnan(lo) and not np.isnan(hi)) else float("nan")
-        drop_s = f"{drop:+.4f}" if not np.isnan(drop) else "n/a"
-        lines.append(f"| {model} | {lo_s} (n={counts[0]}) | {hi_s} (n={counts[-1]}) | {drop_s} |")
+        lines.append(f"| {model} | {lo_s} (n={counts[0]}) | {hi_s} (n={counts[-1]}) | {_fmt_signed(drop)} |")
     lines.append("")
     return lines
 
 
-def bins_to_text(ds_name, n_buckets, binning, model, auc, counts, edges, min_n):
-    """Plain-text dump of one (dataset, bucket-count, model) bar chart -- same
-    data as the PNG, for grepping/diffing instead of eyeballing pictures."""
+def bins_to_text(ds_name, variant, n_buckets, binning, model, auc, counts, edges, min_n):
     lines = [
-        f"=== {ds_name} | binning={binning} | n_buckets={n_buckets} | model={model} ===",
+        f"=== {ds_name} | variant={variant} | binning={binning} | n_buckets={n_buckets} | model={model} ===",
         "entropy_range\tauc\tn\tnote",
     ]
     for i in range(len(auc)):
-        r = f"{edges[i]:.4f}-{edges[i+1]:.4f}"
+        r = f"{_fmt_edge(edges[i], 4)}-{_fmt_edge(edges[i+1], 4)}"
         c = int(counts[i])
         a = auc[i]
         if c == 0:
@@ -363,81 +349,61 @@ def bins_to_text(ds_name, n_buckets, binning, model, auc, counts, edges, min_n):
     return lines
 
 
-def plot_all(data, out_dir, n_buckets_list, min_cell_n, dpi, binning, combined):
+REPORT_HEADER = [
+    "# Lead 4b: 2-Hop Sign-Path-Consistency Entropy vs. AUC (canonical, shared edges)",
+    "",
+    "## Methodology",
+    "",
+    "Part of Lead 4 (see `lead4_entropy_heterogeneity.py` / its report for the",
+    "node sign-entropy version). This variant gives EACH shared test edge a",
+    "heterogeneity score from 2-hop sign-path consistency, so the AUC-vs-",
+    "heterogeneity plot is a 1D binned bar chart (not a 2D heatmap).",
+    "",
+    "**Same-edge ground truth.** Predictions are read from",
+    "`predictions_raw_canonical.pkl` and restricted to the **shared edge set**",
+    "(intersection of `(u, v)` across models = walk-covered edges) via",
+    "`lead4_entropy_heterogeneity.load_shared_predictions`. So all models are",
+    "bucketed over the *identical* edges -- and the per-bucket sample count `n` is",
+    "the **same for every model**, shown once under each x-axis tick.",
+    "",
+    "**2-hop path-consistency entropy.** A path is *consistent* if both its edge",
+    "signs match. `p` = consistent fraction, turned into binary Shannon entropy",
+    "`H(p) = -p*log2(p) - (1-p)*log2(1-p)`. `H=0` -> second-hop sign fully",
+    "predictable from the first (locally balanced), `H=1` -> maximally",
+    "unpredictable. Computed over **all edges** (train+val+test) from the",
+    "canonical edge list -- a diagnostic grouping, no leakage.",
+    "",
+    "**Path-direction variants**, for edge `(u, v)`:",
+    "",
+    "| variant | traversal | consistency | anchored at |",
+    "|---|---|---|---|",
+    "| `out` | forward, OUT-edges both hops (`v->m->k`) | `sign(v->m) == sign(m->k)` | target `v` |",
+    "| `in` | backward, IN-edges both hops (`s->t->u`) | `sign(s->t) == sign(t->u)` | source `u` |",
+    "| `inout` | pool `out`'s tally (from `v`) and `in`'s tally (into `u`) into ONE count for this edge, then take entropy | both | edge `(u,v)` |",
+    "",
+    "`out`/`in` are really per-node lookups (by `v` / `u` respectively); `inout`",
+    "is necessarily per-edge since it mixes both endpoints' counts before taking",
+    "entropy (not an average of two entropies). Edges with zero applicable 2-hop",
+    "paths for a variant are dropped.",
+    "",
+    "Bars grow from a **0.5 baseline** (height = AUC - 0.5); the y-axis starts at",
+    "0.5 unless a bucket dips below chance. Walk models are blue, GNNs orange.",
+    "`n=.. (<min_n)` / `n=.. (1 class)` buckets have no defined AUC (no bar). Raw",
+    f"numbers are dumped to `raw_data.txt`; per-edge `(ent, y, p)` cached in",
+    f"`{DATA_FILENAME}` for re-binning via `--mode plot`.",
+    "",
+    "## Results",
+    "",
+]
+
+
+def plot_all(data, out_dir, variants, n_buckets_list, min_cell_n, dpi, binning, combined):
     text_lines = [
-        "LEAD 4b: 2-HOP SIGN-PATH-CONSISTENCY ENTROPY (PER EDGE, TARGET-NODE-ONLY) vs. AUC",
-        "Same numbers as the PNGs / report.md tables, in plain text. See report.md",
-        "for methodology.",
+        "LEAD 4b: 2-HOP SIGN-PATH-CONSISTENCY ENTROPY vs. AUC -- raw data (canonical, shared edges)",
+        "Same numbers as the PNGs / report.md tables, in plain text.",
         "",
     ]
-    report_lines = [
-        "# Lead 4b: 2-Hop Sign-Path-Consistency Entropy vs. AUC",
-        "",
-        "## Methodology",
-        "",
-        "Part of Lead 4 (see lead4_entropy_heterogeneity.py / report.md for the",
-        "original sign-entropy version, which used a 2D source x target grid). This",
-        "variant gives EACH TEST EDGE a single heterogeneity score, taken entirely",
-        "from its TARGET node `v`'s own 2-hop out-paths -- `u` plays no role.",
-        "",
-        "**2-hop path-consistency entropy**: for the target node `v` of edge",
-        "`(u, v)`, every `(v->m)` out-edge followed by every `(m->k)` out-edge of",
-        "`m` forms a 2-hop path. A path is *consistent* if both edges share the",
-        "same sign (`+/+` or `-/-`), *inconsistent* otherwise (`+/-` or `-/+`).",
-        "`p` = fraction of `v`'s 2-hop paths that are consistent, turned into the",
-        "same binary Shannon entropy as the original Lead 4:",
-        "`H(p) = -p*log2(p) - (1-p)*log2(1-p)`. `H=0` -> a path's second-hop sign",
-        "is fully predictable from the first hop (locally \"balanced\" 2-hop",
-        "neighborhood around `v`), `H=1` -> maximally unpredictable (50/50",
-        "consistent/inconsistent). Worked example: `v` has out-edges `(v,x)`",
-        "negative and `(v,y)` positive; `x` has 3 out-edges (2 positive, 1",
-        "negative); `y` has 2 out-edges (2 positive) -- 5 two-hop paths total, 3",
-        "consistent (1 via `x`, 2 via `y`), so `p=3/5`. Edges whose target has zero",
-        "2-hop out-paths are dropped (no signal). Computed over **all edges** of",
-        "the dataset (train+val+test) -- a diagnostic grouping of already-trained",
-        "models' predictions, not a training-time feature, so there is no leakage",
-        "concern.",
-        "",
-        "Because the score is intrinsically edge-level (anchored at the target,",
-        "not a source/target pair), the AUC-vs-heterogeneity plot here is a 1D",
-        "binned bar chart (one bucket group per entropy range, one bar per model)",
-        "instead of the original script's 2D heatmap.",
-        "",
-        "**No retraining, no recomputation of model predictions**: this script reads",
-        f"`{LEAD4_PREDICTIONS_FILENAME}` (default location:",
-        f"`{os.path.join(LEAD4_OUT_DIR_DEFAULT, LEAD4_PREDICTIONS_FILENAME)}`),",
-        "produced by `lead4_entropy_heterogeneity.py --mode compute`, which already",
-        "has per-edge `(u, v, y, p)` for all 4 models in their own node-id space",
-        "(raw tokenizer ids for the walk models, dense `baselines/splits` ids for",
-        "GINEConv/SiGAT). Only the all-edges adjacency needed for the new",
-        "heterogeneity score is built here, once per (dataset, id-space).",
-        "",
-        f"**Binning**: `binning={binning}`, swept over bucket counts",
-        f"{n_buckets_list} (filenames carry a `_{{binning}}_b{{n}}` suffix); a",
-        f"bucket needs >= {min_cell_n} samples and both classes present to get an",
-        "AUC. `fixed` binning uses the same global `[0, 1]`-bit edges for every",
-        "dataset, so bar charts -- including the combined all-datasets plot -- are",
-        "directly comparable at the cost of uneven sample counts per bucket;",
-        "`quantile` binning gives equal sample counts per bucket but different",
-        "entropy ranges per dataset.",
-        "",
-        "Bars annotated `n=.. (<min_n)` are below the minimum-sample threshold;",
-        "`n=.. (1 class)` means enough samples but only one true sign present, so",
-        "AUC is undefined -- not a bug. Missing bars/labels mean zero samples in",
-        "that bucket.",
-        "",
-        "**Raw text data**: every bucket's numbers are also dumped as plain",
-        "tab-separated text in `raw_data.txt` next to this report.",
-        "",
-        "**Reproducing / extending this analysis**: raw per-edge records",
-        "`(ent, y, p)` for every (dataset, model) are cached in",
-        f"`{DATA_FILENAME}` next to this report. `--mode compute` (re-reads",
-        f"`{LEAD4_PREDICTIONS_FILENAME}`, recomputes adjacency/entropy/binning);",
-        "`--mode plot` re-bins/restyles without recomputation.",
-        "",
-        "## Results",
-        "",
-    ]
+    report_lines = list(REPORT_HEADER)
 
     combined_out = os.path.join(out_dir, "combined")
     if combined:
@@ -452,103 +418,90 @@ def plot_all(data, out_dir, n_buckets_list, min_cell_n, dpi, binning, combined):
         report_lines.append(f"### {ds_name}")
         report_lines.append("")
 
-        summary_results = None  # use the first (smallest) bucket count for the summary table
-        for n_buckets in n_buckets_list:
-            results = {}
-            for model in MODELS:
-                rec = ds_data.get(model)
-                if rec is None:
-                    results[model] = None
-                    continue
-                results[model] = auc_by_bin(rec["ent"], rec["y"], rec["p"], n_buckets, min_cell_n, binning)
-            suffix = f"_{binning}_b{n_buckets}"
-            plot_models(ds_name, results, ds_out, dpi, min_cell_n, suffix)
-            report_lines.append(f"![{ds_name} b{n_buckets}]({ds_name}/{ds_name}{suffix}.png)")
+        for variant in variants:
+            if variant not in ds_data:
+                continue
+            report_lines.append(f"**{variant} paths**")
             report_lines.append("")
-            for model in MODELS:
-                if results.get(model) is None:
-                    continue
-                auc, counts, edges = results[model]
-                text_lines.extend(bins_to_text(ds_name, n_buckets, binning, model,
-                                                auc, counts, edges, min_cell_n))
-            if summary_results is None:
-                summary_results = results
-        if summary_results is not None:
-            report_lines.extend(low_high_summary_md(summary_results))
+            summary_results = None
+            for n_buckets in n_buckets_list:
+                results = {}
+                for model in MODELS:
+                    rec = ds_data[variant].get(model)
+                    results[model] = None if rec is None else auc_by_bin(
+                        rec["ent"], rec["y"], rec["p"], n_buckets, min_cell_n, binning)
+                suffix = f"_{binning}_b{n_buckets}"
+                plot_models(ds_name, variant, results, ds_out, dpi, min_cell_n, suffix)
+                report_lines.append(f"![{ds_name} {variant} b{n_buckets}]"
+                                     f"({ds_name}/{ds_name}_{variant}{suffix}.png)")
+                report_lines.append("")
+                for model in MODELS:
+                    if results.get(model) is None:
+                        continue
+                    auc, counts, edges = results[model]
+                    text_lines.extend(bins_to_text(ds_name, variant, n_buckets, binning, model,
+                                                    auc, counts, edges, min_cell_n))
+                if summary_results is None:
+                    summary_results = results
+            if summary_results is not None:
+                report_lines.extend(low_high_summary_md(variant, summary_results))
 
     if combined:
         print(f"\n{'=' * 72}\ncombined (all datasets)\n{'=' * 72}")
         report_lines.append("### Combined (all datasets)")
         report_lines.append("")
-        for n_buckets in n_buckets_list:
-            ds_results = {}
-            for ds_name, ds_data in data.items():
-                if not ds_data:
-                    continue
-                results = {}
-                for model in MODELS:
-                    rec = ds_data.get(model)
-                    if rec is None:
-                        results[model] = None
+        for variant in variants:
+            for n_buckets in n_buckets_list:
+                ds_results = {}
+                for ds_name, ds_data in data.items():
+                    if not ds_data or variant not in ds_data:
                         continue
-                    # combined plot always uses 'fixed' binning regardless of the
-                    # per-dataset --binning choice -- quantile edges differ per
-                    # dataset and would make subplots visually incomparable.
-                    results[model] = auc_by_bin(rec["ent"], rec["y"], rec["p"], n_buckets, min_cell_n, "fixed")
-                ds_results[ds_name] = results
-            suffix = f"_fixed_b{n_buckets}"
-            plot_combined(ds_results, combined_out, dpi, min_cell_n, suffix)
-            report_lines.append(f"![ALL_DATASETS b{n_buckets}](combined/ALL_DATASETS{suffix}.png)")
-            report_lines.append("")
+                    results = {}
+                    for model in MODELS:
+                        rec = ds_data[variant].get(model)
+                        # combined always 'fixed' binning so x ranges are comparable
+                        results[model] = None if rec is None else auc_by_bin(
+                            rec["ent"], rec["y"], rec["p"], n_buckets, min_cell_n, "fixed")
+                    ds_results[ds_name] = results
+                suffix = f"_fixed_b{n_buckets}"
+                plot_combined(variant, ds_results, combined_out, dpi, min_cell_n, suffix)
+                report_lines.append(f"![ALL_DATASETS {variant} b{n_buckets}]"
+                                     f"(combined/ALL_DATASETS_{variant}{suffix}.png)")
+                report_lines.append("")
 
-    report_path = os.path.join(out_dir, "report.md")
-    with open(report_path, "w") as f:
+    with open(os.path.join(out_dir, "report.md"), "w") as f:
         f.write("\n".join(report_lines))
-    print(f"\n✓ Report written to {report_path}")
-
-    text_path = os.path.join(out_dir, "raw_data.txt")
-    with open(text_path, "w") as f:
+    print(f"\n✓ Report written to {os.path.join(out_dir, 'report.md')}")
+    with open(os.path.join(out_dir, "raw_data.txt"), "w") as f:
         f.write("\n".join(text_lines))
-    print(f"✓ Raw text data written to {text_path}")
+    print(f"✓ Raw text data written to {os.path.join(out_dir, 'raw_data.txt')}")
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["compute", "plot", "all"], default="all")
     parser.add_argument("--datasets", nargs="+", default=["all"])
+    parser.add_argument("--variants", nargs="+", default=VARIANTS, choices=VARIANTS)
     parser.add_argument("--out", default=OUT_DIR_DEFAULT)
+    parser.add_argument("--predictions", default=CANON_PREDICTIONS_DEFAULT,
+                         help="canonical per-edge predictions pkl (from baselines/postprocess_canonical.py)")
     parser.add_argument("--data-path", default=None,
-                         help=f"path to computed-data pickle (default: <out>/{DATA_FILENAME})")
-    parser.add_argument("--predictions-path", default=None,
-                         help="path to lead4_entropy_heterogeneity.py's cached per-edge "
-                              f"predictions (default: {os.path.join(LEAD4_OUT_DIR_DEFAULT, LEAD4_PREDICTIONS_FILENAME)})")
-    parser.add_argument("--min-total", type=int, default=MIN_TOTAL_DEFAULT,
-                         help="drop a (dataset, model) entirely below this many usable edges (compute stage)")
-    parser.add_argument("--binning", choices=["quantile", "fixed"], default="fixed",
-                         help="'fixed' (default) uses global [0,1]-bit edges, comparable across "
-                              "datasets; 'quantile' uses per-dataset equal-sample-count edges")
-    parser.add_argument("--n-buckets", type=int, nargs="+", default=[8],
-                         help="one or more bucket counts to sweep, each producing its own plot set")
+                         help=f"computed-data pickle (default: <out>/{DATA_FILENAME})")
+    parser.add_argument("--min-total", type=int, default=MIN_TOTAL_DEFAULT)
+    parser.add_argument("--binning", choices=["quantile", "fixed"], default="fixed")
+    parser.add_argument("--n-buckets", type=int, nargs="+", default=N_BUCKETS_DEFAULT,
+                         help="bucket counts to sweep (start from 2)")
     parser.add_argument("--min-cell-n", type=int, default=MIN_CELL_N_DEFAULT)
     parser.add_argument("--dpi", type=int, default=110)
-    parser.add_argument("--no-combined", action="store_true",
-                         help="skip the all-datasets combined plot")
+    parser.add_argument("--no-combined", action="store_true")
     args = parser.parse_args()
 
     datasets = DATASETS if args.datasets == ["all"] else args.datasets
     data_path = args.data_path or os.path.join(args.out, DATA_FILENAME)
-    predictions_path = args.predictions_path or os.path.join(
-        LEAD4_OUT_DIR_DEFAULT, LEAD4_PREDICTIONS_FILENAME)
 
     if args.mode in ("compute", "all"):
-        if not os.path.exists(predictions_path):
-            raise FileNotFoundError(
-                f"{predictions_path} not found -- run "
-                "`python scripts/lead4_entropy_heterogeneity.py --mode compute` first; "
-                "this script reuses its cached per-edge predictions instead of "
-                "reloading models / refitting SiGAT itself."
-            )
-        data = compute_all(datasets, predictions_path, args.min_total)
+        predictions = load_shared_predictions(args.predictions, datasets)
+        data = compute_all(predictions, datasets, args.variants, args.min_total)
         save_data(data, data_path)
     if args.mode == "plot":
         data = load_data(data_path)
@@ -556,7 +509,7 @@ def main():
             data = {k: v for k, v in data.items() if k in datasets}
 
     if args.mode in ("plot", "all"):
-        plot_all(data, args.out, args.n_buckets, args.min_cell_n,
+        plot_all(data, args.out, args.variants, args.n_buckets, args.min_cell_n,
                   args.dpi, args.binning, not args.no_combined)
 
 

@@ -994,6 +994,129 @@ def k_cover_walks(
 
 
 # ---------------------------------------------------------------------------
+# Strategy k_cover (FAST) — parallel, same throughput pattern as uniform/guaranteed
+# ---------------------------------------------------------------------------
+
+def _build_adj_with_eids(edges, edge_index):
+    """Like _build_adj but also returns, per node, the edge_index id aligned to its
+    neighbour array (so a worker can credit visits with O(1) array indexing instead
+    of a per-step dict lookup)."""
+    nodes, nbrs, lbls = _build_adj(edges)
+    eids = {}
+    for n in nbrs:
+        ns, ls = nbrs[n], lbls[n]
+        arr = np.empty(len(ns), dtype=np.int64)
+        for i in range(len(ns)):
+            arr[i] = edge_index.get((int(n), int(ns[i]), int(ls[i])), -1)
+        eids[n] = arr
+    return nodes, nbrs, lbls, eids
+
+
+def _kcover_anchor_chunk(nbrs, lbls, eids, m, anchor_edges, max_walk_length,
+                         base_seed, task_id):
+    """Worker: for each (u, v, label, eid) anchor, force the step u->v then walk
+    randomly; emit raw-id tokens and accumulate a local per-edge visit bincount."""
+    rng = np.random.default_rng(base_seed + task_id)
+    walks = []
+    local_vc = np.zeros(m, dtype=np.int64)
+    for (u, v, label, eid) in anchor_edges:
+        toks = [f"N_{u}", f"E_{label}", f"N_{v}"]
+        if eid >= 0:
+            local_vc[eid] += 1
+        curr = v
+        for _ in range(max_walk_length - 1):
+            neigh = nbrs.get(curr)
+            if neigh is None or len(neigh) == 0:
+                break
+            i = int(rng.integers(0, len(neigh)))
+            nxt = int(neigh[i])
+            lbl = int(lbls[curr][i])
+            toks.append(f"E_{lbl}")
+            toks.append(f"N_{nxt}")
+            e2 = int(eids[curr][i])
+            if e2 >= 0:
+                local_vc[e2] += 1
+            curr = nxt
+        walks.append(toks)
+    return task_id, walks, local_vc
+
+
+def k_cover_walks_fast(edges, num_walks, max_walk_length, seed, num_workers, k=1,
+                       max_passes=None):
+    """Guarantee every edge is traversed >= k times, parallelised.
+
+    Iterative passes: each pass emits one anchor walk per still-under-k edge,
+    generated in parallel mp.Pool chunks (same throughput pattern as the uniform
+    sampler); visit counts (including every edge an anchor walk passes through as a
+    side-effect) are reduced between passes so later passes skip satisfied edges.
+    The remaining budget is filled with uniform walks. Node ids stay raw in tokens;
+    adjacency is dict-based, so sparse / ~1e9 ids never allocate max_id-sized arrays.
+    """
+    edge_index = _build_edge_index(edges)
+    if not edge_index:
+        return []
+    nodes, nbrs, lbls, eids = _build_adj_with_eids(edges, edge_index)
+    if not nodes:
+        return []
+
+    m = len(edge_index)
+    if num_walks < m:
+        # Anchor-first ordering needs ~|E| walks to even cover every edge once; below
+        # that, pass-1 anchors consume the whole budget with no uniform spread and
+        # node coverage can drop BELOW plain uniform. Size num_walks >= ~1.5*|E|.
+        print(f"WARNING: k_cover num_walks={num_walks} < |E|={m}; coverage/saturation "
+              f"will be incomplete and may underperform uniform. Increase num_walks.")
+    uniq_edges = list(edge_index.keys())  # index i -> (u,v,label) with eid == i
+    visit_count = np.zeros(m, dtype=np.int64)
+    base_seed = int(seed)
+    order_rng = np.random.default_rng(base_seed + 777_777_777)
+    if max_passes is None:
+        max_passes = int(k) + 5
+
+    walks = []
+    for p in range(max_passes):
+        if len(walks) >= num_walks:
+            break
+        need = np.nonzero(visit_count < k)[0]
+        if need.size == 0:
+            break
+        budget_left = num_walks - len(walks)
+        order_rng.shuffle(need)
+        if need.size > budget_left:
+            need = need[:budget_left]
+        anchors = [(uniq_edges[i][0], uniq_edges[i][1], uniq_edges[i][2], int(i))
+                   for i in need]
+
+        tasks = _chunk_tasks(len(anchors), num_workers)
+        chunks = [anchors[s:e] for s, e, _ in tasks]
+        worker = partial(_kcover_anchor_chunk, nbrs, lbls, eids, m)
+        pass_seed = base_seed + 10_000_000 * (p + 1)
+        if len(tasks) == 1:
+            _, w, vc = worker(chunks[0], max_walk_length, pass_seed, 0)
+            walks.extend(w)
+            visit_count += vc
+        else:
+            with mp.Pool(processes=len(tasks)) as pool:
+                results = pool.starmap(
+                    worker,
+                    [(chunks[i], max_walk_length, pass_seed, tasks[i][2])
+                     for i in range(len(tasks))],
+                )
+            results.sort(key=lambda r: r[0])
+            for _, w, vc in results:
+                walks.extend(w)
+                visit_count += vc
+
+    remaining = num_walks - len(walks)
+    if remaining > 0:
+        walks.extend(sample_random_walks(
+            edges, num_walks=remaining, max_walk_length=max_walk_length,
+            num_workers=num_workers, seed=base_seed,
+        ))
+    return walks[:num_walks]
+
+
+# ---------------------------------------------------------------------------
 # Main dispatch
 # ---------------------------------------------------------------------------
 
@@ -1094,7 +1217,7 @@ def sample_walks(
 
     elif strategy == "k_cover":
         k = int(getattr(cfg.dataset, "walk_k_min", 1))
-        return k_cover_walks(
+        return k_cover_walks_fast(
             edges, num_walks, max_walk_length, seed=seed,
             num_workers=num_workers, k=k,
         )
