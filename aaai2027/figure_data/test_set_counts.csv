@@ -1,0 +1,7 @@
+dataset,n_pos,n_neg,n_total
+bitcoin-alpha,2265,154,2419
+bitcoin-otc,3203,357,3560
+epinions,71713,12367,84080
+wiki-elec,8172,2198,10370
+wiki-rfa,13901,3821,17722
+slashdot090221,42508,12413,54921

@@ -4,6 +4,7 @@ import argparse
 import shutil
 import glob
 import time
+import traceback
 from pathlib import Path
 from omegaconf import OmegaConf
 import torch
@@ -23,50 +24,94 @@ from src.utils.paths import resolve_outputs_dirs
 from src.utils.config import load_config, get_seed, validate_config
 import random
 import numpy as np
-import shutil
-import glob
-import importlib
 
-# Centralized Optuna suggestion ranges (easy to tweak for experiments)
 # =============================================================================
-# ANTI-OVERFITTING FOCUSED HYPERPARAMETER RANGES
+# Fine-tuning-scale hyperparameter search space (rewritten 2026-07-22)
 # =============================================================================
-# Walk parameters are now FIXED (not tuned) to leverage dataset caching:
-#   - max_walk_length = 80 (FIXED)
-#   - num_walks = 5,000,000 (FIXED)
-#   - batch_size = 1024 (FIXED)
-# All trials share the same cached dataset for 10-20x speedup!
+# Rewritten against the current CSR-cache / edge_cover-sampler / D-R-L pipeline
+# (the pre-2026-07 version predated all three and hard-coded a stale 5M-walk
+# k_cover-era budget -- see CLAUDE.md "OPEN WORKSTREAMS" / plan-stats-rigor.md).
 #
-# Hyperparameter ranges focus on REGULARIZATION to combat overfitting:
-#   - Slower learning rates (max 1e-3 instead of 1e-1)
-#   - Stronger weight decay (min 1e-5 instead of 1e-8)
-#   - Mandatory dropout (min 20% instead of 0%)
-#   - Smaller model capacity (fewer dims, fewer layers)
-#   - More aggressive early stopping (patience 3-10 vs 5-20)
-# =============================================================================
+# Design choices, see CLAUDE.md's cost/performance-tradeoff conventions and the
+# 2026-07-22 planning discussion:
+#   - Walk sampling (dataset.walk_strategy/num_walks/max_walk_length) is NOT
+#     searched and NOT overridden here -- it comes straight from
+#     configs/<dataset>.yaml, already the product of dedicated E25/E26 budget
+#     sweeps. Re-exposing it to Optuna would re-litigate a settled question.
+#   - model.local_attention_window is FIXED (not searched) at the production
+#     LocalAttn4 value (4) via --local-attention-window, since configs/*.yaml
+#     still bake in `null` and the LocalAttn4-vs-full-attention question is
+#     independently settled (CLAUDE.md "Attention variant: full vs. local").
+#   - model.hardness_* is never touched -- H is scrapped everywhere as of
+#     2026-07-19 (CLAUDE.md "Hardness reweighting (H): scrapped everywhere").
+#   - training.epochs is FIXED at the loaded config's value, not searched: it
+#     sets the CosineAnnealingLR horizon, and early stopping already controls
+#     effective training length -- searching both was redundant in the old
+#     script.
+#   - Ordered/dimension-like params (head_dim, hidden_dim, nlayers) use
+#     suggest_int with a step instead of suggest_categorical: with a small
+#     trial budget (~20-30), Optuna's TPE sampler models ordered int/float
+#     params with a continuous KDE and can exploit "bigger tends to help"
+#     trends from a handful of trials, whereas suggest_categorical treats each
+#     choice as an independent, unordered arm and gets no benefit from
+#     ordering. suggest_categorical is kept only for genuinely nominal choices
+#     (model.nhead -- 3 nested-tensor-friendly even values, not a quantity
+#     worth interpolating between).
+#   - embedding_dim/nhead used to be sampled as two independent categoricals
+#     with a reject-retry loop (max 10 attempts, TrialPruned on failure) to
+#     satisfy embedding_dim % nhead == 0 (validate_config, src/utils/config.py).
+#     Reparameterized here as nhead * head_dim -- always valid by
+#     construction, zero wasted trials.
+#   - training.lr's old range (1e-5, 1e-3) no longer contains bitcoin-alpha's
+#     current production lr (0.0016) -- widened to (1e-5, 5e-3).
+#   - Added model.node_replace_prob / node_replace_unk_ratio (the "R" node
+#     token replacement regularizer, CLAUDE.md "Training feature flags") --
+#     previously entirely absent from the search space despite being a live
+#     production knob. node_context_mode itself stays fixed at "replace" (the
+#     production default) -- only its two probability knobs are tuned.
 OPTUNA_RANGES = {
-    # REMOVED: Walk parameters are now FIXED (see objective function)
-    # REMOVED: batch_size is now FIXED at 1024
-    # Training - Anti-overfitting focus
-    "training.lr": (1e-5, 1e-3),  # ← Slower learning (was 1e-1)
-    "training.weight_decay": (1e-5, 1e-1),  # ← Stronger L2 regularization (was 1e-8)
-    "training.gradient_clip_val": (
-        0.5,
-        2.0,
-    ),  # ← Higher min for more clipping (was 0.1)
-    "training.early_stopping_patience": (3, 10),  # ← Stop faster (was 5-20)
-    "training.epochs": (15, 50),  # ← Simple fixed range for hyperparameter search
-    # Model - Smaller capacity to reduce overfitting
-    "model.nhead": [
-        2,
-        4,
-        8,
-    ],  # even heads only (avoids nested-tensor warning for odd heads)
-    "model.embedding_dim": [4, 8, 16, 32, 64],  # ← Removed large (128)
-    "model.hidden_dim": [4, 8, 16, 32, 64, 128],  # ← Removed tiny (4,8) and large (256)
-    "model.nlayers": (1, 4),  # ← Max 4 layers (was 6)
-    "model.dropout": (0.2, 0.7),  # ← Min 20% dropout (was 0%)
+    "training.lr": {"type": "float", "low": 1e-5, "high": 5e-3, "log": True},
+    "training.weight_decay": {"type": "float", "low": 1e-6, "high": 1e-1, "log": True},
+    "training.gradient_clip_val": {"type": "float", "low": 0.3, "high": 2.0},
+    "training.early_stopping_patience": {"type": "int", "low": 5, "high": 15},
+    "model.nhead": {"type": "categorical", "choices": [2, 4, 8]},
+    # embedding_dim = nhead * head_dim (computed per-trial, always valid).
+    "model.head_dim": {"type": "int", "low": 8, "high": 32, "step": 8},
+    "model.hidden_dim": {"type": "int", "low": 16, "high": 256, "step": 16},
+    "model.nlayers": {"type": "int", "low": 1, "high": 6},
+    "model.dropout": {"type": "float", "low": 0.1, "high": 0.6},
+    "model.node_replace_prob": {"type": "float", "low": 0.0, "high": 0.5},
+    "model.node_replace_unk_ratio": {"type": "float", "low": 0.3, "high": 1.0},
 }
+
+
+def _suggest(trial, name):
+    """Sample `name` from OPTUNA_RANGES using the right Optuna distribution."""
+    spec = OPTUNA_RANGES[name]
+    if spec["type"] == "float":
+        return trial.suggest_float(name, spec["low"], spec["high"], log=spec.get("log", False))
+    if spec["type"] == "int":
+        return trial.suggest_int(name, spec["low"], spec["high"], step=spec.get("step", 1))
+    if spec["type"] == "categorical":
+        return trial.suggest_categorical(name, spec["choices"])
+    raise ValueError(f"Unknown OPTUNA_RANGES type for {name}: {spec['type']}")
+
+
+def _clamp_to_range(name, value):
+    """Clamp/snap a config-provided initial value into OPTUNA_RANGES[name]'s bounds."""
+    spec = OPTUNA_RANGES[name]
+    if spec["type"] == "categorical":
+        choices = spec["choices"]
+        if value in choices:
+            return value
+        return min(choices, key=lambda c: abs(c - value))
+    lo, hi = spec["low"], spec["high"]
+    value = max(lo, min(hi, value))
+    if spec["type"] == "int":
+        step = spec.get("step", 1)
+        n_steps = round((value - lo) / step)
+        value = int(max(lo, min(hi, lo + n_steps * step)))
+    return value
 
 
 def cleanup_old_checkpoints_and_logs(
@@ -167,7 +212,17 @@ def parse_args():
         "--config", type=str, default="config.yaml", help="Path to config file"
     )
     p.add_argument("--device", type=int, default=2, help="CUDA device id")
-    p.add_argument("--n-trials", type=int, default=100, help="Number of Optuna trials")
+    p.add_argument(
+        "--n-trials", type=int, default=25, help="Number of Optuna trials (fine-tuning scale)"
+    )
+    p.add_argument(
+        "--local-attention-window",
+        type=str,
+        default="4",
+        help="Fixed model.local_attention_window for every trial (not searched). "
+        "'4' = LocalAttn4, the settled production default (CLAUDE.md). "
+        "'null' = full attention.",
+    )
     p.add_argument(
         "overrides",
         nargs=argparse.REMAINDER,
@@ -234,6 +289,7 @@ def build_trainer(cfg, val_loader=None, trial=None, enable_pruning=True):
 def objective_factory(
     base_cfg,
     device,
+    local_attention_window,
     enable_pruning=True,
     shared_data_module=None,
     shared_post_prepare_cfg=None,
@@ -245,6 +301,8 @@ def objective_factory(
       3) returns the best val_auc from the best checkpoint.
 
     Args:
+        local_attention_window: fixed (not searched) model.local_attention_window
+                                 applied to every trial -- see OPTUNA_RANGES docstring.
         shared_data_module: Pre-loaded data module shared across all trials (loaded once before study)
                            Avoids reloading the .pt cache file for every trial (~242s saved per trial).
         shared_post_prepare_cfg: Config after prepare_data() was called (includes pad_id and other modifications)
@@ -263,79 +321,36 @@ def objective_factory(
         # Unique experiment name per trial
         cfg.training.exp_name = f"{base_cfg.training.exp_name}-optuna-t{trial.number}"
 
-        # ===== FIXED PARAMETERS (Not Hyperparameters) =====
-        # Walk parameters are FIXED to enable dataset caching across all trials
-        # This provides 10-20x speedup: first trial builds cache (~40s), subsequent trials load cache (~3-5s)
-        cfg.dataset.max_walk_length = 80  # FIXED
-        cfg.dataset.num_walks = 5000000  # FIXED (5M walks)
-        cfg.training.batch_size = 1024  # FIXED
-        cfg.training.num_workers = (
-            0  # Optuna stability: avoid DataLoader worker teardown noise
-        )
+        # ===== FIXED PARAMETERS (not part of this search, see OPTUNA_RANGES docstring) =====
+        # dataset.walk_strategy/num_walks/max_walk_length: untouched, inherited from the
+        # loaded config (configs/<dataset>.yaml) -- already the product of E25/E26 sweeps.
+        # training.batch_size/epochs: untouched, inherited from the loaded config.
+        cfg.training.num_workers = 0  # Optuna stability: avoid DataLoader worker teardown noise
         cfg.training.persistent_workers = False
-
-        # Enable dataset caching (critical for performance with fixed walks)
         cfg.preprocess.use_cache = True
         cfg.preprocess.save = True
+        cfg.model.local_attention_window = local_attention_window
 
         # ===== TRAINING HYPERPARAMETERS =====
-        lr_lo, lr_hi = OPTUNA_RANGES.get("training.lr", (1e-5, 1e-3))
-        cfg.training.lr = trial.suggest_float("training.lr", lr_lo, lr_hi, log=True)
-        wd_lo, wd_hi = OPTUNA_RANGES.get("training.weight_decay", (1e-5, 1e-1))
-        cfg.training.weight_decay = trial.suggest_float(
-            "training.weight_decay", wd_lo, wd_hi, log=True
-        )
-        gc_lo, gc_hi = OPTUNA_RANGES.get("training.gradient_clip_val", (0.5, 2.0))
-        cfg.training.gradient_clip_val = trial.suggest_float(
-            "training.gradient_clip_val", gc_lo, gc_hi
-        )
-
-        # Early stopping patience (adaptive based on epochs)
-        ep_lo, ep_hi = OPTUNA_RANGES.get("training.early_stopping_patience", (3, 10))
-        cfg.training.early_stopping_patience = trial.suggest_int(
-            "training.early_stopping_patience", ep_lo, ep_hi
+        cfg.training.lr = _suggest(trial, "training.lr")
+        cfg.training.weight_decay = _suggest(trial, "training.weight_decay")
+        cfg.training.gradient_clip_val = _suggest(trial, "training.gradient_clip_val")
+        cfg.training.early_stopping_patience = _suggest(
+            trial, "training.early_stopping_patience"
         )
 
         # ===== MODEL ARCHITECTURE HYPERPARAMETERS =====
-        # Sample nhead and embedding_dim separately with validation
-        # This is the correct approach for categorical parameters
+        # embedding_dim = nhead * head_dim: always satisfies validate_config's
+        # embedding_dim % nhead == 0 constraint by construction, no reject-retry needed.
+        cfg.model.nhead = _suggest(trial, "model.nhead")
+        head_dim = _suggest(trial, "model.head_dim")
+        cfg.model.embedding_dim = cfg.model.nhead * head_dim
 
-        max_attempts = 10  # Prevent infinite loops
-        for attempt in range(max_attempts):
-            cfg.model.nhead = trial.suggest_categorical(
-                "model.nhead", OPTUNA_RANGES.get("model.nhead", [2, 4, 8])
-            )
-            cfg.model.embedding_dim = trial.suggest_categorical(
-                "model.embedding_dim",
-                OPTUNA_RANGES.get("model.embedding_dim", [16, 32, 64]),
-            )
-
-            # Check if embedding_dim is divisible by nhead
-            if cfg.model.embedding_dim % cfg.model.nhead == 0:
-                break
-
-            # If not valid, prune this trial and let Optuna try again
-            if attempt == max_attempts - 1:
-                raise optuna.TrialPruned(
-                    f"Could not find valid nhead/embedding_dim combination after {max_attempts} attempts"
-                )
-
-        # No need for user attributes - values are directly stored in trial.params
-
-        cfg.model.hidden_dim = trial.suggest_categorical(
-            "model.hidden_dim",
-            OPTUNA_RANGES.get("model.hidden_dim", [16, 32, 64, 128]),
-        )
-        nl_lo, nl_hi = OPTUNA_RANGES.get("model.nlayers", (1, 4))
-        cfg.model.nlayers = trial.suggest_int("model.nlayers", nl_lo, nl_hi)
-
-        # Regularization
-        dr_lo, dr_hi = OPTUNA_RANGES.get("model.dropout", (0.2, 0.7))
-        cfg.model.dropout = trial.suggest_float("model.dropout", dr_lo, dr_hi)
-
-        # ===== EPOCHS (from OPTUNA_RANGES) =====
-        e_lo, e_hi = OPTUNA_RANGES.get("training.epochs", (15, 50))
-        cfg.training.epochs = trial.suggest_int("training.epochs", int(e_lo), int(e_hi))
+        cfg.model.hidden_dim = _suggest(trial, "model.hidden_dim")
+        cfg.model.nlayers = _suggest(trial, "model.nlayers")
+        cfg.model.dropout = _suggest(trial, "model.dropout")
+        cfg.model.node_replace_prob = _suggest(trial, "model.node_replace_prob")
+        cfg.model.node_replace_unk_ratio = _suggest(trial, "model.node_replace_unk_ratio")
 
         # ===== UNIFIED SEEDING STRATEGY =====
         # Use get_seed(cfg) to get canonical seed from config.reproducibility.seed
@@ -361,7 +376,8 @@ def objective_factory(
         print(f"\n🔬 Trial {trial.number} hyperparameters:")
         print(f"  Seed (from config): {seed}")
         print(
-            f"  Walk length: {cfg.dataset.max_walk_length} (FIXED), Num walks: {cfg.dataset.num_walks:,} (FIXED)"
+            f"  Walk strategy: {cfg.dataset.walk_strategy} (FIXED, from config), "
+            f"num_walks: {cfg.dataset.num_walks:,} (FIXED, from config)"
         )
         print(
             f"  LR: {cfg.training.lr:.2e}, Weight decay: {cfg.training.weight_decay:.2e}"
@@ -370,14 +386,21 @@ def objective_factory(
             f"  Batch size: {cfg.training.batch_size} (FIXED), Gradient clip: {cfg.training.gradient_clip_val:.2f}"
         )
         print(
-            f"  Model: emb_dim={cfg.model.embedding_dim}, hidden_dim={cfg.model.hidden_dim}"
+            f"  Model: nhead={cfg.model.nhead}, head_dim={head_dim} -> emb_dim={cfg.model.embedding_dim}, "
+            f"hidden_dim={cfg.model.hidden_dim}"
         )
-        print(f"  Transformer: {cfg.model.nlayers} layers, {cfg.model.nhead} heads")
-        print(f"  Dropout: {cfg.model.dropout:.2f}, Epochs: {cfg.training.epochs}")
-        print(f"  Early stopping patience: {cfg.training.early_stopping_patience}")
-        use_weighted = getattr(cfg.training, "use_weighted_loss", True)  # Default True
         print(
-            f"  Weighted loss: {use_weighted}, Cache enabled: {cfg.preprocess.use_cache}"
+            f"  Transformer: {cfg.model.nlayers} layers, local_attention_window={cfg.model.local_attention_window} (FIXED)"
+        )
+        print(
+            f"  Dropout: {cfg.model.dropout:.2f}, Epochs: {cfg.training.epochs} (FIXED)"
+        )
+        print(
+            f"  Early stopping patience: {cfg.training.early_stopping_patience}"
+        )
+        print(
+            f"  Node replace prob: {cfg.model.node_replace_prob:.2f}, "
+            f"unk_ratio: {cfg.model.node_replace_unk_ratio:.2f}"
         )
 
         # ---- Data & Model ----
@@ -436,29 +459,28 @@ def objective_factory(
                 # Fallback to current model if no checkpoint
                 val_metrics = eval_trainer.validate(model, val_loader)
 
-            # Extract metrics
+            # Extract metrics -- objective is raw val AUC (single source of truth,
+            # matches how every other result in this project is reported; the old
+            # composite alpha*AUC - beta*loss score was mislabeled as "AUC" in logs
+            # and never justified, so it's dropped here).
             val_auc = float(val_metrics[0]["val_auc_epoch"])
             val_loss = float(val_metrics[0].get("val_loss", 0.0))
 
-            # Custom objective: alpha*val_auc - beta*val_loss
-            # This balances AUC improvement with loss degradation
-            alpha = 1.0  # Weight for AUC (maximize)
-            beta = 0.1  # Weight for loss (minimize)
-            score = alpha * val_auc - beta * val_loss
-
             print(f"✅ Trial {trial.number} completed:")
             print(f"   Val AUC: {val_auc:.4f}, Val Loss: {val_loss:.4f}")
-            print(f"   Score (α*AUC - β*Loss): {score:.4f}")
 
-            return score
+            return val_auc
 
-        except optuna.TrialPruned as e:
-            print(f"⚠️ Trial {trial.number} pruned: {str(e)}")
+        except optuna.TrialPruned:
             raise
         except Exception as e:
-            print(f"❌ Trial {trial.number} failed: {str(e)}")
-            # Return a bad score for failed trials
-            return 0.0  # This will be interpreted as 0.0 AUC (very bad)
+            # Surface real failures as PRUNED trials (visibly distinct from a bad-but-
+            # valid AUC) instead of silently returning 0.0 -- returning a fake 0.0 AUC
+            # for e.g. an OOM or a config bug would poison TPE with a fabricated data
+            # point and mask the underlying failure.
+            print(f"❌ Trial {trial.number} failed: {e}")
+            traceback.print_exc()
+            raise optuna.TrialPruned(f"Trial {trial.number} failed with exception: {e}")
 
     return objective
 
@@ -466,6 +488,11 @@ def objective_factory(
 def main():
 
     args = parse_args()
+
+    local_attention_window_raw = args.local_attention_window.strip().lower()
+    local_attention_window = (
+        None if local_attention_window_raw in ("null", "none") else int(local_attention_window_raw)
+    )
 
     # ---- Load config and apply CLI overrides ----
     # Load and merge config (supports `configs/<dataset>.yaml` and CLI dotlist overrides)
@@ -512,9 +539,13 @@ def main():
     except Exception:
         pass
 
-    print(f"🎯 Starting Optuna hyperparameter optimization with {args.n_trials} trials")
-    print(f"📊 Objective: Maximize validation AUC")
-    print(f"🎯 Focus: Anti-overfitting regularization (fixed walks, caching enabled)")
+    print(f"🎯 Starting Optuna hyperparameter fine-tuning with {args.n_trials} trials")
+    print(f"📊 Objective: raw validation AUC (val_auc_epoch)")
+    print(
+        f"🎯 Fixed (not searched): walk_strategy={base_cfg.dataset.walk_strategy}, "
+        f"num_walks={base_cfg.dataset.num_walks:,}, epochs={base_cfg.training.epochs}, "
+        f"local_attention_window={local_attention_window}"
+    )
     print(f"🖥️  Device: {args.device}")
     print(f"💾 Keeping top 10 checkpoints/logs to save space")
 
@@ -560,137 +591,62 @@ def main():
                 pass
             return fallback
 
-        initial_trial_params = {}
-        # REMOVED: Walk parameters are now FIXED (not in OPTUNA_RANGES)
-        # REMOVED: batch_size is now FIXED at 1024
-
-        # Training hyperparameters only
         t_ip = ip.get("training", {})
-        initial_trial_params["training.lr"] = float(
-            _pick("training.lr", t_ip.get("lr"))
-        )
-        initial_trial_params["training.weight_decay"] = float(
-            _pick("training.weight_decay", t_ip.get("weight_decay"))
-        )
-        initial_trial_params["training.gradient_clip_val"] = float(
-            _pick("training.gradient_clip_val", t_ip.get("gradient_clip_val"))
-        )
-        initial_trial_params["training.early_stopping_patience"] = int(
-            _pick(
-                "training.early_stopping_patience", t_ip.get("early_stopping_patience")
-            )
-        )
-        initial_trial_params["training.epochs"] = int(
-            _pick("training.epochs", t_ip.get("epochs"))
-        )
-
-        # model
         m_ip = ip.get("model", {})
-        initial_trial_params["model.embedding_dim"] = int(
-            _pick("model.embedding_dim", m_ip.get("embedding_dim"))
-        )
-        initial_trial_params["model.hidden_dim"] = int(
-            _pick("model.hidden_dim", m_ip.get("hidden_dim"))
-        )
-        initial_trial_params["model.nhead"] = int(
-            _pick("model.nhead", m_ip.get("nhead"))
-        )
-        initial_trial_params["model.nlayers"] = int(
-            _pick("model.nlayers", m_ip.get("nlayers"))
-        )
-        initial_trial_params["model.dropout"] = float(
-            _pick("model.dropout", m_ip.get("dropout"))
+
+        initial_embedding_dim = _pick("model.embedding_dim", m_ip.get("embedding_dim"))
+        initial_nhead = _pick("model.nhead", m_ip.get("nhead"))
+        initial_head_dim = (
+            int(initial_embedding_dim) // int(initial_nhead)
+            if (initial_embedding_dim is not None and initial_nhead)
+            else None
         )
 
-        # Clamp all initial params to OPTUNA_RANGES to avoid out-of-range errors
-        lr_lo, lr_hi = OPTUNA_RANGES.get("training.lr", (1e-5, 1e-3))
-        initial_trial_params["training.lr"] = max(
-            lr_lo, min(lr_hi, initial_trial_params["training.lr"])
-        )
+        # Only the keys that are actually part of OPTUNA_RANGES today -- config
+        # sections may still contain now-unsearched leftovers (e.g. dataset.num_walks,
+        # training.epochs); those are simply not picked up here.
+        candidate_params = {
+            "training.lr": _pick("training.lr", t_ip.get("lr")),
+            "training.weight_decay": _pick("training.weight_decay", t_ip.get("weight_decay")),
+            "training.gradient_clip_val": _pick(
+                "training.gradient_clip_val", t_ip.get("gradient_clip_val")
+            ),
+            "training.early_stopping_patience": _pick(
+                "training.early_stopping_patience", t_ip.get("early_stopping_patience")
+            ),
+            "model.nhead": initial_nhead,
+            "model.head_dim": initial_head_dim,
+            "model.hidden_dim": _pick("model.hidden_dim", m_ip.get("hidden_dim")),
+            "model.nlayers": _pick("model.nlayers", m_ip.get("nlayers")),
+            "model.dropout": _pick("model.dropout", m_ip.get("dropout")),
+            "model.node_replace_prob": _pick(
+                "model.node_replace_prob", m_ip.get("node_replace_prob", 0.2)
+            ),
+            "model.node_replace_unk_ratio": _pick(
+                "model.node_replace_unk_ratio", m_ip.get("node_replace_unk_ratio", 0.7)
+            ),
+        }
 
-        wd_lo, wd_hi = OPTUNA_RANGES.get("training.weight_decay", (1e-5, 1e-1))
-        initial_trial_params["training.weight_decay"] = max(
-            wd_lo, min(wd_hi, initial_trial_params["training.weight_decay"])
-        )
+        initial_trial_params = {}
+        for name, raw_value in candidate_params.items():
+            if raw_value is None:
+                continue
+            try:
+                spec = OPTUNA_RANGES[name]
+                value = float(raw_value) if spec["type"] == "float" else int(raw_value)
+                initial_trial_params[name] = _clamp_to_range(name, value)
+            except Exception as e:
+                print(f"  ⚠️  Could not prepare initial value for {name}: {e}")
 
-        gc_lo, gc_hi = OPTUNA_RANGES.get("training.gradient_clip_val", (0.5, 2.0))
-        initial_trial_params["training.gradient_clip_val"] = max(
-            gc_lo, min(gc_hi, initial_trial_params["training.gradient_clip_val"])
-        )
-
-        ep_lo, ep_hi = OPTUNA_RANGES.get("training.early_stopping_patience", (3, 10))
-        initial_trial_params["training.early_stopping_patience"] = max(
-            ep_lo, min(ep_hi, initial_trial_params["training.early_stopping_patience"])
-        )
-
-        nl_lo, nl_hi = OPTUNA_RANGES.get("model.nlayers", (1, 4))
-        initial_trial_params["model.nlayers"] = max(
-            nl_lo, min(nl_hi, initial_trial_params["model.nlayers"])
-        )
-
-        dr_lo, dr_hi = OPTUNA_RANGES.get("model.dropout", (0.2, 0.7))
-        initial_trial_params["model.dropout"] = max(
-            dr_lo, min(dr_hi, initial_trial_params["model.dropout"])
-        )
-
-        # Clamp categorical parameters to valid choices
-        valid_nhead = OPTUNA_RANGES.get("model.nhead", [2, 4, 8])
-        if initial_trial_params["model.nhead"] not in valid_nhead:
-            initial_trial_params["model.nhead"] = valid_nhead[0]
-
-        valid_emb_dim = OPTUNA_RANGES.get("model.embedding_dim", [16, 32, 64])
-        if initial_trial_params["model.embedding_dim"] not in valid_emb_dim:
-            initial_trial_params["model.embedding_dim"] = valid_emb_dim[0]
-
-        valid_hid_dim = OPTUNA_RANGES.get("model.hidden_dim", [16, 32, 64, 128])
-        if initial_trial_params["model.hidden_dim"] not in valid_hid_dim:
-            initial_trial_params["model.hidden_dim"] = valid_hid_dim[0]
-
-        try:
-            # Validate that initial params are within OPTUNA_RANGES before enqueuing
-            lr_lo, lr_hi = OPTUNA_RANGES.get("training.lr", (1e-5, 1e-3))
-            if not (lr_lo <= initial_trial_params["training.lr"] <= lr_hi):
+        if initial_trial_params:
+            try:
+                study.enqueue_trial(initial_trial_params)
                 print(
-                    f"  ⚠️  Initial LR {initial_trial_params['training.lr']:.2e} out of range [{lr_lo:.2e}, {lr_hi:.2e}] - skipping enqueue"
+                    f"🔁 Enqueued initial seed trial from config.optuna.initial_params: "
+                    f"{initial_trial_params}"
                 )
-                raise ValueError("Initial LR out of range")
-
-            ep_lo, ep_hi = OPTUNA_RANGES.get(
-                "training.early_stopping_patience", (3, 10)
-            )
-            if not (
-                ep_lo
-                <= initial_trial_params["training.early_stopping_patience"]
-                <= ep_hi
-            ):
-                print(
-                    f"  ⚠️  Initial patience {initial_trial_params['training.early_stopping_patience']} out of range [{ep_lo}, {ep_hi}] - skipping enqueue"
-                )
-                raise ValueError("Initial patience out of range")
-
-            nl_lo, nl_hi = OPTUNA_RANGES.get("model.nlayers", (1, 4))
-            if not (nl_lo <= initial_trial_params["model.nlayers"] <= nl_hi):
-                print(
-                    f"  ⚠️  Initial nlayers {initial_trial_params['model.nlayers']} out of range [{nl_lo}, {nl_hi}] - skipping enqueue"
-                )
-                raise ValueError("Initial nlayers out of range")
-
-            dr_lo, dr_hi = OPTUNA_RANGES.get("model.dropout", (0.2, 0.7))
-            if not (dr_lo <= initial_trial_params["model.dropout"] <= dr_hi):
-                print(
-                    f"  ⚠️  Initial dropout {initial_trial_params['model.dropout']:.4f} out of range [{dr_lo}, {dr_hi}] - skipping enqueue"
-                )
-                raise ValueError("Initial dropout out of range")
-
-            # All checks passed, enqueue the trial
-            study.enqueue_trial(initial_trial_params)
-            print("🔁 Enqueued initial seed trial from config.optuna.initial_params")
-        except ValueError:
-            print(
-                "⚠️  Skipping initial params - they are outside the new anti-overfitting ranges"
-            )
-        except Exception as e:
-            print("⚠️ Could not enqueue seed trial:", e)
+            except Exception as e:
+                print("⚠️ Could not enqueue seed trial:", e)
 
     # ---- Add callback to cleanup after every 5 trials ----
     def cleanup_callback(study, trial):
@@ -733,20 +689,21 @@ def main():
                 study.stop()
 
     # ---- Pre-load data module once to avoid reloading .pt cache for every trial ----
-    # This is critical: torch.load() on a 46GB .pt file takes ~242s per trial if not cached
-    # Loading once here and reusing across all trials saves ~7,260s (2+ hours) for 30 trials
-    # ALSO: Capture the config AFTER prepare_data() since it modifies cfg (e.g., sets pad_id)
+    # This is critical: torch.load() on a large .pt file takes tens-to-hundreds of
+    # seconds per trial if not cached. Loading once here and reusing across all trials
+    # saves that cost for every subsequent trial.
+    # ALSO: Capture the config AFTER prepare_data() since it modifies cfg (e.g., sets pad_id).
+    # Walk params (strategy/num_walks/max_walk_length) are NOT forced here -- they come
+    # from the loaded dataset config, so the shared cache matches each dataset's actual
+    # production walk budget instead of a hard-coded one.
     print("\n🔄 Pre-loading dataset (shared across all trials)...")
     data_preload_start = time.time()
     shared_data_module = None
     shared_post_prepare_cfg = None
     try:
-        # Set cache config for pre-loading
         base_cfg_preload = copy.deepcopy(base_cfg)
         base_cfg_preload.preprocess.use_cache = True
         base_cfg_preload.preprocess.save = True
-        base_cfg_preload.dataset.max_walk_length = 80
-        base_cfg_preload.dataset.num_walks = 5000000
         base_cfg_preload.training.num_workers = 0
         base_cfg_preload.training.persistent_workers = False
 
@@ -767,6 +724,7 @@ def main():
     objective = objective_factory(
         base_cfg,
         args.device,
+        local_attention_window,
         enable_pruning=True,
         shared_data_module=shared_data_module,
         shared_post_prepare_cfg=shared_post_prepare_cfg,
@@ -798,8 +756,12 @@ def main():
 
     print(f"Best trial: #{study.best_trial.number}")
     print(f"Best validation AUC: {study.best_value:.6f}")
-    print(f"\n💡 Note: Walk parameters were FIXED (not tuned):")
-    print(f"   max_walk_length = 80, num_walks = 5,000,000, batch_size = 1024")
+    print(f"\n💡 Note: not searched, fixed at this run's config value:")
+    print(
+        f"   walk_strategy={base_cfg.dataset.walk_strategy}, num_walks={base_cfg.dataset.num_walks:,}, "
+        f"batch_size={base_cfg.training.batch_size}, epochs={base_cfg.training.epochs}, "
+        f"local_attention_window={local_attention_window}"
+    )
     print("\n📋 Best hyperparameters:")
 
     # Group parameters by category for better readability
@@ -816,33 +778,41 @@ def main():
             print(f"  {key}: {params[key]}")
 
     # ---- Save best config ----
-    # Save best config inside the experiment optuna directory
+    # Save best config inside the experiment optuna directory.
+    # dataset.* is deliberately NOT included -- nothing there was searched; merge this
+    # file's training/model sections on top of the same configs/<dataset>.yaml used for
+    # this run to reproduce.
     out_yaml = os.path.join(
         resolved.get("optuna_dir", "."),
         f"best_params_optuna_{base_cfg.training.exp_name}.yaml",
     )
+    best_nhead = params.get("model.nhead")
+    best_head_dim = params.get("model.head_dim")
+    best_embedding_dim = (
+        best_nhead * best_head_dim if (best_nhead and best_head_dim) else None
+    )
     best_cfg = {
-        # FIXED parameters (not tuned, but included for completeness)
-        "dataset": {
-            "max_walk_length": 80,  # FIXED
-            "num_walks": 5000000,  # FIXED
-        },
         "training": {
             "lr": params.get("training.lr"),
             "weight_decay": params.get("training.weight_decay"),
-            "batch_size": 1024,  # FIXED
             "gradient_clip_val": params.get("training.gradient_clip_val"),
             "early_stopping_patience": params.get("training.early_stopping_patience"),
-            "epochs": params.get("training.epochs"),
+            # FIXED (not searched) at this run's config value:
+            "batch_size": base_cfg.training.batch_size,
+            "epochs": base_cfg.training.epochs,
             # include the seed used for the best trial if available
             "seed": getattr(study.best_trial, "user_attrs", {}).get("seed", None),
         },
         "model": {
-            "embedding_dim": params.get("model.embedding_dim"),
+            "embedding_dim": best_embedding_dim,
             "hidden_dim": params.get("model.hidden_dim"),
-            "nhead": params.get("model.nhead"),
+            "nhead": best_nhead,
             "nlayers": params.get("model.nlayers"),
             "dropout": params.get("model.dropout"),
+            "node_replace_prob": params.get("model.node_replace_prob"),
+            "node_replace_unk_ratio": params.get("model.node_replace_unk_ratio"),
+            # FIXED (not searched) at this run's value:
+            "local_attention_window": local_attention_window,
         },
     }
 

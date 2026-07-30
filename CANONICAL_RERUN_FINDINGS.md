@@ -138,7 +138,29 @@ GINEConv improves; epinions `in`: walk −0.104, GINEConv +0.072 — opposite
 directions). The original note that "the clean differential survives only on
 epinions" for Lead 4b still stands.
 
-**Why `in_in` and `out_in` disagree (a real interpretive wrinkle, not just noise).**
+**RESOLVED 2026-06-29 by Lead 4c — atomic decomposition (consolidated writeup:
+[`LEAD4_ENTROPY_REPORT.md`](LEAD4_ENTROPY_REPORT.md); equations `LEAD4C_EQUATIONS.md`;
+outputs `outputs/lead4c_entropy_logit_regression/`, zip `lead4c_atomic_outputs.zip`).**
+Entering all **6 atomic directional entropies** (`src_out, src_in, tgt_out, tgt_in,
+twohop_in, twohop_out`) in ONE cluster-robust logistic regression dissolves the 12-combo
+ambiguity (the combos are overlapping pairings of these 6 atoms). The result is a
+**source/target directional asymmetry**, NOT a clean "GNNs worse with entropy":
+
+- **`tgt_in`** (contested target reputation — others' signs into v): GNNs hurt MORE than
+  the walk (pooled β walk ≈ −1.9 vs GNN ≈ −3.0; gap negative on 100 % of datasets,
+  sign-test p = 0.031). *This is the `in_in`/`out_in` bucket result, correctly localized.*
+- **`src_out`** (inconsistent rater — u's outgoing signs): the **largest** entropy effect
+  of all, and here the **WALK is hurt more** (β walk ≈ −2.7 vs GINEConv ≈ −1.3).
+- `tgt_out`, `src_in` ≈ null; 2-hop terms negligible (`twohop_out` slightly positive for GNNs).
+
+**Correction to the v1 Lead 4c claim:** "the source term `b_src` is weak/non-significant
+everywhere" was an artifact of reading only the `in_in`/`out_in` headline combos (source =
+in-edges, ≈0). `src_out` is in fact the single strongest entropy effect — it was always
+present (and significant) in the old marginal3 `out_*`/`inout` combos too. A count-pooled
+composite (one node-β + one path-β) is provided as a compact companion, but pooling
+cancels this asymmetry — read it with the atomic forest, not alone.
+
+**Why `in_in` and `out_in` disagree (the original framing, now superseded above).**
 `out_in` is the causally motivated variant for predicting `sign(u→v)`: u's own
 tendency to extend positive/negative links, v's own tendency to receive them — the
 two quantities structural-balance theory would actually invoke. `in_in` swaps in

@@ -34,10 +34,10 @@ def train_model(cfg, data_module):
         save_last=True,
     )
 
-    # TODO: add non-zero min_delta
     early_stopping = EarlyStopping(
         monitor="val_auc_epoch",
         patience=cfg.training.early_stopping_patience,
+        min_delta=float(getattr(cfg.training, "early_stopping_min_delta", 0.0)),
         verbose=True,
         mode="max",
     )

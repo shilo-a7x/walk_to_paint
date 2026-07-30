@@ -12,6 +12,7 @@ Entry point
 Dispatches to the chosen strategy via cfg.dataset.walk_strategy.
 """
 
+import hashlib
 import heapq
 import math
 import multiprocessing as mp
@@ -564,16 +565,7 @@ def neg_traversal_walks(
     """
     nodes, nbrs, lbls = _build_adj(edges)
     # Also build reverse adjacency for backward prefix
-    rev_nbrs = defaultdict(list)
-    rev_lbls_map = defaultdict(list)
-    for u, v, label in edges:
-        rev_nbrs[v].append(u)
-        rev_lbls_map[v].append(int(label))
-    rev_nbrs_arr = {}
-    rev_lbls_arr = {}
-    for n in rev_nbrs:
-        rev_nbrs_arr[n] = np.array(rev_nbrs[n], dtype=np.int64)
-        rev_lbls_arr[n] = np.array(rev_lbls_map[n], dtype=np.int64)
+    rev_nbrs_arr, rev_lbls_arr = _build_rev_adj(edges)
 
     if not nodes:
         return []
@@ -997,6 +989,44 @@ def k_cover_walks(
 # Strategy k_cover (FAST) — parallel, same throughput pattern as uniform/guaranteed
 # ---------------------------------------------------------------------------
 
+def _build_rev_adj(edges):
+    """Reverse (transpose-graph) adjacency: rev_nbrs[v] = predecessors u of v
+    (i.e. edges u->v), rev_lbls[v] = the matching edge labels. Same dict-of-arrays
+    shape as _build_adj's (nbrs, lbls), just transposed — dict-based so sparse /
+    ~1e9 node ids never allocate max_id-sized arrays.
+
+    Factored out of neg_traversal_walks (previously inlined there) for reuse by
+    k_cover_walks_bp's backward-prefix anchors.
+    """
+    rev_nbrs = defaultdict(list)
+    rev_lbls_map = defaultdict(list)
+    for u, v, label in edges:
+        rev_nbrs[v].append(u)
+        rev_lbls_map[v].append(int(label))
+    rev_nbrs_arr = {}
+    rev_lbls_arr = {}
+    for n in rev_nbrs:
+        rev_nbrs_arr[n] = np.array(rev_nbrs[n], dtype=np.int64)
+        rev_lbls_arr[n] = np.array(rev_lbls_map[n], dtype=np.int64)
+    return rev_nbrs_arr, rev_lbls_arr
+
+
+def _build_rev_adj_with_eids(edges, edge_index, rev_nbrs, rev_lbls):
+    """Like _build_adj_with_eids but transposed: for each node v, rev_eids[v][i] is
+    the edge_index id of the edge (rev_nbrs[v][i] -> v, rev_lbls[v][i]), aligned
+    to rev_nbrs[v]/rev_lbls[v] so a backward step can credit visit_count in O(1)
+    array indexing instead of a per-step dict lookup (mirrors the forward `eids`
+    array built by _build_adj_with_eids)."""
+    rev_eids = {}
+    for v in rev_nbrs:
+        us, ls = rev_nbrs[v], rev_lbls[v]
+        arr = np.empty(len(us), dtype=np.int64)
+        for i in range(len(us)):
+            arr[i] = edge_index.get((int(us[i]), int(v), int(ls[i])), -1)
+        rev_eids[v] = arr
+    return rev_eids
+
+
 def _build_adj_with_eids(edges, edge_index):
     """Like _build_adj but also returns, per node, the edge_index id aligned to its
     neighbour array (so a worker can credit visits with O(1) array indexing instead
@@ -1117,12 +1147,561 @@ def k_cover_walks_fast(edges, num_walks, max_walk_length, seed, num_workers, k=1
 
 
 # ---------------------------------------------------------------------------
+# Strategy k_cover_bp — k_cover with backward-prefix anchors (fixes anchor
+# duplication) + honest distinct-context telemetry. Opt-in, does not modify
+# k_cover_walks_fast. See ~/.claude/plans/plan-a-fix-for-glimmering-panda.md.
+# ---------------------------------------------------------------------------
+
+def _kcover_anchor_chunk_bp(
+    nbrs, lbls, eids, rev_nbrs, rev_lbls, rev_eids, m,
+    anchor_edges,  # list of (u, v, label, eid, attempt_number, capped, seen_hashes)
+    max_walk_length, prefix_step, max_dedup_retries, base_seed, task_id,
+):
+    """Worker: one anchor walk per (edge, attempt).
+
+    attempt_number == 1 (this edge's first-ever direct anchor): prefix_len=0,
+    byte-identical to _kcover_anchor_chunk's plain anchor — no duplication risk
+    exists yet (nothing to compare against), so no prefix/retry cost is paid.
+
+    attempt_number >= 2 and not capped: draws a random-length backward prefix from
+    `u` via the reverse adjacency (prepended, so it reads as a genuine forward
+    directed path into u — never a reversed/synthetic walk), then the forced
+    u->v step, then the forward suffix exactly as before. The full token sequence
+    is hashed (blake2b) and compared against `seen_hashes` (this edge's own prior
+    direct-anchor hashes, supplied by the driver); on a collision, redraws (fresh
+    prefix length + fresh RNG state) up to `max_dedup_retries` times.
+
+    capped edges (topologically incapable of variance in either direction — see
+    k_cover_walks_bp) always take the single plain-anchor path: no prefix, no
+    retries, since both are provably futile for them.
+    """
+    rng = np.random.default_rng(base_seed + task_id)
+    walks = []
+    local_vc = np.zeros(m, dtype=np.int64)
+    telemetry = []  # (eid, hash_bytes, capped, dup_after_retries)
+    max_prefix_cap = max_walk_length // 3
+
+    for (u, v, label, eid, attempt_number, capped, seen_hashes) in anchor_edges:
+        use_prefix = (not capped) and attempt_number > 1
+        n_tries = (1 + max_dedup_retries) if use_prefix else 1
+        seen = set(seen_hashes) if use_prefix else ()
+
+        success = False
+        toks, vc_delta, h = None, [], None
+        for try_i in range(n_tries):
+            vc_delta = []
+            prefix_tokens = []
+            if use_prefix:
+                cap_here = min(attempt_number * prefix_step, max_prefix_cap)
+                prefix_len = int(rng.integers(1, cap_here + 1)) if cap_here >= 1 else 0
+            else:
+                prefix_len = 0
+
+            curr = u
+            for _ in range(prefix_len):
+                rn = rev_nbrs.get(curr)
+                if rn is None or len(rn) == 0:
+                    break
+                i = int(rng.integers(0, len(rn)))
+                prev = int(rn[i])
+                lbl = int(rev_lbls[curr][i])
+                prefix_tokens = [f"N_{prev}", f"E_{lbl}"] + prefix_tokens
+                e2 = int(rev_eids[curr][i])
+                if e2 >= 0:
+                    vc_delta.append(e2)
+                curr = prev
+
+            toks = prefix_tokens + [f"N_{u}", f"E_{label}", f"N_{v}"]
+            vc_delta.append(eid)
+            curr2 = v
+            # Reserve prefix_len hops from the total hop budget so prefix+forced-edge+
+            # suffix can never exceed max_walk_length hops (161 tokens) combined — the
+            # bug this fixes: with a fixed `max_walk_length - 1` here regardless of
+            # prefix_len, a walk with a real backward prefix could exceed the model's
+            # fixed sequence-length cap and crash at train time (caught by an actual
+            # k=3/5/7 training run: "size of tensor a (163) must match ... (161)").
+            # Uses the BUDGETED prefix_len, not the possibly-smaller actual hops taken
+            # (mirrors neg_traversal_walks' `remaining = max_walk_length - prefix_len -
+            # 1`) — safe even if the backward walk terminates early; just leaves a few
+            # hops of suffix budget unused in that case, never over budget.
+            for _ in range(max_walk_length - 1 - prefix_len):
+                neigh = nbrs.get(curr2)
+                if neigh is None or len(neigh) == 0:
+                    break
+                i = int(rng.integers(0, len(neigh)))
+                nxt = int(neigh[i])
+                lbl = int(lbls[curr2][i])
+                toks.append(f"E_{lbl}")
+                toks.append(f"N_{nxt}")
+                e3 = int(eids[curr2][i])
+                if e3 >= 0:
+                    vc_delta.append(e3)
+                curr2 = nxt
+
+            h = hashlib.blake2b("|".join(toks).encode(), digest_size=8).digest()
+            if not use_prefix or h not in seen:
+                success = True
+                break
+
+        dup_after_retries = use_prefix and not success
+        for e2 in vc_delta:
+            local_vc[e2] += 1
+        walks.append(toks)
+        telemetry.append((eid, h, bool(capped), bool(dup_after_retries)))
+
+    return task_id, walks, local_vc, telemetry
+
+
+def _fill_chunk_dedup(
+    nbrs, lbls, rev_nbrs, rev_lbls, node_arr, max_walk_length, prefix_cap,
+    base_seed, task_id, start_idx, end_idx,
+):
+    """Worker: generate free-start candidate walks for the fill phase.
+
+    Unlike anchors (forced start, forced first edge), a fill walk's start node is
+    free — so, unlike the anchor's attempt-1, EVERY fill candidate draws a random
+    backward prefix from the start (0..prefix_cap hops) before continuing forward,
+    diversifying exactly the mechanism that produced most of the residual corpus-
+    wide duplication (see plan-a-fix-for-glimmering-panda.md): at these budgets a
+    given start node gets resampled many times, and without a prefix, any node whose
+    forward path is short/deterministic (e.g. one hop to a dead end) produces the
+    same walk every single time it's picked. Dedup against already-accepted walks
+    happens in the driver (k_cover_walks_bp), not here — this worker just proposes
+    candidates and returns their hashes alongside.
+    """
+    rng = np.random.default_rng(base_seed + task_id)
+    walks = []
+    hashes = []
+    for _ in range(start_idx, end_idx):
+        start = int(node_arr[rng.integers(0, len(node_arr))])
+        prefix_len = int(rng.integers(0, prefix_cap + 1)) if prefix_cap > 0 else 0
+
+        prefix_tokens = []
+        curr = start
+        for _ in range(prefix_len):
+            rn = rev_nbrs.get(curr)
+            if rn is None or len(rn) == 0:
+                break
+            i = int(rng.integers(0, len(rn)))
+            prev = int(rn[i])
+            lbl = int(rev_lbls[curr][i])
+            prefix_tokens = [f"N_{prev}", f"E_{lbl}"] + prefix_tokens
+            curr = prev
+        actual_prefix_hops = (len(prefix_tokens)) // 2
+
+        toks = prefix_tokens + [f"N_{start}"]
+        curr2 = start
+        for _ in range(max_walk_length - actual_prefix_hops):
+            neigh = nbrs.get(curr2)
+            if neigh is None or len(neigh) == 0:
+                break
+            i = int(rng.integers(0, len(neigh)))
+            nxt = int(neigh[i])
+            lbl = int(lbls[curr2][i])
+            toks.append(f"E_{lbl}")
+            toks.append(f"N_{nxt}")
+            curr2 = nxt
+
+        h = hashlib.blake2b("|".join(toks).encode(), digest_size=8).digest()
+        walks.append(toks)
+        hashes.append(h)
+    return walks, hashes
+
+
+def _generate_dedup_fill(
+    nbrs, lbls, rev_nbrs, rev_lbls, max_walk_length, num_workers,
+    n_needed, seen_hashes, base_seed, max_rounds=10, oversample=1.5,
+):
+    """Fill `n_needed` walks that are new relative to `seen_hashes` (mutated in
+    place — accepted hashes are added as they're accepted, so anchor-phase hashes
+    passed in are respected and duplicates within this fill phase are too).
+
+    Strategy: generate candidates in oversampled parallel rounds (more candidates
+    than currently needed, since a real fraction will collide), keep only the new
+    ones, repeat for the shortfall. Oversample escalates (doubles) after any round
+    that accepts nothing, so a slow-but-real trickle of new walks gets more search
+    effort before being written off. **Hard guarantee, not best-effort**: if
+    `max_rounds` is exhausted with a shortfall still remaining, this means the
+    graph genuinely does not have `n_needed` additional distinct walks at this
+    max_walk_length below the requested budget — raises RuntimeError rather than
+    silently padding with duplicates (2026-07-17: the prior silent-duplicate
+    top-up was the one remaining gap in the "N distinct walks, no matter what"
+    guarantee — near-certain in practice but not actually airtight; see
+    plan-a-fix-for-glimmering-panda.md). Callers that want a softer degrade
+    (fewer walks, not a crash) must handle this explicitly — there is no silent
+    partial-success path.
+    """
+    node_arr = np.array(list(nbrs.keys()), dtype=np.int64)
+    prefix_cap = max_walk_length // 3
+    accepted_walks = []
+    n_candidates_generated = 0
+    remaining = n_needed
+    round_i = 0
+    cur_oversample = oversample
+
+    while remaining > 0 and round_i < max_rounds:
+        gen_n = max(int(remaining * cur_oversample), remaining)
+        tasks = _chunk_tasks(gen_n, num_workers)
+        worker = partial(
+            _fill_chunk_dedup, nbrs, lbls, rev_nbrs, rev_lbls, node_arr,
+            max_walk_length, prefix_cap,
+        )
+        round_seed = base_seed + 555_555_555 + round_i * 1_000_000
+        if len(tasks) == 1:
+            w, h = worker(round_seed, 0, tasks[0][0], tasks[0][1])
+            batches = [(w, h)]
+        else:
+            with mp.Pool(processes=len(tasks)) as pool:
+                results = pool.starmap(
+                    worker,
+                    [(round_seed, tasks[i][2], tasks[i][0], tasks[i][1])
+                     for i in range(len(tasks))],
+                )
+            batches = [(w, h) for w, h in results]
+
+        accepted_before_round = len(accepted_walks)
+        for w, h in batches:
+            n_candidates_generated += len(w)
+            for walk, hh in zip(w, h):
+                if remaining <= 0:
+                    break
+                if hh in seen_hashes:
+                    continue
+                seen_hashes.add(hh)
+                accepted_walks.append(walk)
+                remaining -= 1
+
+        if len(accepted_walks) == accepted_before_round:
+            cur_oversample *= 2.0  # this round found nothing new -- search harder
+        round_i += 1
+
+    exhausted = remaining > 0
+    if exhausted:
+        raise RuntimeError(
+            f"_generate_dedup_fill: could not find {n_needed} additional distinct "
+            f"walks (found {n_needed - remaining}, short by {remaining}) after "
+            f"{round_i} rounds and {n_candidates_generated} candidates generated "
+            f"(max_walk_length={max_walk_length}). The graph does not have enough "
+            f"genuinely distinct walks left at this budget to honor the "
+            f"no-duplicates guarantee -- lower num_walks, raise max_walk_length, "
+            f"or accept duplicates via a different walk_strategy."
+        )
+
+    return accepted_walks, dict(
+        n_requested=n_needed, n_accepted=n_needed,
+        n_candidates_generated=n_candidates_generated, n_rounds_used=round_i,
+        exhausted=False, n_shortfall=0,
+    )
+
+
+def k_cover_walks_bp(
+    edges, num_walks, max_walk_length, seed, num_workers, k=5,
+    max_passes=None, max_dedup_retries=3, telemetry_out=None,
+):
+    """k_cover with backward-prefix anchors: every edge still gets >= k visits
+    (same coverage/saturation guarantee as k_cover_walks_fast), but a repeat direct
+    anchor of the same edge draws a genuinely different backward prefix instead of
+    repeating the same empty-prefix walk — fixes the measured anchor-duplication bug
+    (see plan-a-fix-for-glimmering-panda.md Context) without touching
+    k_cover_walks_fast at all (separate opt-in strategy, walk_strategy=k_cover_bp).
+
+    Edges where in-degree(u)==0 AND out-degree(v)==0 ("capped") are topologically
+    incapable of any variance in either direction — detected once up front so no
+    budget is wasted chasing an impossible diversification; their repeated
+    single-edge anchor is expected and reported honestly via telemetry, not treated
+    as a bug.
+
+    If telemetry_out is not None (dict), filled in place with telemetry_out["per_edge"]
+    = {(u,v,label): {raw_visits, direct_attempts, distinct_hashes, capped,
+    dup_after_retries}} — keyed by the edge tuple itself, not a positional array,
+    since this function's internal compact eid numbering does not match
+    prepare_data.py's edge_to_id for multiedge_handling=keep datasets (see the
+    comment at the assignment site) — plus telemetry_out["summary"].
+    """
+    edge_index = _build_edge_index(edges)
+    if not edge_index:
+        return []
+    nodes, nbrs, lbls, eids = _build_adj_with_eids(edges, edge_index)
+    if not nodes:
+        return []
+    rev_nbrs, rev_lbls = _build_rev_adj(edges)
+    rev_eids = _build_rev_adj_with_eids(edges, edge_index, rev_nbrs, rev_lbls)
+
+    m = len(edge_index)
+    if num_walks < m:
+        print(f"WARNING: k_cover_bp num_walks={num_walks} < |E|={m}; coverage/saturation "
+              f"will be incomplete and may underperform uniform. Increase num_walks.")
+    uniq_edges = list(edge_index.keys())  # index i -> (u, v, label) with eid == i
+
+    # capped[i]: in-degree(u)==0 AND out-degree(v)==0 -> zero walk variance possible
+    # in EITHER direction, ever. Computed once; never worth spending prefix/retry
+    # budget diversifying these.
+    capped = np.zeros(m, dtype=bool)
+    for i, (u, v, _label) in enumerate(uniq_edges):
+        in_deg_u = len(rev_nbrs.get(u, ()))
+        out_deg_v = len(nbrs.get(v, ()))
+        capped[i] = (in_deg_u == 0) and (out_deg_v == 0)
+
+    # Prefix grows with attempt number, capped at max_walk_length//3 (mirrors
+    # neg_traversal_walks' prefix_len), scaled so it actually reaches the cap by
+    # the k-th attempt rather than crawling there.
+    prefix_step = max(1, (max_walk_length // 3) // max(int(k), 1))
+
+    visit_count = np.zeros(m, dtype=np.int64)
+    direct_attempt_count = np.zeros(m, dtype=np.int64)
+    edge_hashes = defaultdict(list)  # eid -> list of prior direct-anchor hash bytes
+    dup_after_retries_any = np.zeros(m, dtype=bool)
+
+    base_seed = int(seed)
+    order_rng = np.random.default_rng(base_seed + 777_777_777)
+    if max_passes is None:
+        max_passes = int(k) + 5
+
+    walks = []
+    for p in range(max_passes):
+        if len(walks) >= num_walks:
+            break
+        need = np.nonzero(visit_count < k)[0]
+        if need.size == 0:
+            break
+        budget_left = num_walks - len(walks)
+        order_rng.shuffle(need)
+        if need.size > budget_left:
+            need = need[:budget_left]
+
+        anchors = []
+        for i in need:
+            i = int(i)
+            u, v, label = uniq_edges[i]
+            attempt_number = int(direct_attempt_count[i]) + 1
+            anchors.append((u, v, label, i, attempt_number, bool(capped[i]),
+                             list(edge_hashes[i])))
+
+        tasks = _chunk_tasks(len(anchors), num_workers)
+        chunks = [anchors[s:e] for s, e, _ in tasks]
+        worker = partial(
+            _kcover_anchor_chunk_bp,
+            nbrs, lbls, eids, rev_nbrs, rev_lbls, rev_eids, m,
+        )
+        pass_seed = base_seed + 10_000_000 * (p + 1)
+        if len(tasks) == 1:
+            _, w, vc, tel = worker(
+                chunks[0], max_walk_length, prefix_step, max_dedup_retries,
+                pass_seed, 0,
+            )
+            walks.extend(w)
+            visit_count += vc
+            all_tel = tel
+        else:
+            with mp.Pool(processes=len(tasks)) as pool:
+                results = pool.starmap(
+                    worker,
+                    [(chunks[i], max_walk_length, prefix_step, max_dedup_retries,
+                      pass_seed, tasks[i][2]) for i in range(len(tasks))],
+                )
+            results.sort(key=lambda r: r[0])
+            all_tel = []
+            for _, w, vc, tel in results:
+                walks.extend(w)
+                visit_count += vc
+                all_tel.extend(tel)
+
+        for eid, h, _cap, dup in all_tel:
+            direct_attempt_count[eid] += 1
+            edge_hashes[eid].append(h)
+            if dup:
+                dup_after_retries_any[eid] = True
+
+    # Fill phase: genuinely deduplicated, not plain uniform sampling. At production
+    # budgets (num_walks >> |V|), plain uniform fill resamples the same start nodes
+    # many times over — for a node whose forward path is short/deterministic (one
+    # hop to a dead end, no branching), every resample is a byte-identical repeat.
+    # This was the DOMINANT remaining source of corpus-wide duplication even after
+    # the anchor-phase fix above (measured: anchor-phase dup_after_retries ~0%, but
+    # full-corpus duplicate rate still 5-31% — see plan-a-fix-for-glimmering-panda.md
+    # "still duplicates?" discussion). _generate_dedup_fill applies the same
+    # backward-prefix idea to free-start fill walks and actively avoids repeating
+    # any hash already used (anchor phase included, via `seen_hashes` below).
+    all_anchor_hashes = [h for hlist in edge_hashes.values() for h in hlist]
+    seen_hashes = set(all_anchor_hashes)
+    remaining = num_walks - len(walks)
+    fill_telemetry = dict(n_requested=0, n_accepted=0, n_candidates_generated=0,
+                           n_rounds_used=0, exhausted=False, n_shortfall=0)
+    if remaining > 0:
+        fill_walks, fill_telemetry = _generate_dedup_fill(
+            nbrs, lbls, rev_nbrs, rev_lbls, max_walk_length, num_workers,
+            remaining, seen_hashes, base_seed,
+        )
+        walks.extend(fill_walks)
+    walks = walks[:num_walks]
+
+    if telemetry_out is not None:
+        # Keyed by the (u,v,label) edge tuple itself, NOT this function's internal
+        # compact eid (0..m-1, first-occurrence-deduplicated) — that numbering does
+        # NOT match prepare_data.py's edge_to_id (enumerate(edges), last-occurrence-
+        # wins), which is what flat_edge_ids in the saved cache actually uses. The
+        # two schemes only coincide when `edges` has no duplicate (u,v,label) rows;
+        # they diverge for multiedge_handling=keep datasets (epinions,
+        # slashdot090221), where a positional array here would have silently
+        # misaligned. Keying by the tuple sidesteps this — matches how edge_to_id/
+        # split_lookup/this function's own edge_index all already key edges.
+        per_edge = {}
+        for i, key in enumerate(uniq_edges):
+            per_edge[key] = dict(
+                raw_visits=int(visit_count[i]),
+                direct_attempts=int(direct_attempt_count[i]),
+                distinct_hashes=len(set(edge_hashes[i])),
+                capped=bool(capped[i]),
+                dup_after_retries=bool(dup_after_retries_any[i]),
+            )
+        telemetry_out["per_edge"] = per_edge
+        n_capped = int(capped.sum())
+        n_dup_after_retries = int(dup_after_retries_any.sum())
+        telemetry_out["summary"] = dict(
+            m=m,
+            n_capped=n_capped, capped_frac=(n_capped / m) if m else 0.0,
+            n_dup_after_retries=n_dup_after_retries,
+            dup_after_retries_frac=(n_dup_after_retries / m) if m else 0.0,
+            n_directly_attempted=int((direct_attempt_count > 0).sum()),
+        )
+        telemetry_out["fill"] = fill_telemetry
+
+        # Exact corpus-wide distinct-walk count — hash every emitted walk directly
+        # rather than reconstruct from partial bookkeeping, so this number is
+        # trustworthy regardless of how anchor/fill accounting was derived. This is
+        # the number that actually answers "how many distinct walks do I have."
+        corpus_hashes = [
+            hashlib.blake2b("|".join(w).encode(), digest_size=8).digest()
+            for w in walks
+        ]
+        n_distinct_total = len(set(corpus_hashes))
+        telemetry_out["corpus"] = dict(
+            n_walks_total=len(walks),
+            n_distinct_total=n_distinct_total,
+            dup_rate_total=(1.0 - n_distinct_total / len(walks)) if walks else 0.0,
+        )
+
+    return walks
+
+
+# ---------------------------------------------------------------------------
+# Strategy edge_cover — simplified successor to k_cover_bp once E24
+# (outputs/walk_coverage_analysis/E24_BP_SWEEP_RESULTS.md) confirmed k=1 is the
+# adopted value. Opt-in, does not modify k_cover_bp (still available for future
+# k>1 use). See ~/.claude/plans/plan-a-fix-for-glimmering-panda.md.
+# ---------------------------------------------------------------------------
+
+def edge_cover_walks(
+    edges, num_walks, max_walk_length, seed, num_workers, telemetry_out=None,
+):
+    """Guarantee every edge appears in exactly one forced anchor walk, then fill
+    the remaining budget with genuinely distinct walks. Exact N-distinct-walks
+    guarantee (hard-fails via `_generate_dedup_fill` if the graph structurally
+    cannot supply enough distinct walks at this max_walk_length — see that
+    function's docstring).
+
+    This is k_cover_bp with k fixed at 1, and rewritten to drop everything that
+    was only ever needed to diversify a SECOND-OR-LATER visit to the same edge:
+    at k=1 every edge gets exactly one direct anchor, so k_cover_bp's multi-pass
+    loop, attempt-number tracking, growing backward-prefix, hash-retry-on-
+    collision, and "capped edge" detection are all dead code that never
+    executes (attempt_number is always 1). What's left, and is genuinely
+    load-bearing, is exactly two mechanisms:
+
+    1. One forced anchor walk per edge (`[N_u, E_label, N_v]` + random forward
+       continuation, via the same `_kcover_anchor_chunk` worker k_cover_walks_fast
+       already uses). This is trivially, PROVABLY globally distinct across
+       edges with zero probabilistic element: each edge's anchor walk's first 3
+       tokens ARE that edge's unique `(u, label, v)` key, so no two anchor
+       walks can ever collide with each other — unlike k_cover_bp's k>1 case,
+       there's no same-edge-revisited-multiple-times scenario to diversify.
+    2. The shared dedup-fill phase (`_generate_dedup_fill`) for whatever budget
+       remains after every edge has its one anchor.
+
+    Leakage: none — identical topology-only construction to k_cover_bp/k_cover.
+    """
+    edge_index = _build_edge_index(edges)
+    if not edge_index:
+        return []
+    nodes, nbrs, lbls, eids = _build_adj_with_eids(edges, edge_index)
+    if not nodes:
+        return []
+    rev_nbrs, rev_lbls = _build_rev_adj(edges)
+
+    m = len(edge_index)
+    if num_walks < m:
+        print(f"WARNING: edge_cover num_walks={num_walks} < |E|={m}; coverage "
+              f"will be incomplete and may underperform uniform. Increase num_walks.")
+    uniq_edges = list(edge_index.keys())  # index i -> (u, v, label) with eid == i
+
+    base_seed = int(seed)
+    order_rng = np.random.default_rng(base_seed + 777_777_777)
+    order = np.arange(m, dtype=np.int64)
+    order_rng.shuffle(order)
+    n_anchor = min(num_walks, m)
+    anchor_edges = [
+        (uniq_edges[i][0], uniq_edges[i][1], uniq_edges[i][2], int(i))
+        for i in order[:n_anchor]
+    ]
+
+    tasks = _chunk_tasks(len(anchor_edges), num_workers)
+    chunks = [anchor_edges[s:e] for s, e, _ in tasks]
+    worker = partial(_kcover_anchor_chunk, nbrs, lbls, eids, m)
+    anchor_seed = base_seed + 10_000_000
+    if len(tasks) == 1:
+        _, walks, _vc = worker(chunks[0], max_walk_length, anchor_seed, 0)
+    else:
+        with mp.Pool(processes=len(tasks)) as pool:
+            results = pool.starmap(
+                worker,
+                [(chunks[i], max_walk_length, anchor_seed, tasks[i][2])
+                 for i in range(len(tasks))],
+            )
+        results.sort(key=lambda r: r[0])
+        walks = []
+        for _, w, _vc in results:
+            walks.extend(w)
+
+    seen_hashes = {
+        hashlib.blake2b("|".join(w).encode(), digest_size=8).digest() for w in walks
+    }
+
+    remaining = num_walks - len(walks)
+    fill_telemetry = dict(n_requested=0, n_accepted=0, n_candidates_generated=0,
+                           n_rounds_used=0, exhausted=False, n_shortfall=0)
+    if remaining > 0:
+        fill_walks, fill_telemetry = _generate_dedup_fill(
+            nbrs, lbls, rev_nbrs, rev_lbls, max_walk_length, num_workers,
+            remaining, seen_hashes, base_seed,
+        )
+        walks.extend(fill_walks)
+    walks = walks[:num_walks]
+
+    if telemetry_out is not None:
+        telemetry_out["summary"] = dict(m=m, n_anchor_walks=n_anchor)
+        telemetry_out["fill"] = fill_telemetry
+        corpus_hashes = [
+            hashlib.blake2b("|".join(w).encode(), digest_size=8).digest()
+            for w in walks
+        ]
+        n_distinct_total = len(set(corpus_hashes))
+        telemetry_out["corpus"] = dict(
+            n_walks_total=len(walks),
+            n_distinct_total=n_distinct_total,
+            dup_rate_total=(1.0 - n_distinct_total / len(walks)) if walks else 0.0,
+        )
+
+    return walks
+
+
+# ---------------------------------------------------------------------------
 # Main dispatch
 # ---------------------------------------------------------------------------
 
 def sample_walks(
     edges, cfg, seed, num_workers=1,
     train_set=None, mask_set=None, val_set=None, test_set=None,
+    telemetry_out=None,
 ):
     """Dispatch to the configured walk sampling strategy.
 
@@ -1135,6 +1714,9 @@ def sample_walks(
         mask_set:    set of (u,v,label) tuples for mask edges
         val_set:     set of (u,v,label) tuples for val edges (topology only)
         test_set:    set of (u,v,label) tuples for test edges (topology only)
+        telemetry_out: optional dict, filled in place with per-edge duplicate/
+                       coverage telemetry. Only populated by k_cover_bp; every
+                       other strategy ignores it (return contract unchanged).
 
     Returns:
         List of walk token lists.
@@ -1222,9 +1804,25 @@ def sample_walks(
             num_workers=num_workers, k=k,
         )
 
+    elif strategy == "k_cover_bp":
+        k = int(getattr(cfg.dataset, "walk_k_min", 1))
+        max_retries = int(getattr(cfg.dataset, "walk_dedup_max_retries", 3))
+        return k_cover_walks_bp(
+            edges, num_walks, max_walk_length, seed=seed,
+            num_workers=num_workers, k=k, max_dedup_retries=max_retries,
+            telemetry_out=telemetry_out,
+        )
+
+    elif strategy == "edge_cover":
+        return edge_cover_walks(
+            edges, num_walks, max_walk_length, seed=seed,
+            num_workers=num_workers, telemetry_out=telemetry_out,
+        )
+
     else:
         raise ValueError(
             f"Unknown walk_strategy={strategy!r}. "
             "Valid: uniform, guaranteed, neg_emphasis, inv_degree, node2vec, "
-            "edge_seeded, neg_traversal, set_cover, cov_restart, sign_alt, smart"
+            "edge_seeded, neg_traversal, set_cover, cov_restart, sign_alt, smart, "
+            "k_cover, k_cover_bp, edge_cover"
         )

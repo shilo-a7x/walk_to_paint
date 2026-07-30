@@ -11,7 +11,12 @@ dataset:
     remove_self_loops: true
     multiedge_handling: most_recent
     max_walk_length: 80
-    num_walks: 5000000
+    num_walks: 155534 # E26 edge_cover 1.5x|E| pick (flp 0.9036); beats old k_cover k=5 500k SOTA (flp 0.9016,
+                       # duplicated walks) at 31% of the walks -- over-saturation is real (confirmed under
+                       # genuine dedup: AUC peaks here then declines through 3x/5x/8x), not a duplication
+                       # artifact -- see outputs/walk_coverage_analysis/E26_WIKI_SWEEP_RESULTS.md
+    walk_strategy: edge_cover # E26 SOTA (was k_cover k=5); zero-duplication guarantee, no k concept -- see
+                               # outputs/walk_coverage_analysis/{E24_BP_SWEEP_RESULTS,E26_WIKI_SWEEP_RESULTS}.md
 
 model:
     embedding_dim: 64
@@ -32,7 +37,7 @@ optuna:
     initial_params:
         dataset:
             max_walk_length: 80
-            num_walks: 5000000
+            num_walks: 155534
         training:
             lr: 0.0016135042002810406
             weight_decay: 2.9866739870000337e-05

@@ -1,0 +1,503 @@
+\documentclass{article}
+
+% NeurIPS 2026 submission (anonymous)
+\usepackage[main]{neurips_2026}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{graphicx}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{subcaption}
+\usepackage{booktabs}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{hyperref}  % load last for correct natbib + link patching
+
+\title{HELM: Hierarchy via Edge Learning and MST}
+
+\author{%
+  Shilo Avital \\
+  Department of Mathematics, Bar Ilan University, Ramat Gan, Israel \\
+  \texttt{shilo.avital@gmail.com}
+  \And
+  Yoram Louzoun\thanks{Corresponding author.} \\
+  Department of Mathematics, Bar Ilan University, Ramat Gan, Israel \\
+  \texttt{louzouy@math.biu.ac.il}
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+        We present HELM (Hierarchy via Edge Learning and MST), a novel algorithm that combines machine learning with minimum spanning tree optimization to extract hierarchical structures from relational data. While machine learning solutions exist for individual components of hierarchy inference, no unified algorithm fully constructs hierarchies as trees representing real-world structures. HELM operates in two stages: first, an ML model (gradient boosting or Graph Neural Network) trained on topological edge features predicts the probability that each edge participates in the true hierarchy. The model requires only a small subset of labeled edges (10\% in our experiments) or can transfer from similar graphs within the same family. Second, a directed Minimum Spanning Tree algorithm applied to negative-log-probabilities as edge weights recovers the complete hierarchical structure. We demonstrate HELM's effectiveness across three diverse applications: meme propagation networks (recovering influence hierarchies from sharing data), Wikipedia's category graph (generating ontological structures aligned with human curation), and microbial taxonomy (reconstructing phylogenetic relationships from co-expression networks). HELM achieves high accuracy in few-shot settings and generalizes effectively in zero-shot scenarios. Code: https://github.com/neurips20260503/HELM
+\end{abstract}
+
+    \section{Introduction}
+    Hierarchical structures pervade natural and social systems. From organizational charts and social influence networks to biological taxonomies and information propagation pathways, hierarchies provide fundamental organizing principles for understanding complex relational data. Despite their ubiquity, automatically recovering these hierarchical structures from observed network data remains challenging with broad practical implications.
+
+    Consider monitoring information spread in social networks. When content—whether legitimate news or misinformation—propagates through a network and is observed at a given time, can we reconstruct the spread pattern? The same question arises in disease contact tracing.
+
+    Similarly, in computational biology, understanding hierarchical relationships between microbial species through their co-occurrence patterns in microbiome samples can reveal evolutionary relationships and ecological dependencies. In knowledge representation, extracting ontologies from relations between concepts requires automatic hierarchy generation.
+
+    We formalize the hierarchy generation problem as a graph problem: given a directed or undirected graph, find a directed tree contained in the graph that represents the ``true'' hierarchy.
+
+    \subsection{Problem Formulation}
+    Formally, we address the following problem: Given a directed or undirected graph $G = (V, E)$ with vertices $V$ representing entities and edges $E$ representing observed relationships, we aim to recover a predefined, unobserved, directed tree $T = (V, \{he\})$, where $he\in E$ represents the ``true'' hierarchical relationships as defined in the appropriate domain. The tree $T$ must satisfy standard tree properties: it is connected, acyclic, and contains exactly $|V|-1$ edges. Additionally, all edges in $T$ are directed away from a single root vertex $r \in V$.
+
+    Hierarchy generation presents three main challenges (Fig.~\ref{fig:schematic-figure}): (1)~distinguishing hierarchical edges ($he$) from non-hierarchical ones ($nhe$); (2)~combining $he$ edges into a coherent directed tree; and (3)~determining the root and thus all edge directions when an undirected tree is generated.
+
+    We assume each graph $G$ belongs to a family of graphs $G \in \mathcal{F}$ with similar ground truth definitions (e.g., ontology, spread, taxonomy). We analyze three families: Wikipedia, meme spreading, and microbiome samples.
+    \section{Related Work}
+    Existing approaches to hierarchy detection address related but distinct tasks, none providing a complete solution to the full hierarchy recovery problem.
+
+    \textbf{Directed Acyclic Graphs (DAGs) and vertex ordering.} A substantial body of work addresses converting directed graphs into DAGs by ordering vertices. These methods typically assign each vertex a score $s(v)$ and retain only edges $(u,v)$ where $s(u) < s(v)$, ensuring acyclicity. Foundational spectral methods use eigenvectors of the graph Laplacian to order vertices according to their position in an implicit hierarchy \citep{fiedler1975property}. Other approaches focus on optimization-based methods that minimize the feedback arc set or the "agony" of hierarchy-violating edges \citep{gupte2011finding}. More recently, \citet{zhang2021neural} introduced neural approaches for learning vertex orderings through end-to-end differentiable models. \citet{muchnik2007self} focused on directed trees and the imbalance between incoming and outgoing edges. \citet{rosen2014directionality} also focused on directed graphs, minimizing the fraction of edges needing removal to obtain a DAG.
+
+    While these methods successfully create acyclic structures, they have two limitations for hierarchy recovery. First, they assume all or most edges should be preserved (possibly with direction reversal), making them unsuitable for graphs containing many non-hierarchical edges. Second, DAGs are more general than trees—a vertex can have multiple parents (vertices with zero in-degree), whereas true hierarchies typically exhibit a tree structure with a unique root.
+
+    \textbf{Origin of spread detection.} Given a graph and an observed diffusion process, such as epidemic spread or information propagation, source detection algorithms aim to identify the origin vertex (patient zero). \citet{shah2011rumors} developed maximum likelihood estimators based on the assumption that information spreads via shortest paths from the source. Extensions to multiple-source scenarios using community detection~\citep{zang2014discovering} and Bayesian approaches incorporating prior knowledge about likely source locations~\citep{ling2022source} have also been proposed. These methods address the related but narrower problem of root identification, focusing solely on identifying the starting point of diffusion without recovering the full hierarchical pathways through which information or infection spreads.
+
+    \textbf{Path of spread detection.} More closely related to our work are methods reconstructing the path from a source to a given target vertex. \citet{gomezrodriguez2011inferring} proposed algorithms identifying likely transmission chains in epidemic networks using contact tracing data. \citet{myers2014bursty} developed methods for reconstructing information diffusion cascades in social networks by analyzing temporal patterns of adoption. \citet{farajtabar2016back} combined network structure with timing information to infer most probable diffusion trees. While these approaches recover partial hierarchical structures, they require a known root vertex and often focus on paths to individual targets rather than the complete hierarchy. They typically require temporal information about when each vertex was reached, which may not be available in many applications. Furthermore, these methods focus on a single propagation event at a time, rather than learning a persistent hierarchical structure governing multiple propagation events.
+
+    \textbf{Phylogeny derivation.} In computational biology, phylogenetic methods reconstruct evolutionary trees from molecular sequences. Distance-based methods like UPGMA and Neighbor-Joining~\citep{saitou1987neighbor} build trees by iteratively joining closest pairs of taxa. Maximum likelihood~\citep{felsenstein1981evolutionary} and Bayesian approaches~\citep{huelsenbeck2001mrbayes} evaluate trees based on evolutionary models of sequence change. These methods are highly specialized for biological sequences and rely on domain-specific evolutionary models that do not generalize to other hierarchical structures in social or information networks.
+
+    \section{Contributions and Novelty}
+    To the best of our knowledge, no existing approach provides a complete solution for recovering full hierarchical trees from general graphs without requiring temporal information, known sources, or domain-specific vertex information. HELM fills this gap by combining machine learning-based edge classification with graph-theoretic tree construction, enabling automatic hierarchy recovery across diverse domains. HELM contains the following novel elements:
+
+    \textbf{Complete hierarchy extraction from graphs.} We formalize the full hierarchy extraction problem and provide the first end-to-end solution. Let $G = (V, E)$ be an undirected graph with $n$ vertices and $m$ edges. Our goal is to learn a function $f : E \rightarrow \{0, 1\}$ that classifies each edge $e \in E$ as hierarchical ($f(e) = 1$) or non-hierarchical ($f(e) = 0$), such that the set of hierarchical edges $E_{h}= \{e \in E : f(e) = 1\}$ forms a spanning tree of $G$. The challenge is that we cannot simply select the top $n - 1$ highest-scoring edges, as this may not form a connected tree. Instead, we solve $\min_{T \in \mathcal{T}}\sum_{e\in T}w(e)$ where $\mathcal{T}$ is the set of all directed spanning trees of $G$ and $w(e)$ is a weight function derived from edge classification scores that favors hierarchical edges.
+
+    \textbf{Topology-based classification.} In the absence of external information on vertices or edges, HELM classifies edges based on their topological structure and the topological structure of their source and target vertices.
+
+    \textbf{Few-shot and zero-shot learning.} HELM introduces a few-shot learning paradigm for graph hierarchies: Given a small set of known hierarchical edges in a graph (as few as 10\% of the true hierarchy), HELM trains highly accurate models to identify the remaining hierarchical edges. In the absence of ground truth within a graph, HELM performs zero-shot transfer to new graphs using other graphs from the same family.
+
+    \begin{figure}[t]
+        \centering
+        \includegraphics[width=0.45\textwidth]{figures/ORiginal graph(1).png}
+        \caption{HELM pipeline illustrated on a toy graph. \textbf{(1)} Input graph; true hierarchy highlighted in blue. \textbf{(2)} ML-scored edges: the highest-scoring edges (red) --- na\"ively selecting the top $|V|{-}1$ would yield disconnected components or cycles. \textbf{(3)} MST applied to the scored graph: Chu-Liu/Edmonds yields a consistent directed spanning tree (purple). \textbf{(4)} Final directed rooted hierarchy; root marked in red.}
+        \label{fig:schematic-figure}
+    \end{figure}
+
+    \section{Methods}
+    \subsection{Data and Experimental Setup}
+    We evaluate HELM on three graph families, each with paired graphs $(G)$ and ground-truth hierarchies $(T)$. Each family $\mathcal{F}$ has 20 graphs split into 10 training and 10 test set graphs. Even in training set graphs, only 10\% of edges in $T$ are pre-classified as $he$.
+
+    \textbf{MemeTracker:} $G$ is an undirected hyperlink graph between news/blog hostnames within each meme propagation cascade; $T$ is the propagation tree of the meme on that cascade~\citep{leskovec2009meme}. Details on the extraction of the interaction graph, and of the ground truth about the spread of memes are detailed in Appendix~\ref{app:memetracker}.
+
+    \textbf{Wikipedia:} $G$ is a directed entity (article) link graph induced by a category root; $T$ is the category tree rooted at that category, built using BFS from the root category downward to subcategories and articles. The ground truth $T$ is generated from Wikipedia ontologies. Code for generating the data and ground truth trees is available in the repository.
+
+    \textbf{Microbiome:} $G$ is an undirected microbial co-occurrence network; $T$ is the corresponding taxonomy-informed hierarchy. For each microbiome study reported in a microbiome dynamics analysis~\citep{shtossel2025shifting}, we computed the interaction network reported in the original analysis and tested how well it reproduces the standard microbial taxonomy. Note that the interactions are not necessarily directly related with the taxonomy. However, we suggest that the taxonomy can be extracted with the proper algorithm.
+
+    Dataset statistics per graph family are summarized in Table~\ref{tab:dataset_stats}. Degree distributions are shown in Appendix~\ref{app:degree-dist}.
+
+    \begin{table}[t]
+        \centering
+        \footnotesize
+        \begin{tabular}{lccc}
+            \toprule Family      & Vertices        & Edges             & Avg. degree     \\
+            \midrule MemeTracker & $1439 \pm 631$  & $40181 \pm 21647$ & $55.4 \pm 16.2$ \\
+            Microbiome           & $110 \pm 0$     & $854 \pm 1$       & $15.5 \pm 0.0$  \\
+            Wikipedia            & $8246 \pm 2930$ & $50999 \pm 21696$ & $15.5 \pm 14.2$ \\
+            \bottomrule
+        \end{tabular}
+        \caption{Dataset statistics across families.}
+        \label{tab:dataset_stats}
+    \end{table}
+
+    \subsection{Topological Features for Edge Classification}
+    HELM predicts hierarchical edges from topological features. The feature set combines vertex and edge-level topological properties computed from the graph structure (see Appendix~\ref{app:features} for detailed mathematical definitions and dimensions).
+
+    \textbf{Vertex features.} We compute topological properties per vertex, including: centrality measures (in/out-degree, closeness, betweenness~\citep{freeman1978centrality,freeman1977set}, eigenvector centrality~\citep{bonacich1972technique}, PageRank~\citep{page1999pagerank}), local structure motifs (3-vertex and 4-vertex patterns~\citep{milo2002network}, clustering coefficient~\citep{watts1998collective}, k-core~\citep{seidman1983network}), spectral properties (Fiedler vector~\citep{fiedler1975property}), and flow-based measures (load centrality~\citep{newman2001scientific}).
+
+    \textbf{Edge-level features.} Three edge-specific topological measures are computed: \textbf{Edge Betweenness}~\citep{newman2005measure} (fraction of shortest paths through the edge); \textbf{Edge Current Flow}~\citep{brandes2005centrality} (electrical-network analog betweenness on the undirected graph); and \textbf{Edge Connectivity} (minimum edges to remove to disconnect the two endpoints).
+
+    \textbf{Edge feature aggregation:} For each edge $(u, v)$, vertex features are aggregated via two operations: (1) Average: $\frac{f_{u}+f_{v}}{2}$ captures shared properties, and (2) Signed difference: $\frac{f_{u}-f_{v}}{2}$ captures directional asymmetry. For undirected input graphs, we augment $G$ by adding the reverse edge $(v,u)$ for each $(u,v)$, creating a fully directed representation; signed differences are retained to encode directionality.
+
+    Edge feature vectors are the concatenation of edge-specific features and aggregated vertex-specific features. Exact dimensionality depends on graph type (directed vs. undirected) and the set of applicable vertex centralities. Appendix~\ref{app:features} lists all feature definitions and their availability across the three graph families.
+
+    \subsection{Machine Learning for Hierarchical Edge Prediction}
+    Given feature vectors for all edges, we train a binary classifier to predict hierarchical edges ($he$ vs $nhe$) using gradient boosting decision trees (XGBoost~\citep{chen2016xgboost}) or Graph Neural Networks, where the input is the edge topological feature vector and the prediction is $y_{e}= 1$ if $e \in E_{h}$ and $y_{e}= 0$ if $e \in E_{nh}$.
+
+    We perform the analysis per graph family $\mathcal{F}$ (Memes, Wikipedia, and Microbiome). For each graph family, we divide graphs $G_{i}$ into test graphs ($G_{i}\in TG$) and graphs with limited ground truth ($G_{i}\in LGTG$). For $G_{i}\in TG$, no ground truth is assumed. For $G_{i}\in LGTG$, we assume a small fraction of hierarchical edges are known, specifically 10\% of $e \in \{he\}$, and we set 4 times $e \in \{nhe\}$ for each $he$. The rest of the edges are test edges. The training set $D_{i}= \{(x_{e}, y_{e}) : e \in E_{i}\}$ is created for each graph and pooled from all $G_{i}\in LGTG$ as $D = \bigcup_{i}D_{i}$. Training uses a single classifier for all $G \in \mathcal{F}$. Before training, we standardize all features using a standard scaler (zero mean, unit variance) fitted on the training set. The same scaling transformation is applied to validation and test sets. We test the classifier on the test set in $G_{i}\in LGTG$ and all edges $E_{i}\in TG$, separately for each family. The model learns patterns that generalize across different graphs in the same domain.
+
+    We split the training data into training and validation sets (80/20 split) for hyperparameter tuning using Optuna~\citep{optuna_2019}, optimizing for AUC on the validation set. Full description of hyperparameters and search space is included in Appendix~\ref{app:xgb-hyperparams}. We use positive class weighting in the loss function based on the ratio of $\frac{nhe}{he}$ in the training set.
+
+    We also trained a GNN-based classifier using GINE convolution layers~\citep{hu2019strategies} with hyperparameters tuned via Optuna (Appendix~\ref{app:gnn-hyperparams}); a full comparison against XGBoost is in Appendix~\ref{app:gnn-xgb-comparison}.
+
+    \subsection{From Edge Probabilities to Directed Tree Structure}
+    \label{sec:mst} The trained classifier produces a score $0 \leq s_{e}\leq 1$ that $e \in E_{h}$ for each edge. A naive approach would select the top $|V| - 1$ edges by probability, but this often fails because selected edges may not form a connected graph, may contain cycles, or lack a consistent root. Instead, we formulate this as a minimum spanning tree (MST) problem on the directed graph.
+
+    For each directed edge $e=(u,v)$, we define a weight $w(e) = -\log s_{e}$. This gives a maximum-likelihood interpretation: the directed spanning tree maximizing the joint probability of its edges, assuming edge score independence, is
+    \begin{equation}
+        T^{*} = \arg\max_{T}\prod_{e\in T}s_{e} = \arg\min_{T}\sum_{e\in T}(-\log s_{e})
+    \end{equation}
+    The Chu-Liu/Edmonds algorithm~\citep{chu1965shortest,edmonds1967optimum} with weights $w(e)=-\log s_{e}$ computes $T^{*}$ exactly as a minimum-weight directed spanning tree (also known as a minimum spanning arborescence). Edges with high hierarchical probability receive small weights and are preferentially included; edges with low probability receive large weights and are excluded. By construction, the algorithm guarantees a single-root directed tree with all edges oriented away from the root.
+
+
+    \subsection{Evaluation Metrics and Baselines}
+    We study two scenarios: (1)~\textbf{few-shot} --- inferring $T$ from $G \in LGTG$ with a small number of $T$ edges known; (2)~\textbf{zero-shot} --- inferring $T$ from $G \in TG$ using a model trained on $G \in LGTG$.
+
+    In all cases, the number of edges in the tree is fixed ($|V| - 1$). As such, the recall of the ``true'' edges in the reconstructed tree is the primary quality measure. We report both undirected recall (edge set overlap regardless of orientation) and directed recall (exact directed edge match). Where applicable, we also report the hop distance from the predicted root to the true root in the ground-truth tree.
+
+    \section{Results}
+    \subsection{Topological Features Distinguish Hierarchical Edges}
+    The baseline premise of HELM is that topological features reliably distinguish $he$ edges from $nhe$ edges, and this relationship is consistent across graphs within the same $\mathcal{F}$. To test this, we computed point-biserial correlations between each topological feature and the binary edge label ($he$ vs. $nhe$) across all three datasets (Figure~\ref{fig:feature_heatmap}).
+
+    Both the strength and direction of feature-label associations vary substantially by domain (Figure~\ref{fig:feature_heatmap}A). In MemeTracker cascades, edge-level centrality measures show the strongest positive correlations (edge betweenness: $r = +0.33$, edge current flow: $r = +0.21$), while vertex-level properties show weaker or negative associations (avg k-core: $r = -0.24$). Wikipedia hierarchies exhibit a distinct pattern: vertex clustering and cohesion metrics correlate negatively with hierarchy (avg k-core: $r = -0.39$, avg clustering coefficient: $r = -0.39$), whereas differences in vertex properties between endpoints correlate positively (diff closeness centrality: $r = +0.36$). Microbiome networks show the strongest overall signals, dominated by positive correlations with endpoint difference features (diff Louvain: $r = +0.54$, diff Fiedler vector: $r = +0.47$, diff k-core: $r = +0.45$). The contrast between average and difference features is particularly striking: in Wikipedia and Microbiome, average k-core shows negative correlation (vertices in dense cores are less likely to form hierarchical edges), while difference in k-core shows strong positive correlation (hierarchical edges connect vertices at different core levels). This suggests that hierarchy emerges more from structural asymmetry between connected vertices than from their absolute positions in the network.
+
+    Despite these domain-specific patterns, cross-domain correlation profiles are consistent. The Spearman correlations between graphs' feature-label correlation vectors (computed across 30 graphs) range from $\rho = 0.15$ to $0.61$ (10th-90th percentile), with strongest agreement between MemeTracker and Microbiome (mean $\rho = 0.57$, Figure~\ref{fig:feature_heatmap}B). Thus, while specific predictive features vary by domain, the broader topological signal distinguishing hierarchical edges shows cross-domain consistency in each $\mathcal{F}$.
+
+    \begin{figure}[t]
+        \centering
+        \begin{subfigure}[b]{0.45\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{figures/heatmap-correlation.png}
+            \caption{Feature associations by domain.}
+        \end{subfigure}
+        \hfill
+        \begin{subfigure}[b]{0.45\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{figures/spearman-cross-correlation.png}
+            \caption{Cross-domain correlation consistency.}
+        \end{subfigure}
+        \caption{Topological feature associations with hierarchy structure. (A) shows domain-specific patterns with heatmaps for each dataset. (B) demonstrates cross-domain consistency in these patterns.}
+        \label{fig:feature_heatmap}
+    \end{figure}
+
+    \subsection{Topological Features Predict Hierarchy Edges Within and Between Datasets}
+    The strong associations above suggest that $he$ can be predicted directly from topological features. We tested the prediction accuracy on the test set in the two scenarios above (Figure~\ref{fig:roc_curves}). The model achieves high AUC scores: MemeTracker --- few-shot/zero-shot $0.86{\pm}0.03$/$0.85{\pm}0.02$; Wikipedia --- $0.99{\pm}0.00$/$0.98{\pm}0.01$; Microbiome --- $1.00{\pm}0.00$/$1.00{\pm}0.00$ (mean$\pm$std across graphs), with no significant difference between the few-shot and zero-shot in any of the $\mathcal{F}$. The lower AUC in MemeTracker leads to significantly worse recall in tree generation. This is expected, as MemeTracker reflects a stochastic contact process, whereas Wikipedia and Microbiome possess deterministic ground truth. MemeTracker cascades are stochastic realizations of an information-spreading process: two independently sampled trees from the same cascade share on average only $\approx 19\%$ of their edges (Appendix~\ref{app:inter-tree}), setting an irreducible ceiling on undirected recall --- and the directed counterpart must be strictly lower since direction adds further variance. HELM's directed recall of $0.27$ exceeds both ceilings, indicating recovery of the structurally stable backbone.
+    \begin{figure}[t]
+        \centering
+        \includegraphics[width=\textwidth]{figures/roc_curves.png}
+        \caption{ROC curves for directed hierarchical edge prediction across all three datasets. Blue = $LGTG$ (few-shot, held-out edges from train graphs); Red = $TG$ (zero-shot, unseen test graphs). Each curve is the mean ROC across graphs; AUC shows mean$\pm$std per graph. AUC values confirm strong generalisation from few-shot to zero-shot in all families.}
+        \label{fig:roc_curves}
+    \end{figure}
+    \subsection{Edge Prediction Alone Fails to Produce Valid Hierarchies}
+    While the ML model above accurately predicts $he$, naively selecting the top-scoring edges fails to produce valid tree structures. When we select the top $|V| - 1$ edges based on $s$ without enforcing tree constraints, the resulting edge sets fragment into numerous disconnected components: MemeTracker produces $495 \pm 206$ components, Microbiome produces $6 \pm 1$ components, and Wikipedia produces $702 \pm 296$ components. This demonstrates that edge prediction accuracy alone is insufficient; structural constraints are required to generate a valid hierarchy, and the problem is only more acute when directed edges are required.
+
+    \subsection{HELM Achieves High Accuracy in Few-Shot and Zero-Shot Settings}
+    To translate the ML results into a full directed hierarchy, HELM applies the Chu-Liu/Edmonds directed MST on the mirrored edge-scored graph (see Methods, Section~\ref{sec:mst}).
+
+    The inclusion of the ML-weighted directed MST drastically improves the recall of HELM on $he$ (Table~\ref{tab:helm_recall}) in both the internal test within $LGTG$ and the external test in $TG$.
+
+    \begin{table}[t]
+        \centering
+        \small
+        \begin{tabular}{llccc}
+            \toprule
+            \textbf{Dataset} & \textbf{Split} & \textbf{Undir.\ Recall} & \textbf{Dir.\ Recall} & \textbf{Root Dist.} \\
+            \midrule
+            MemeTracker & $LGTG$ & $0.28\pm0.10$ & $0.27\pm0.09$ & $8.00\pm2.72$ \\
+            MemeTracker & $TG$   & $0.24\pm0.07$ & $0.23\pm0.07$ & $5.00\pm3.90$ \\
+            Wikipedia   & $LGTG$ & $0.93\pm0.02$ & $0.93\pm0.02$ & $0.30\pm0.64$ \\
+            Wikipedia   & $TG$   & $0.89\pm0.07$ & $0.89\pm0.07$ & $0.20\pm0.40$ \\
+            Microbiome  & $LGTG$ & $0.95\pm0.02$ & $0.95\pm0.02$ & $0.00\pm0.00$ \\
+            Microbiome  & $TG$   & $0.95\pm0.01$ & $0.95\pm0.01$ & $0.00\pm0.00$ \\
+            \bottomrule
+        \end{tabular}
+        \caption{HELM performance using ML + directed MST (Chu-Liu/Edmonds). \emph{Undir.\ Recall}: fraction of ground-truth edges recovered regardless of direction. \emph{Dir.\ Recall}: fraction of ground-truth directed edges correctly recovered. \emph{Root Dist.}: mean hop distance from predicted to true root. $LGTG$ = few-shot (10\% labeled edges); $TG$ = zero-shot (no labeled edges).}
+        \label{tab:helm_recall}
+    \end{table}
+
+    The directed MST (Chu-Liu/Edmonds) simultaneously recovers edge topology and root, since the algorithm operates on the fully mirrored directed graph. Table~\ref{tab:helm_recall} shows that directed and undirected recall are identical for Wikipedia and Microbiome — indicating that the correct root is embedded in the directed MST solution — while MemeTracker suffers from its inherently stochastic ground truth (see Discussion). Root distance is near-zero for Microbiome and Wikipedia across both splits; MemeTracker root distance is larger due to the stochastic nature of the ground truth. Note that even for MemeTracker, these results substantially exceed naive baselines such as unweighted MST, random edge selection, or PageRank-ranked spanning trees~\citep{muchnik2007self,estrada2009communicability}. To the best of our knowledge, no competing algorithm produces full directed hierarchy trees from general graphs.
+
+    \subsection{Scalability Analysis}
+    HELM consists of three main computational stages: (A) Feature computation, (B) ML edge scoring, and (C) Directed MST (Chu-Liu/Edmonds).
+
+    Our experiments on 10 MemeTracker cascades (100--40K edges) demonstrate scalability (see Figure~\ref{fig:scalability_analysis} in the Appendix). Log-log regression reveals the following growth rates with respect to $|E|$: Stage A exhibits superlinear growth (slope $\approx 1.62$, $R^2=0.99$), driven by betweenness and motif feature computation; Stage B (ML scoring) grows sublinearly (slope $\approx 0.57$, $R^2=0.71$); Stage C (directed MST) grows near-linearly (slope $\approx 1.28$, $R^2=0.99$). The runtimes on the benchmark dataset are: \textbf{Stage A (Features):} $\sim 2.3$ hours average, up to $\sim 6.3$ hours for the largest graph; \textbf{Stage B (ML scoring):} $\sim 0.27$s average (negligible); \textbf{Stage C (Directed MST):} $\sim 96$s average, up to $\sim 210$s for $|E|{=}40$K.
+
+    \section{Discussion}
+    HELM represents the first comprehensive, end-to-end solution for recovering full directed hierarchical trees from network data. Our experimental results demonstrate several key findings. Hierarchical edges exhibit consistent topological patterns across diverse domains — from social networks to biological systems to knowledge graphs. Features like k-core, edge betweenness, and clustering coefficient reliably distinguish hierarchical from non-hierarchical edges, with correlation patterns that transfer across domains. This finding suggests that hierarchical organization imposes universal structural constraints on networks, regardless of the specific generating mechanism. While machine learning models achieve high accuracy in predicting individual edge labels in the absence of stochasticity, directly applying these predictions without enforcing tree structure constraints produces poor hierarchies. HELM's key innovation is the principled integration of ML edge probabilities with directed MST optimization (Chu-Liu/Edmonds), which jointly selects tree topology and root in one step.
+
+    HELM requires remarkably little training data. This sample efficiency stems from rich topological features that provide multiple independent signals about hierarchy. Moreover, models trained on one graph generalize to other graphs in the same domain.
+
+    Despite its strengths, HELM has several limitations that suggest directions for future work. We here discuss its stronger and weaker aspects.
+
+    \textbf{Scalability.} While HELM handles graphs with thousands of vertices efficiently, scaling to millions of vertices remains challenging. The primary bottleneck is Stage A: edge feature computation grows near-quadratically ($\sim|E|^{1.62}$), driven largely by betweenness centrality. We evaluated a \emph{practically-linear} feature variant (degree centralities, Louvain clustering, PageRank, eigenvector centrality, and motif counts) that achieves near-parity on MemeTracker and Wikipedia (linear vs.\ full directed recall: 0.22/0.89 vs.\ 0.23/0.89, $TG$) with a substantial drop on Microbiome (0.46 vs.\ 0.95 directed, $TG$); see Table~\ref{tab:linear_features} in the Appendix. Since Microbiome graphs are tiny (hundreds of nodes), computing the full feature set there remains inexpensive in practice. Motif counts have efficient GPU implementations; GPU-parallel betweenness centrality is a practical path to full scalability.
+
+    \textbf{Stochastic ground truth.} MemeTracker cascades are stochastic realizations of an information-spreading process: the same underlying network can give rise to many different propagation trees depending on timing randomness. This introduces an irreducible ambiguity — there is no single ``correct'' tree to recover, and algorithms are inevitably evaluated against one arbitrary realization. The relevant question is therefore whether HELM recovers edges that are \emph{stable} across realizations (the structural backbone) rather than realization-specific edges. A formal analysis via contact-process simulation is provided in Appendix~\ref{app:inter-tree}.
+
+    \textbf{Comparison to baselines.} No existing algorithm produces a full spanning-tree hierarchy from a general network graph, so comparisons are limited to naive baselines: random edge selection ($\mathbb{E}[\text{recall}] = \frac{(|V|-1)}{|E|} \approx 0.04$--$0.20$), unweighted MST, and a score-ranked spanning tree. HELM substantially outperforms all three across every dataset; see Table~\ref{tab:baselines} in the Appendix.
+
+    \textbf{Temporal information.} When available, timestamps provide strong additional signal. Currently HELM uses only structural features but could be extended to include temporal ordering.
+
+    \textbf{Broader impacts.} HELM's primary intended applications --- misinformation-spread reconstruction, phylogenetic analysis, and knowledge-graph ontology extraction --- are broadly beneficial. The same graph-analysis infrastructure could in principle be applied to map information hierarchies in surveillance or targeting contexts; however, HELM operates on aggregated topological structure (not personal data) and requires substantial domain-specific ground-truth labeling, which limits opportunistic misuse. We consider the risk low and comparable to other general graph-analysis tools.
+
+    \bibliographystyle{abbrvnat}
+    \bibliography{helm_references}
+
+    \newpage
+    \appendix
+
+    \section{Additional Results}
+    \label{app:additional-results}
+
+    \subsection{Baseline Comparison}
+    \label{app:baselines}
+
+    Table~\ref{tab:baselines} compares HELM against three naive baselines: (i) \textbf{Random}: expected recall $\frac{(|V|-1)}{|E|}$; (ii) \textbf{Kruskal (unweighted)}~\citep{kruskal1956shortest}: minimum spanning tree with unit edge weights; (iii) \textbf{Score-ranked spanning tree}: a Prim-like greedy tree seeded at the highest-PageRank vertex, greedily attaching the highest-scored adjacent unvisited vertex at each step.
+
+    \begin{table}[h]
+        \centering
+        \small
+        \begin{tabular}{llcccc}
+            \toprule
+            \textbf{Dataset} & \textbf{Split} & \textbf{Random} & \textbf{Kruskal (unweighted)} & \textbf{Score-ranked} & \textbf{HELM} \\
+            \midrule
+            MemeTracker & $LGTG$ & 0.04 & 0.22 & 0.22 & \textbf{0.28} \\
+            MemeTracker & $TG$   & 0.04 & 0.21 & 0.21 & \textbf{0.24} \\
+            Microbiome  & $LGTG$ & 0.13 & 0.16 & 0.56 & \textbf{0.95} \\
+            Microbiome  & $TG$   & 0.13 & 0.16 & 0.54 & \textbf{0.95} \\
+            Wikipedia   & $LGTG$ & 0.18 & 0.56 & 0.63 & \textbf{0.93} \\
+            Wikipedia   & $TG$   & 0.20 & 0.58 & 0.65 & \textbf{0.89} \\
+            \bottomrule
+        \end{tabular}
+        \caption{Undirected edge recall for naive baselines vs.\ HELM (directed Edmonds, see Table~\ref{tab:helm_recall}). All baselines use undirected MST; HELM uses directed Chu-Liu/Edmonds, recovering the full directed hierarchy in one step.}
+        \label{tab:baselines}
+    \end{table}
+
+    \subsection{Practically-Linear Feature Variant}
+    \label{app:linear-features}
+
+    To assess scalability, we evaluated HELM with a practically-linear feature subset that omits betweenness and current-flow features. The retained features are: degree-based centralities (degree, in/out-degree, average neighbour degree), Louvain community assignment, PageRank, eigenvector centrality (power-iteration, efficient in practice), and motif counts (efficient GPU implementations exist; CPU was used in the main experiments). All retained features have linear or near-linear computational complexity.
+
+    \begin{table}[h]
+        \centering
+        \small
+        \begin{tabular}{llcc}
+            \toprule
+            \textbf{Dataset} & \textbf{Split} & \textbf{Full features} & \textbf{Linear features only} \\
+            \midrule
+            MemeTracker & $LGTG$ & $0.27 \pm 0.09$ & $0.26\pm0.10$ \\
+            MemeTracker & $TG$   & $0.23 \pm 0.07$ & $0.22\pm0.06$ \\
+            Wikipedia   & $LGTG$ & $0.93 \pm 0.02$ & $0.93\pm0.03$ \\
+            Wikipedia   & $TG$   & $0.89 \pm 0.07$ & $0.89\pm0.06$ \\
+            Microbiome  & $LGTG$ & $0.95 \pm 0.02$ & $0.51\pm0.03$ \\
+            Microbiome  & $TG$   & $0.95 \pm 0.01$ & $0.46\pm0.05$ \\
+            \bottomrule
+        \end{tabular}
+        \caption{Directed edge recall: full topological features vs.\ practically-linear feature subset (degree centralities, Louvain, PageRank, eigenvector centrality, motif counts). The linear variant performs comparably on MemeTracker and Wikipedia. On Microbiome --- whose small dense graphs rely heavily on betweenness and current-flow features that are omitted --- the linear variant incurs a substantial drop (0.46 vs.\ 0.95 directed recall, $TG$); since these graphs are tiny, the full feature set remains inexpensive to compute in practice.}
+        \label{tab:linear_features}
+    \end{table}
+
+    \subsection{Stochastic Ground Truth and Inter-Tree Recall Ceiling}
+    \label{app:inter-tree}
+
+    MemeTracker cascades are formed by a stochastic information-spreading process. For a given cascade, the propagation tree $T$ is built by connecting each mention to its temporally nearest prior mention via a hyperlink; timing randomness means that different runs of the same process on the same graph produce different trees. This creates \emph{inter-tree variability}: two spanning trees of the same cascade, sampled independently from the same process, share only a fraction of their edges.
+
+    To quantify this variability, we ran contact-process simulations on all 10 MemeTracker test graphs. For each graph we sampled 50 independent seeds $\times$ 50 trees per seed (2500 trees per cascade) under a homogeneous spreading rate $\rho = 0.10$. The \emph{inter-tree recall} — the fraction of edges in one sampled tree that also appear in another independently sampled tree from the same graph — provides an empirical ceiling on what any algorithm can hope to achieve when evaluated against a single realization.
+
+    The average inter-tree recall across the 10 test graphs is $\approx 0.19$. This means that roughly 81\% of edges in any given cascade tree are realization-specific: they would not appear in another independent draw from the same process. HELM's directed recall of $0.27$ on MemeTracker exceeds this ceiling, indicating that HELM preferentially recovers the edges that are \emph{structurally stable} across realizations — the backbone of the hierarchy — rather than edges specific to one stochastic instance.
+
+    \section{MemeTracker Data Extraction}
+    \label{app:memetracker}
+
+    MemeTracker data consists of timestamped news articles and blog posts that quote short phrases, along with hyperlinks between sites. For each phrase cluster, we build:
+
+    \textbf{Hyperlink graph} $G$: We extract all hyperlinks between hostnames (news/blog sites). If a document at hostname $A$ links to $B$ at any point in time, we add an undirected edge $\{A, B\}$. Self-loops are removed; multi-edges are merged. This produces an undirected global graph where nodes are hostnames and edges represent hyperlink relationships.
+
+    \textbf{Cascade trees} $T_{k}$: From timestamped mentions of phrases, we build propagation trees. For each phrase cluster, mentions are sorted chronologically. The first mention defines the root. Each subsequent mention $v$ at time $t$ is connected to the most recent prior mention $u$ at time $t' < t$ such that edge $(u,v)$ exists in $G$ and the temporal gap $t - t'$ is minimal. If no such edge exists in $G$, we connect to the temporally closest prior mention and augment $G$ with this edge. Finally, the hyperlink graph $G_{k}\subseteq G$ associated with this cascade, is induced by the vertices of $T_{k}$.
+
+    Cascades are filtered to retain only those with at least 100 nodes and maximum depth at most 20 levels. This ensures sufficient size and depth for meaningful hierarchy analysis.
+    \section{Dataset Degree Distributions}
+    \label{app:degree-dist}
+
+    \begin{figure}[h]
+        \centering
+        \begin{subfigure}
+            [b]{0.32\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{figures/degree_hist_memetracker.png}
+            \caption{MemeTracker}
+        \end{subfigure}
+        \hfill
+        \begin{subfigure}
+            [b]{0.32\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{figures/degree_hist_wiki.png}
+            \caption{Wikipedia}
+        \end{subfigure}
+        \hfill
+        \begin{subfigure}
+            [b]{0.32\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{figures/degree_hist_microbiome.png}
+            \caption{Microbiome}
+        \end{subfigure}
+        \caption{Degree distributions for each family.}
+        \label{fig:degree_distribution}
+    \end{figure}
+
+    \section{Feature Definitions and Dimensions}
+    \label{app:features}
+
+    All topological features used for edge classification in HELM include both vertex-level features (aggregated to edges via averaging and difference operations) and edge-specific features computed directly on edges. The following list details each feature with its mathematical definition, dimensionality, and notes on directedness and dataset-specific usage.
+
+    \subsection*{Vertex-Level Features}
+
+    The following features are computed per vertex and then aggregated to edges:
+
+    \begin{enumerate}
+        \item \textbf{Degree:} For undirected graphs, $\deg(v) = |\{u : (v, u) \in E\}|$ (dimension: 1). For directed graphs, we compute both in-degree $\deg_{in}(v) = |\{u : (u, v) \in E\}|$ and out-degree $\deg_{out}(v) = |\{u : (v, u) \in E\}|$ (dimension: 2).
+
+        \item \textbf{Average Neighbor Degree:} $\text{AND}(v) = \frac{1}{\deg(v)}\sum_{u\in N(v)}\deg(u)$, where $N( v)$ denotes the neighbors of $v$ (dimension: 1). In directed graphs $\deg (v)$ is computed by sum of in-degree and out-degree.
+
+        \item \textbf{Closeness Centrality:} The reciprocal of the average shortest path distance to $v$ over all reachable vertices, $C(v) = \frac{n-1}{\sum_{u\in V}d(u,v)}$, where $d(u, v)$ is the shortest path distance~\citep{freeman1978centrality} (dimension: 1). For directed graphs, this measures the incoming distance to $v$.
+
+        \item \textbf{Betweenness Centrality:} $BC(v) = \sum_{s\neq v\neq t}\frac{\sigma_{st}(v)}{\sigma_{st}}$, where $\sigma_{st}$ is the number of shortest paths from $s$ to $t$, and $\sigma_{st}(v)$ is the number passing through $v$~\citep{freeman1977set} (dimension: 1).
+
+        \item \textbf{Load Centrality:} The fraction of all shortest paths that pass through $v$~\citep{newman2001scientific} (dimension: 1).
+
+        \item \textbf{Eigenvector Centrality:} The $i$-th component of the left eigenvector $\mathbf{x}$ associated with the eigenvalue $\lambda$ of maximum modulus, satisfying $\lambda\mathbf{x}^{T}= \mathbf{x}^{T}\mathbf{A}$, where $\mathbf{A}$ is the adjacency matrix. For undirected graphs, this solves $\mathbf{A}\mathbf{x}= \lambda\mathbf{x}$~\citep{bonacich1972technique} (dimension: 1). The centrality of a vertex is determined by the centrality of its predecessors. Computed on the underlying undirected version for directed graphs.
+
+        \item \textbf{PageRank:} $PR(v) = \frac{1-d}{n}+ d\sum_{u\in N_{in}(v)}\frac{PR(u)}{\deg_{out}(u)}$, where $d$ is the damping factor (typically 0.85)~\citep{page1999pagerank} (dimension: 1). Undirected graphs are converted to directed by replacing each undirected edge with two directed edges in opposite directions.
+
+        \item \textbf{Clustering Coefficient:} For unweighted graphs, the fraction of possible triangles through $v$ that exist, $CC(v) = \frac{2T(v)}{\deg(v)(\deg(v)-1)}$, where $T(v)$ is the number of triangles through $v$~\citep{watts1998collective} (dimension: 1). For directed graphs, this is defined as $CC(v) = \frac{T(v)}{2(\deg_{tot}(v)(\deg_{tot}(v)-1)-2\deg_{\leftrightarrow}(v))}$, where $\deg_{tot}(v)$ is the sum of in-degree and out-degree, and $\deg_{\leftrightarrow}(v)$ is the reciprocal degree - the number of bidirectional edges.
+
+        \item \textbf{Square Clustering Coefficient:} Extension of clustering to 4-cycles~\citep{lind2005cycles} (dimension: 1).
+
+        \item \textbf{K-core:} Maximum $k$ such that $v$ belongs to a subgraph where all vertices have degree at least $k$~\citep{seidman1983network} (dimension: 1).
+
+        \item \textbf{Eccentricity:} $e(v) = \max_{u \in V}d(v,u)$, the maximum shortest path distance from $v$ to any other vertex (dimension: 1).
+
+        \item \textbf{BFS Moments:} First two moments (mean and variance) of distances in breadth-first search traversal from vertex $v$ (dimension: 2).
+
+        \item \textbf{Motifs (3-vertex):} Counts of 3-vertex subgraph patterns (graphlets) containing vertex $v$~\citep{milo2002network}. For directed graphs, there are 13 distinct 3-vertex motifs (dimension: 13). For undirected graphs, there are 2 distinct patterns (dimension: 2).
+
+        \item \textbf{Motifs (4-vertex):} Counts of 4-vertex subgraph patterns containing vertex $v$~\citep{milo2002network}. For directed graphs, there are 199 distinct patterns (dimension: 199). For undirected graphs, there are 6 distinct patterns (dimension: 6).
+
+        \item \textbf{Fiedler Vector:} The eigenvector corresponding to the second smallest eigenvalue of the graph Laplacian, $\mathbf{L}= \mathbf{D}- \mathbf{A}$, where $\mathbf{D}$ is the degree matrix~\citep{fiedler1975property} (dimension: 1). For each vertex $v$, its feature value is the $v$-th entry of the Fiedler vector. Computed on the underlying undirected version for directed graphs.
+
+        \item \textbf{Flow:} For each vertex $v$, the sum of ratios of undirected shortest paths to directed flow, normalized by the number of reachable vertices (from and to $v$) $\text{Flow}(v)=\frac{1}{\deg_{tot}(v)- \deg_{\leftrightarrow}(v)}\sum_{u}\frac{d_{undirected}(v,u)}{d_{directed}(v,u)}$ (dimension: 1). Defined for directed graphs only.
+
+        \item \textbf{Louvain Community:} Number of vertices in the community assigned to $v$ by the Louvain modularity optimization algorithm~\citep{blondel2008fast} (dimension: 1). For directed graphs, this is computed on the underlying undirected version.
+
+        \item \textbf{All-Pairs Shortest Paths (APSP):} Vector of shortest path distances from vertex $v$ to all other vertices in the graph, $[d(v,u_{1}), d(v,u_{2}), \ldots, d(v,u_{n})]$ (dimension: $n$). \textit{Note: Used only in microbiome datasets due to high dimensionality in large graphs.}
+
+        \item \textbf{Communicability Betweenness:} Generalization of betweenness using matrix exponential, $CB(v) = \sum_{s \neq v \neq t}\frac{(e^{\mathbf{A}})_{st}(v)}{(e^{\mathbf{A}})_{st}}$~\citep{estrada2009communicability} (dimension: variable). For directed graphs, this is computed on the underlying undirected version. \textit{Note: Used only in microbiome datasets due to high computational cost.}
+    \end{enumerate}
+
+    For edge $(u,v)$, each vertex feature $f$ is converted to two edge features: the average $\frac{f_{u}+ f_{v}}{2}$ and the signed difference $\frac{f_{u}- f_{v}}{2}$.
+
+    \subsection*{Edge-Specific Features}
+
+    The following features are computed directly on edges:
+
+    \begin{enumerate}
+        \item \textbf{Edge Betweenness:} $EB(e) = \sum_{s \neq t}\frac{\sigma_{st}(e)}{\sigma_{st}}$, where $\sigma_{st}$ is the number of shortest paths from $s$ to $t$, and $\sigma_{st}(e)$ is the number passing through edge $e$~\citep{newman2005measure} (dimension: 1). Measures the fraction of shortest paths that traverse the edge.
+
+        \item \textbf{Edge Current Flow Betweenness:} Electrical network analog of betweenness, computed by treating the graph as a resistor network where each edge has unit resistance. The current flow betweenness of edge $e$ is the absolute current through $e$ when unit current is injected at $s$ and extracted at $t$, averaged over all $(s,t)$ pairs~\citep{brandes2005centrality} (dimension: 1). For directed graphs, this is computed on the underlying undirected version.
+
+        \item \textbf{Edge Connectivity:} The edge connectivity $\kappa(u,v)$ between endpoints $u$ and $v$ is the minimum number of edges whose removal disconnects $u$ from $v$ (dimension: 1). Measures how critical the edge is for connectivity.
+    \end{enumerate}
+    \section{XGBoost Hyperparameter Search Space}
+    \label{app:xgb-hyperparams}
+
+    The XGBoost hyperparameters are tuned using Optuna to maximize validation AUC:
+
+    \begin{itemize}
+        \item \textbf{Learning rate}: $[0.01, 0.3]$ -- step size shrinkage
+
+        \item \textbf{Maximum tree depth}: $\{3, 4, \ldots, 10\}$
+
+        \item \textbf{Number of estimators}: $\{50, 51, \ldots, 500\}$ -- boosting rounds
+
+        \item \textbf{Subsample ratio}: $[0.5, 1.0]$ -- fraction of training samples per tree
+
+        \item \textbf{Feature sampling ratio}: $[0.5, 1.0]$ -- fraction of features per tree
+
+        \item \textbf{L2 regularization} ($\lambda$): $[10^{-3}, 10]$ (log-scale)
+
+        \item \textbf{L1 regularization} ($\alpha$): $[10^{-3}, 10]$ (log-scale)
+    \end{itemize}
+
+    Training uses early stopping with 50 rounds patience on validation AUC.
+
+    \section{Graph Neural Network (GNN) Hyperparameter Search Space}
+    \label{app:gnn-hyperparams}
+
+    The GNN hyperparameters are tuned using Optuna to maximize validation AUC:
+
+    \begin{itemize}
+        \item \textbf{Hidden dimension}: $\{64, 96, 128, 192\}$ -- embedding size
+
+        \item \textbf{Number of layers}: $\{2, 3\}$ -- message passing depth
+
+        \item \textbf{Dropout rate}: $[0.2, 0.6]$ -- on vertex embeddings
+
+        \item \textbf{Edge dropout rate}: $[0.2, 0.6]$ -- during message passing
+
+        \item \textbf{Learning rate}: $[10^{-4}, 5 \times 10^{-3}]$ (log-scale)
+
+        \item \textbf{Weight decay}: $[10^{-4}, 10^{-2}]$ (log-scale) -- L2 regularization
+    \end{itemize}
+
+    Training uses early stopping with patience of 20 epochs and gradient clipping (max norm 1.0).
+
+    \section{GNN vs.~XGBoost Comparison}
+    \label{app:gnn-xgb-comparison}
+
+    As an alternative to gradient boosting, we trained a Graph Neural Network (GNN) classifier using GINE convolution layers~\citep{hu2019strategies}, which leverage the full graph structure through message passing. Unlike XGBoost, which treats edges independently, the GNN processes the entire graph: edges receive the same topological features used in XGBoost, while vertices receive their individual vertex-level features. Through message passing, vertices aggregate information from neighbors, incorporating both vertex and edge features. Each edge is scored by concatenating the learned embeddings of its two endpoints and passing them through an MLP to produce $s_{e}$. Hyperparameters are tuned using Optuna~\citep{optuna_2019}; the search space is detailed in Appendix~\ref{app:gnn-hyperparams}.
+
+    We compare GNN+MST against XGBoost+MST using the same directed minimum spanning arborescence procedure and $w(e)=-\log s_e$ weights. Tables~\ref{tab:auc-comparison}, \ref{tab:recall-comparison}, and \ref{tab:directed-recall-comparison} show edge classifier AUC, undirected recall, and directed recall respectively.
+
+    \begin{table}[h]
+        \centering
+        \caption{Edge classifier AUC comparison: XGBoost vs GNN}
+        \label{tab:auc-comparison} \small
+        \begin{tabular}{lcccc}
+            \toprule                                         & \multicolumn{2}{c}{XGBoost} & \multicolumn{2}{c}{GNN} \\
+            \cmidrule(lr){2-3} \cmidrule(lr){4-5} Collection & $LGTG$                      & $TG$                   & $LGTG$ & $TG$  \\
+            \midrule MemeTracker                             & 0.80                        & 0.78                   & 0.819  & 0.845 \\
+            Microbiome                                       & 0.99                        & 0.98                   & 0.990  & 0.975 \\
+            Wiki                                             & 0.98                        & 0.98                   & 0.982  & 0.803 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \begin{table}[h]
+        \centering
+        \caption{Undirected edge recall: GNN vs.\ XGBoost, both using directed MST.}
+        \label{tab:recall-comparison} \small
+        \begin{tabular}{lcccc}
+            \toprule                                         & \multicolumn{2}{c}{XGBoost+MST} & \multicolumn{2}{c}{GNN+MST} \\
+            \cmidrule(lr){2-3} \cmidrule(lr){4-5} Collection & $LGTG$                            & $TG$                          & $LGTG$ & $TG$  \\
+            \midrule MemeTracker                             & 0.28                              & 0.24                          & 0.247  & 0.262 \\
+            Microbiome                                       & 0.95                                & 0.95                            & 0.919  & 0.907 \\
+            Wiki                                             & 0.93                                & 0.89                            & 0.753  & 0.732 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \begin{table}[h]
+        \centering
+        \caption{Directed edge recall using directed MST: GNN vs.\ XGBoost.}
+        \label{tab:directed-recall-comparison} \small
+        \begin{tabular}{lcccc}
+            \toprule                                         & \multicolumn{2}{c}{XGBoost+MST} & \multicolumn{2}{c}{GNN+MST} \\
+            \cmidrule(lr){2-3} \cmidrule(lr){4-5} Collection & $LGTG$                            & $TG$                          & $LGTG$ & $TG$  \\
+            \midrule MemeTracker                             & 0.27                              & 0.23                          & 0.227  & 0.242 \\
+            Microbiome                                       & 0.95                                & 0.95                            & 0.913  & 0.889 \\
+            Wiki                                             & 0.93                                & 0.89                            & 0.752  & 0.732 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    XGBoost+MST achieves higher directed recall than GNN+MST across all datasets: for Wikipedia (0.93/0.89 vs.\ 0.75/0.73) the gap is large; for Microbiome (0.95/0.95 vs.\ 0.91/0.89) it is smaller but consistent; for MemeTracker (0.27/0.23 vs.\ 0.23/0.24) the gap is minimal. Both methods show comparable edge classification AUC, indicating that XGBoost's advantage stems from its richer feature set rather than better edge classification.
+
+    \section{Scalability Analysis}
+    \label{app:scalability}
+
+    Feature computation (Stage~A) and XGBoost training/inference (Stage~B) were run on CPU. The GNN variant (Appendix~\ref{app:gnn-xgb-comparison}) was trained on a GPU server. Full hardware specifications will be added in the camera-ready version.
+
+    \begin{figure}[h]
+        \centering
+        \includegraphics[width=0.95\columnwidth]{figures/scalability_analysis.png}
+        \caption{HELM scalability analysis (log-log scale) across 10 MemeTracker cascades (100--40K edges). Each panel shows runtime vs.\ $|E|$ on log-log axes for one of the three pipeline stages. Stage~A (features) slope $\approx 1.62$, $R^2=0.99$ (superlinear, dominated by betweenness and motif computation); Stage~B (ML scoring) slope $\approx 0.57$, $R^2=0.71$ (sublinear, negligible cost); Stage~C (directed MST) slope $\approx 1.28$, $R^2=0.99$ (near-linear). Runtimes: Stage~A up to $\sim$6.3h; Stage~B $\sim$0.27s; Stage~C up to $\sim$210s.}
+        \label{fig:scalability_analysis}
+    \end{figure}
+    \input{checklist}
+\end{document}

@@ -1,0 +1,7 @@
+dataset,uniform_auc,logit_power_auc,best_auc,best_model
+bitcoin-alpha,0.9127,0.9126,0.9149,func_len_invq
+bitcoin-otc,0.939,0.939,0.9407,func_pos_power
+epinions,0.9522,0.9533,0.9538,func_log_both
+wiki-elec,0.906,0.9061,0.9077,func_ds_de
+wiki-rfa,0.8958,0.8959,0.8967,func_pos_expds
+slashdot090221,0.8979,0.8981,0.8985,func_logit_pos

@@ -151,7 +151,8 @@ def split_edges(cfg, edges):
     return train_set, mask_set, val_set, test_set
 
 
-def get_walks(cfg, edges, train_set=None, mask_set=None, val_set=None, test_set=None):
+def get_walks(cfg, edges, train_set=None, mask_set=None, val_set=None, test_set=None,
+              telemetry_out=None):
     print(f"Sampling random walks from {cfg.dataset.name} dataset...")
 
     walk_workers = int(getattr(cfg.preprocess, "num_workers", 1))
@@ -180,6 +181,7 @@ def get_walks(cfg, edges, train_set=None, mask_set=None, val_set=None, test_set=
             mask_set=mask_set,
             val_set=val_set,
             test_set=test_set,
+            telemetry_out=telemetry_out,
         )
 
     print(f"Success! ✅")
@@ -515,6 +517,13 @@ def _keyed_cache_path(cfg):
     parts = [strategy, f"nw{nw}", f"mw{mw}", f"seed{seed}"]
     if "k_cover" in strategy:
         parts.insert(1, f"k{int(getattr(cfg.dataset, 'walk_k_min', 1))}")
+    if strategy == "k_cover_bp":
+        # walk_dedup_max_retries must also be keyed: two retry settings at the same
+        # (strategy, nw, mw, seed, k) would otherwise silently collide on one cache
+        # file — the exact cache-clobber mistake this project already fixed once
+        # for the plain k_cover strategy (see plan-a-fix-for-glimmering-panda.md).
+        retries = int(getattr(cfg.dataset, "walk_dedup_max_retries", 3))
+        parts.insert(2, f"r{retries}")
     return os.path.join(cfg.dataset.data_dir, "dataset_cache__" + "_".join(parts) + ".pt")
 
 
@@ -599,10 +608,12 @@ def prepare_data(cfg):
     timings["split_edges"] = time.time() - t0
 
     t0 = time.time()
+    walk_telemetry = {}
     walks = get_walks(
         cfg, edges,
         train_set=train_set, mask_set=mask_set,
         val_set=val_set, test_set=test_set,
+        telemetry_out=walk_telemetry,
     )
     timings["get_walks"] = time.time() - t0
 
@@ -665,6 +676,15 @@ def prepare_data(cfg):
         "dataset_name": cfg.dataset.name,
         "seed": get_seed(cfg),
     }
+    if walk_telemetry:
+        # Only populated by walk_strategy=k_cover_bp (see coverage_aware_sampler.py).
+        # walk_telemetry["per_edge"] is keyed by the (u,v,label) edge tuple itself,
+        # not a positional array — deliberately, since the sampler's internal compact
+        # edge id (dedup, first-occurrence-wins) does not match this function's own
+        # edge_to_id (enumerate(edges), last-occurrence-wins) for multiedge_handling
+        # =keep datasets (epinions, slashdot090221); keying by the tuple sidesteps
+        # the mismatch instead of silently misaligning against flat_edge_ids.
+        metadata["walk_telemetry"] = walk_telemetry
     cache_data = build_runtime_cache_data(
         tokenizer,
         ragged["offsets"],

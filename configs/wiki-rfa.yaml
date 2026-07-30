@@ -12,7 +12,12 @@ dataset:
     multiedge_handling: most_recent
     # Best trial hyperparams (trial #87)
     max_walk_length: 80 # was 82
-    num_walks: 5000000 # was 434857
+    num_walks: 265817 # E26 edge_cover 1.5x|E| pick (flp 0.8930); beats old k_cover k=5 1M SOTA (flp 0.8917,
+                       # duplicated walks) at 27% of the walks -- confirmed the peak of a full floor/1.5x/3x/
+                       # 5x/8x sweep (monotonic decline past 1.5x, same over-saturation shape as wiki-elec) --
+                       # see outputs/walk_coverage_analysis/E26_WIKI_SWEEP_RESULTS.md
+    walk_strategy: edge_cover # E26 SOTA (was k_cover k=5); zero-duplication guarantee, no k concept -- see
+                               # outputs/walk_coverage_analysis/{E24_BP_SWEEP_RESULTS,E26_WIKI_SWEEP_RESULTS}.md
 
 model:
     # Best trial hyperparams (trial #87)
@@ -37,7 +42,7 @@ optuna:
     initial_params:
         dataset:
             max_walk_length: 80
-            num_walks: 5000000
+            num_walks: 265817
         training:
             lr: 0.0016135042002810406
             weight_decay: 2.9866739870000337e-05

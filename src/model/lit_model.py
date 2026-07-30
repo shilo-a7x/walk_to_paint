@@ -64,33 +64,70 @@ class LitEdgeClassifier(pl.LightningModule):
         self._dynamic_pool_edge_ids_cpu = None
         self._dynamic_pool_edge_classes_cpu = None
 
-        # Hard-node reweighting (E14)
+        # Hard-node reweighting (E14; role-aware source/target split added E22 — see
+        # HARDNESS_MINER_ROADMAP.md). left token adjacent to a masked edge is always
+        # that edge's SOURCE and right token is always its TARGET (walks only traverse
+        # outgoing edges, verified in LEAD4C_ASYMMETRY.md) — a single symmetric map
+        # blends two different per-node signals (H_out as source, H_in as target) that
+        # were found to be substantially better predictors of role-*matched* error than
+        # of the mismatched role. hardness_source_map_path/hardness_target_map_path let
+        # the two be set independently; hardness_map_path alone keeps the old symmetric
+        # behavior (same tensor used for both) for backward compatibility.
         self.hardness_lambda = float(getattr(self.cfg.model, "hardness_lambda", 0.5))
+        # Reweighting formula (roadmap item 7): how h_left/h_right combine into one
+        # per-walk hardness scalar, and whether that scalar is scaled linearly or
+        # convexly before being applied. "mean" + power=1.0 reproduces the original
+        # E14-E22 formula exactly (backward compatible defaults).
+        self.hardness_combine = str(getattr(self.cfg.model, "hardness_combine", "mean")).lower()
+        self.hardness_power = float(getattr(self.cfg.model, "hardness_power", 1.0))
+        # "weighted" mode only: source/target mixing weight, source_weight*h_left +
+        # (1-source_weight)*h_right. Deliberately a SEPARATE combine mode (not a
+        # generalization of "mean") so existing "mean"/"max" runs are byte-for-byte
+        # unaffected regardless of this value. Must be selected via a validation-set
+        # sweep (grid/Optuna) if used -- do NOT set this from the Lead4c entropy
+        # regression's src_out/tgt_in coefficient ratio: that regression's features
+        # are computed from all edges (train+val+test, see
+        # scripts/lead4_entropy_heterogeneity.py) and its outcome is test-set
+        # prediction correctness, so any number derived from it is test-set-leaked
+        # if fed back into a training-time choice that gets re-evaluated on that
+        # same test set (see HARDNESS_MINER_ROADMAP.md).
+        self.hardness_source_weight = float(
+            getattr(self.cfg.model, "hardness_source_weight", 0.5)
+        )
+        assert self.hardness_combine in ("mean", "max", "weighted"), self.hardness_combine
+        assert 0.0 <= self.hardness_source_weight <= 1.0, self.hardness_source_weight
         hardness_map_path = getattr(self.cfg.model, "hardness_map_path", None)
-        if hardness_map_path:
-            hmap = torch.load(
-                str(hardness_map_path), map_location="cpu", weights_only=True
-            )
-            self.register_buffer("hardness_map_tensor", hmap.float())
-            print(
-                f"✓ Loaded hardness map from {hardness_map_path} (vocab_size={hmap.shape[0]})"
-            )
-        else:
-            self.hardness_map_tensor = None
+        hardness_source_map_path = getattr(self.cfg.model, "hardness_source_map_path", None)
+        hardness_target_map_path = getattr(self.cfg.model, "hardness_target_map_path", None)
 
-        # ── OWL: Occurrence-Weighted Loss ───────────────────────────────────
-        owl_path = getattr(self.cfg.model, "occurrence_weight_path", None)
-        if owl_path:
-            owl_tensor = torch.load(
-                str(owl_path), map_location="cpu", weights_only=True
+        def _load_hmap(path):
+            hmap = torch.load(str(path), map_location="cpu", weights_only=True)
+            return hmap.float()
+
+        if hardness_source_map_path or hardness_target_map_path:
+            src_path = hardness_source_map_path or hardness_map_path
+            tgt_path = hardness_target_map_path or hardness_map_path
+            assert src_path and tgt_path, (
+                "hardness_source_map_path/hardness_target_map_path set but the other "
+                "side has no fallback (hardness_map_path also unset)"
             )
-            self.register_buffer("occurrence_weight_tensor", owl_tensor.float())
+            self.register_buffer("hardness_source_map_tensor", _load_hmap(src_path))
+            self.register_buffer("hardness_target_map_tensor", _load_hmap(tgt_path))
             print(
-                f"✓ Loaded OWL weight tensor from {owl_path} "
-                f"(edges={owl_tensor.shape[0]})"
+                f"✓ Loaded role-aware hardness maps: source={src_path} "
+                f"target={tgt_path}"
+            )
+        elif hardness_map_path:
+            hmap = _load_hmap(hardness_map_path)
+            self.register_buffer("hardness_source_map_tensor", hmap)
+            self.register_buffer("hardness_target_map_tensor", hmap)
+            print(
+                f"✓ Loaded hardness map from {hardness_map_path} (vocab_size={hmap.shape[0]}, "
+                f"symmetric — same map used for source and target roles)"
             )
         else:
-            self.occurrence_weight_tensor = None
+            self.hardness_source_map_tensor = None
+            self.hardness_target_map_tensor = None
 
     def forward(self, input_ids):
         return self.model(input_ids)
@@ -203,9 +240,19 @@ class LitEdgeClassifier(pl.LightningModule):
         if not self._dynamic_pool_ready:
             self._build_dynamic_train_pool()
 
-        target_ratio = float(self.cfg.dataset.mask_ratio) / float(
-            self.cfg.dataset.train_ratio + self.cfg.dataset.mask_ratio
-        )
+        # Optional override, decoupled from dataset.mask_ratio/train_ratio (which also
+        # size the actual train/mask split -- overriding those would confound the split
+        # itself, not just the per-epoch target-sampling rate). Used to de-confound
+        # "wasted epochs" (walk too short to contain any of this epoch's sampled
+        # targets) from "insufficient graph information" at short max_walk_length --
+        # see HARDNESS_MINER_ROADMAP.md-adjacent short-walk investigation, CLAUDE.md.
+        override = getattr(self.cfg.model, "dynamic_target_ratio", None)
+        if override is not None:
+            target_ratio = float(override)
+        else:
+            target_ratio = float(self.cfg.dataset.mask_ratio) / float(
+                self.cfg.dataset.train_ratio + self.cfg.dataset.mask_ratio
+            )
         target_ratio = max(0.0, min(1.0, target_ratio))
 
         gen = torch.Generator(device="cpu")
@@ -317,11 +364,10 @@ class LitEdgeClassifier(pl.LightningModule):
             if self.class_weights is not None
             else None
         )
-        use_hardness = stage == "train" and self.hardness_map_tensor is not None
-        use_owl      = stage == "train" and self.occurrence_weight_tensor is not None
+        use_hardness = stage == "train" and self.hardness_source_map_tensor is not None
 
-        if use_hardness or use_owl:
-            # Unified composite-weight path (supports hardness, OWL, or both)
+        if use_hardness:
+            # Composite-weight path (hardness reweighting)
             B, S = labels.shape
             loss_flat = F.cross_entropy(
                 logits.view(-1, logits.size(-1)),
@@ -334,33 +380,29 @@ class LitEdgeClassifier(pl.LightningModule):
             target_mask = labels != self.ignore_index  # [B, S]
             target_float = target_mask.float()
 
-            # Start with a uniform composite weight of 1.0
-            composite = torch.ones(B, S, device=logits.device)
-
-            if use_hardness:
-                # Per-walk scalar: weight by hardness of nodes flanking the target edge
-                target_pos = target_mask.long().argmax(dim=1)  # [B]
-                seq_idx = torch.arange(B, device=logits.device)
-                left_pos = (target_pos - 1).clamp(min=0)
-                right_pos = (target_pos + 1).clamp(max=S - 1)
-                # Use original input_ids for node lookup (before any replacement)
-                left_toks = input_ids[seq_idx, left_pos]
-                right_toks = input_ids[seq_idx, right_pos]
-                h_left  = self.hardness_map_tensor[left_toks]   # [B]
-                h_right = self.hardness_map_tensor[right_toks]  # [B]
-                walk_w = 1.0 + self.hardness_lambda * (h_left + h_right) / 2.0  # [B]
-                composite = composite * walk_w.unsqueeze(1)  # broadcast [B, 1] → [B, S]
-
-            if use_owl:
-                # Per-position scalar: inverse-occurrence weight for each target edge
-                edge_ids_batch = metadata["edge_ids"]  # [B, S]
-                safe_eids = edge_ids_batch.clamp(min=0)
-                owl_w = self.occurrence_weight_tensor[safe_eids]  # [B, S]
-                # Positions with no valid edge (edge_id == -1) get neutral weight 1.0
-                owl_w = torch.where(
-                    edge_ids_batch >= 0, owl_w, torch.ones_like(owl_w)
+            # Per-walk scalar: weight by hardness of nodes flanking the target edge
+            target_pos = target_mask.long().argmax(dim=1)  # [B]
+            seq_idx = torch.arange(B, device=logits.device)
+            left_pos = (target_pos - 1).clamp(min=0)
+            right_pos = (target_pos + 1).clamp(max=S - 1)
+            # Use original input_ids for node lookup (before any replacement)
+            left_toks = input_ids[seq_idx, left_pos]
+            right_toks = input_ids[seq_idx, right_pos]
+            h_left  = self.hardness_source_map_tensor[left_toks]   # [B] -- left = source
+            h_right = self.hardness_target_map_tensor[right_toks]  # [B] -- right = target
+            if self.hardness_combine == "max":
+                combined = torch.maximum(h_left, h_right)
+            elif self.hardness_combine == "weighted":
+                combined = (
+                    self.hardness_source_weight * h_left
+                    + (1.0 - self.hardness_source_weight) * h_right
                 )
-                composite = composite * owl_w
+            else:
+                combined = (h_left + h_right) / 2.0
+            if self.hardness_power != 1.0:
+                combined = combined.clamp(min=0.0) ** self.hardness_power
+            walk_w = 1.0 + self.hardness_lambda * combined  # [B]
+            composite = walk_w.unsqueeze(1)  # broadcast [B, 1] → [B, S]
 
             weighted = (loss_2d * composite * target_float).sum()
             loss = weighted / target_float.sum().clamp(min=1.0)

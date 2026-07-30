@@ -29,6 +29,36 @@ def _stable_id(s: str) -> int:
     return int(h[:16], 16) % (10**9)
 
 
+def _assign_node_id(raw: str, registry: dict) -> int:
+    """Map a raw identifier string to an int id, guarding against collisions.
+
+    Numeric-looking identifiers are used as-is; everything else falls back to
+    `_stable_id`'s md5-based hash. Both paths share one `registry` (raw string
+    -> assigned id) so a collision is caught regardless of which path produced
+    it -- including a hashed username landing on a numeric id used elsewhere.
+    Does not change the id assigned to any non-colliding string (so a
+    collision-free file, like the current wiki-RfA dump, encodes identically
+    to before this guard existed); it only turns a *future* collision into a
+    loud failure instead of a silent node merge.
+    """
+    try:
+        node_id = int(raw)
+    except (TypeError, ValueError):
+        node_id = _stable_id(raw)
+
+    existing_raw = registry.get(node_id)
+    if existing_raw is not None and existing_raw != raw:
+        raise RuntimeError(
+            f"Node ID collision detected: distinct identifiers {existing_raw!r} "
+            f"and {raw!r} both map to id={node_id}. Silently proceeding would "
+            "merge two distinct users into one graph node. Refusing to build "
+            "the dataset -- widen/replace the id scheme (e.g. a bijective "
+            "interning table) before retrying."
+        )
+    registry[node_id] = raw
+    return node_id
+
+
 def load_wiki_rfa(cfg):
     """Load the Wiki-RfA dataset.
 
@@ -57,6 +87,7 @@ def load_wiki_rfa(cfg):
         blocks.append(cur)
 
     parsed = []
+    node_id_registry = {}
     for block in blocks:
         data = {}
         last_key = None
@@ -81,15 +112,9 @@ def load_wiki_rfa(cfg):
         if not src_raw or not tgt_raw or vot_raw is None:
             continue
 
-        # convert to numeric ids
-        try:
-            u = int(src_raw)
-        except Exception:
-            u = _stable_id(src_raw)
-        try:
-            v = int(tgt_raw)
-        except Exception:
-            v = _stable_id(tgt_raw)
+        # convert to numeric ids (collision-guarded -- see _assign_node_id)
+        u = _assign_node_id(src_raw, node_id_registry)
+        v = _assign_node_id(tgt_raw, node_id_registry)
 
         # normalize vote
         try:

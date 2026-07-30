@@ -34,7 +34,11 @@ from torch.utils.data import DataLoader
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.data.stage_dataset import StageViewDataset, ragged_collate_fn  # noqa: E402
+from src.data.stage_dataset import (  # noqa: E402
+    BucketBatchSampler,
+    StageViewDataset,
+    ragged_collate_fn,
+)
 from src.model.model import TransformerModel  # noqa: E402
 
 
@@ -44,14 +48,17 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--out", required=True, help="Output path for hardness_map.pt")
     p.add_argument("--device", type=int, default=0)
     p.add_argument("--epochs", type=int, default=5)
-    p.add_argument("--batch-size", type=int, default=1024)
+    p.add_argument("--batch-size", type=int, default=4096)
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument(
         "--max-walk-edges",
         type=int,
         default=0,
-        help="If >0, miner uses only samples whose target walk has <= this many edges",
+        help="If >0, miner uses only samples whose target walk has <= this many edges. "
+        "NOTE: the best-known production recipe (E14_HARDNODE_L10) does NOT set this — "
+        "combining it with the miner's already-tiny capacity was found to over-restrict "
+        "data per node (see plan-hardness-miner.md). Leave at 0 unless deliberately testing it.",
     )
     p.add_argument(
         "--dynamic-pool",
@@ -60,7 +67,105 @@ def parse_args() -> argparse.Namespace:
         help="If set, miner trains with rotating targets over the full TRAIN+MASK pool each epoch "
         "(mirrors _sample_epoch_targets in lit_model.py). Eval collection always covers the full pool.",
     )
+    p.add_argument(
+        "--num-workers",
+        type=int,
+        default=4,
+        help="DataLoader worker processes. Default 4 (not 16, the main model's default) since "
+        "several miner jobs typically run concurrently across datasets on one machine.",
+    )
+    p.add_argument(
+        "--bucket-width",
+        type=int,
+        default=16,
+        help="Bucket width (in tokens) for length-based batching, matching the main model's "
+        "BucketBatchSampler default — groups similar-length walks to avoid padding waste.",
+    )
+    p.add_argument(
+        "--node-replace-prob",
+        type=float,
+        default=0.0,
+        help="If >0, apply the main model's node-token replacement regularization (R) "
+        "during miner TRAINING only — eval collection (which computes hardness) always "
+        "sees clean input_ids, so attribution is never corrupted by this. 0.0 (default) "
+        "matches the current production recipe (R off for the miner). Main model's own "
+        "default when R is on is 0.2 (config.yaml's node_replace_prob).",
+    )
+    p.add_argument(
+        "--node-replace-unk-ratio",
+        type=float,
+        default=0.7,
+        help="Fraction of replaced node tokens set to [UNK] vs. a random other node id "
+        "from the batch. Matches lit_model.py's node_replace_unk_ratio default (0.7). "
+        "Only used when --node-replace-prob > 0.",
+    )
+    p.add_argument(
+        "--unk-id",
+        type=int,
+        default=2,
+        help="Token id for [UNK], used by --node-replace-prob. Matches lit_model.py's "
+        "cfg.model.unk_id default (2) — production config never overrides this.",
+    )
+    p.add_argument(
+        "--save-variants",
+        action="store_true",
+        default=False,
+        help="If set, also save a '<out>.variants.pt' dict with 4 candidate hardness "
+        "definitions computed from the SAME trained miner + eval pass: 'accuracy' "
+        "(1-acc, identical to the primary --out tensor), 'margin' (1 - mean confidence "
+        "margin |p1-p0|), 'brier' (mean Brier score (p1-y)^2), 'loss' (mean per-edge "
+        "cross-entropy). Lets Q5 candidates be screened without retraining the miner "
+        "multiple times.",
+    )
     return p.parse_args()
+
+
+def _maybe_apply_node_replacement(
+    input_ids: torch.Tensor,
+    node_mask: torch.Tensor,
+    replace_prob: float,
+    unk_ratio: float,
+    unk_id: int,
+) -> torch.Tensor:
+    """Node-token replacement regularization (R), ported from
+    lit_model.py::LitModel._maybe_apply_node_replacement — training-time only,
+    caller is responsible for never applying this during eval/hardness collection.
+    """
+    if replace_prob <= 0.0:
+        return input_ids
+
+    x = input_ids.clone()
+    candidates = node_mask
+    if not candidates.any():
+        return x
+
+    replace_mask = (
+        torch.rand_like(candidates, dtype=torch.float) < replace_prob
+    ) & candidates
+    if not replace_mask.any():
+        return x
+
+    node_pool = x[candidates]
+    if node_pool.numel() == 0:
+        return x
+
+    selected = replace_mask.nonzero(as_tuple=False)
+    if selected.numel() == 0:
+        return x
+
+    use_unk = torch.rand(selected.size(0), device=x.device) < unk_ratio
+
+    if use_unk.any():
+        unk_positions = selected[use_unk]
+        x[unk_positions[:, 0], unk_positions[:, 1]] = unk_id
+
+    rand_count = int((~use_unk).sum().item())
+    if rand_count > 0:
+        rand_positions = selected[~use_unk]
+        rand_idx = torch.randint(0, node_pool.numel(), (rand_count,), device=x.device)
+        x[rand_positions[:, 0], rand_positions[:, 1]] = node_pool[rand_idx]
+
+    return x
 
 
 def _target_rows_by_max_walk_edges(
@@ -131,6 +236,9 @@ class FullPoolMinerDataset(torch.utils.data.Dataset):
             self.flat_split_mask = enc["flat_split_mask"]
             self.flat_edge_ids = enc["flat_edge_ids"]
             self._N = len(self.offsets) - 1
+            # For BucketBatchSampler — raw walk length, stable across epochs even
+            # though `selected_edge_ids` (which edges are labeled) rotates.
+            self.lengths = (self.offsets[1:] - self.offsets[:-1]).to(torch.long)
         else:
             self.input_ids = enc["input_ids"]
             self.edge_split_mask = enc["edge_split_mask"]
@@ -157,6 +265,7 @@ class FullPoolMinerDataset(torch.utils.data.Dataset):
             else:
                 lengths = self.attention_base.sum(dim=1, dtype=torch.long)
                 self.walk_lengths = lengths.unsqueeze(1).expand(N, seq_len)
+            self.lengths = self.attention_base.sum(dim=1, dtype=torch.long)
 
         # _selected_lookup: bool tensor [max_edge_id+1], True = this edge is a target.
         # None means expose all pool edges (eval pass or non-dynamic mode).
@@ -438,13 +547,49 @@ def main() -> None:
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
+    def _make_loader(ds, shuffle: bool, seed: int, persistent: bool) -> DataLoader:
+        # BucketBatchSampler groups walks by length before batching (avoids
+        # padding every batch out to the longest walk in a random shuffle) —
+        # matches the main model's create_stage_dataloaders() path, which the
+        # miner previously bypassed entirely (naive shuffle, num_workers=0).
+        sampler = BucketBatchSampler(
+            ds.lengths,
+            batch_size=args.batch_size,
+            bucket_width=args.bucket_width,
+            shuffle=shuffle,
+            seed=seed,
+        )
+        loader_kwargs = dict(
+            batch_sampler=sampler,
+            collate_fn=_collate,
+            pin_memory=device.type == "cuda",
+            num_workers=args.num_workers,
+        )
+        if args.num_workers > 0:
+            loader_kwargs["persistent_workers"] = persistent
+            loader_kwargs["prefetch_factor"] = 2
+        return DataLoader(ds, **loader_kwargs)
+
     print(
         f"[{_ts()}][miner] Training tiny model for {args.epochs} epoch(s) ...",
         flush=True,
     )
     model.train()
+
+    # Non-dynamic-pool: dataset never mutates across epochs, so build the
+    # bucketed/multi-worker loader once and reuse it — BucketBatchSampler
+    # reshuffles its own batch order on every __iter__ call, so this still
+    # gives a fresh shuffle each epoch without rebuilding workers each time.
+    static_train_loader = (
+        None if args.dynamic_pool else _make_loader(train_ds, shuffle=True, seed=args.seed, persistent=True)
+    )
+
     for epoch in range(args.epochs):
-        # Dynamic pool: rotate target subset to match this epoch
+        # Dynamic pool: rotate target subset to match this epoch. The dataset's
+        # _selected_lookup mutates, so rebuild the loader each epoch (no
+        # persistent_workers, since forked workers would hold a stale copy of
+        # the dataset otherwise) — still bucketed + multi-worker, just not
+        # reused across epochs like the static path above.
         if args.dynamic_pool:
             selected = _sample_dynamic_pool(
                 pool_unique_eids,
@@ -454,15 +599,11 @@ def main() -> None:
                 seed=args.seed + epoch,
             )
             train_ds.update_selected(selected)
-
-        train_loader = DataLoader(
-            train_ds,
-            batch_size=args.batch_size,
-            shuffle=True,
-            num_workers=0,
-            pin_memory=device.type == "cuda",
-            collate_fn=_collate,
-        )
+            train_loader = _make_loader(
+                train_ds, shuffle=True, seed=args.seed + epoch, persistent=False
+            )
+        else:
+            train_loader = static_train_loader
 
         total_loss = 0.0
         n_batches = 0
@@ -490,6 +631,19 @@ def main() -> None:
                 labels[~keep_rows] = ignore_index
                 if torch.all(labels == ignore_index):
                     continue
+
+            if args.node_replace_prob > 0.0:
+                positions = metadata.get("positions")
+                if positions is not None:
+                    positions = positions.to(device)
+                    node_mask = (positions >= 0) & ((positions % 2) == 0)
+                    input_ids = _maybe_apply_node_replacement(
+                        input_ids,
+                        node_mask,
+                        replace_prob=args.node_replace_prob,
+                        unk_ratio=args.node_replace_unk_ratio,
+                        unk_id=args.unk_id,
+                    )
 
             logits = model(input_ids, attention_mask=attention_mask)
             loss = F.cross_entropy(
@@ -524,6 +678,9 @@ def main() -> None:
 
     node_correct = torch.zeros(vocab_size, dtype=torch.long)
     node_total = torch.zeros(vocab_size, dtype=torch.long)
+    node_margin_sum = torch.zeros(vocab_size, dtype=torch.float64)
+    node_brier_sum = torch.zeros(vocab_size, dtype=torch.float64)
+    node_loss_sum = torch.zeros(vocab_size, dtype=torch.float64)
 
     if args.dynamic_pool:
         # Full-pool eval: expose every TRAIN+MASK edge; no selection filter
@@ -531,13 +688,7 @@ def main() -> None:
     else:
         eval_ds = train_ds  # unchanged: StageViewDataset(stage="train")
 
-    eval_loader = DataLoader(
-        eval_ds,
-        batch_size=args.batch_size,
-        shuffle=False,
-        num_workers=0,
-        collate_fn=_collate,
-    )
+    eval_loader = _make_loader(eval_ds, shuffle=False, seed=args.seed, persistent=False)
 
     with torch.no_grad():
         for batch in eval_loader:
@@ -561,6 +712,7 @@ def main() -> None:
                     continue
 
             logits = model(input_ids_cpu.to(device), attention_mask=attention_mask)
+            probs_cpu = F.softmax(logits, dim=-1).cpu()  # [B, S, C]
             preds_cpu = logits.argmax(dim=-1).cpu()  # [B, S]
 
             B, S = labels_cpu.shape
@@ -575,6 +727,22 @@ def main() -> None:
                 == labels_cpu[target_rows, target_cols]
             ).long()
 
+            if args.save_variants:
+                target_probs = probs_cpu[target_rows, target_cols]  # [N, C]
+                target_labels = labels_cpu[target_rows, target_cols]  # [N]
+                num_classes = target_probs.size(-1)
+                # Margin: top1 - top2 softmax probability (generalizes |p1-p0| to C>2).
+                top2 = target_probs.topk(min(2, num_classes), dim=-1).values
+                margin = (
+                    (top2[:, 0] - top2[:, 1]) if top2.size(-1) > 1 else top2[:, 0]
+                ).double()
+                onehot = F.one_hot(target_labels, num_classes=num_classes).double()
+                brier = ((target_probs.double() - onehot) ** 2).sum(dim=-1)
+                p_true = target_probs.double().gather(
+                    -1, target_labels.unsqueeze(-1)
+                ).squeeze(-1).clamp_min(1e-12)
+                sample_loss = -p_true.log()
+
             # Left adjacent node (mask_pos - 1)
             valid_left = target_cols > 0
             if valid_left.any():
@@ -583,6 +751,10 @@ def main() -> None:
                 ]
                 node_correct.scatter_add_(0, left_toks, correct[valid_left])
                 node_total.scatter_add_(0, left_toks, torch.ones_like(left_toks))
+                if args.save_variants:
+                    node_margin_sum.scatter_add_(0, left_toks, margin[valid_left])
+                    node_brier_sum.scatter_add_(0, left_toks, brier[valid_left])
+                    node_loss_sum.scatter_add_(0, left_toks, sample_loss[valid_left])
 
             # Right adjacent node (mask_pos + 1)
             valid_right = target_cols + 1 < S
@@ -592,6 +764,10 @@ def main() -> None:
                 ]
                 node_correct.scatter_add_(0, right_toks, correct[valid_right])
                 node_total.scatter_add_(0, right_toks, torch.ones_like(right_toks))
+                if args.save_variants:
+                    node_margin_sum.scatter_add_(0, right_toks, margin[valid_right])
+                    node_brier_sum.scatter_add_(0, right_toks, brier[valid_right])
+                    node_loss_sum.scatter_add_(0, right_toks, sample_loss[valid_right])
 
     # -----------------------------------------------------------------
     # Compute hardness = 1 - accuracy  (0 for unseen nodes)
@@ -613,6 +789,34 @@ def main() -> None:
         f"({n_nodes} nodes, mean_hardness={avg_h:.4f})",
         flush=True,
     )
+
+    if args.save_variants:
+        margin_hardness = torch.zeros(vocab_size, dtype=torch.float32)
+        brier_hardness = torch.zeros(vocab_size, dtype=torch.float32)
+        loss_hardness = torch.zeros(vocab_size, dtype=torch.float32)
+        cnt = node_total[with_data].double()
+        margin_hardness[with_data] = (
+            1.0 - (node_margin_sum[with_data] / cnt)
+        ).float()
+        brier_hardness[with_data] = (node_brier_sum[with_data] / cnt).float()
+        loss_hardness[with_data] = (node_loss_sum[with_data] / cnt).float()
+
+        variants = {
+            "accuracy": hardness,
+            "margin": margin_hardness,
+            "brier": brier_hardness,
+            "loss": loss_hardness,
+            "node_total": node_total,
+        }
+        variants_path = out_path.with_suffix(out_path.suffix + ".variants.pt")
+        torch.save(variants, str(variants_path))
+        print(
+            f"[{_ts()}][miner] Saved hardness variants \u2192 {variants_path}  "
+            f"(mean margin={float(margin_hardness[with_data].mean()):.4f}, "
+            f"mean brier={float(brier_hardness[with_data].mean()):.4f}, "
+            f"mean loss={float(loss_hardness[with_data].mean()):.4f})",
+            flush=True,
+        )
 
 
 if __name__ == "__main__":

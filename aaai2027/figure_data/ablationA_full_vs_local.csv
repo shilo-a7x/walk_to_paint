@@ -1,0 +1,7 @@
+dataset,full_auc,local_auc
+bitcoin-alpha,0.9219,0.9126
+bitcoin-otc,0.9311,0.9390
+epinions,0.9527,0.9533
+wiki-elec,0.9036,0.9061
+wiki-rfa,0.8930,0.8959
+slashdot090221,0.9007,0.8981

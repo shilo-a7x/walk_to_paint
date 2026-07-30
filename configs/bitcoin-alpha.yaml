@@ -9,7 +9,11 @@ dataset:
     remove_self_loops: true
     multiedge_handling: most_recent
     max_walk_length: 80 # was 83
-    num_walks: 5000000 # was 219589
+    num_walks: 120930 # E25 edge_cover 5x|E| pick (flp 0.9219); zero-dup guarantee, was k_cover k=5 5M (flp 0.9212,
+                       # duplicated walks) -- 5M (E25 old-ref, edge_cover) reached 0.9375 but wasn't worth 41x the
+                       # walks for +1.6pp; see outputs/walk_coverage_analysis/E25_BUDGET_SWEEP_RESULTS.md
+    walk_strategy: edge_cover # E25 SOTA (was k_cover k=5); zero-duplication guarantee, no k concept -- see
+                               # outputs/walk_coverage_analysis/{E24_BP_SWEEP_RESULTS,E25_BUDGET_SWEEP_RESULTS}.md
 
 model:
     embedding_dim: 64
@@ -30,7 +34,7 @@ optuna:
     initial_params:
         dataset:
             max_walk_length: 80
-            num_walks: 5000000
+            num_walks: 120930
         training:
             lr: 0.0016
             weight_decay: 1.0e-4

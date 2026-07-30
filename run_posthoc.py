@@ -10,6 +10,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import torch
+from omegaconf import OmegaConf
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from sklearn.preprocessing import StandardScaler
@@ -463,6 +464,28 @@ def _func_registry():
       lambda t,q,ds,de,l,rp: np.exp(np.clip(-t[0]*rp, -30, 30)) * np.power(
           np.abs(np.log(np.maximum(q, E) / np.maximum(1. - q, E))) + E, t[1]),
       [1., 1.], "exp(-a*rp)*|logit(q)|^b")
+
+    # ── Group 11: Bernoulli-entropy confidence (symmetric, class-agnostic,
+    # position/length-free) ────────────────────────────────────────────────
+    # H(q) = -[q*log(q) + (1-q)*log(1-q)] is the walk-occurrence's own
+    # predictive entropy -- symmetric under q<->1-q by construction (no
+    # sign-flip toward one class the way (1-q)^b/-log(q) forms have), and
+    # ties the aggregation weight to the same entropy concept used
+    # throughout the paper's theory (low predictive entropy = high
+    # confidence). No ds/de/l/rp dependence, so it doesn't overlap with the
+    # architecture's own local-attention ("proximal") locality claim.
+    LN2 = float(np.log(2.))
+
+    def _bern_ent(q):
+        q = np.clip(q, E, 1. - E)
+        return -(q * np.log(q) + (1. - q) * np.log(1. - q))
+
+    r("func_entropy_power",
+      lambda t, q, ds, de, l, rp: np.power(np.maximum(LN2 - _bern_ent(q), E), t[0]),
+      [1.], "(ln2-H(q))^b")
+    r("func_entropy_exp",
+      lambda t, q, ds, de, l, rp: np.exp(np.clip(-t[0] * _bern_ent(q), -30, 30)),
+      [2.], "exp(-a*H(q))")
 
     return reg
 
@@ -1680,8 +1703,6 @@ def run_aggregator(
 def main():
     args = parse_args()
 
-    cfg = load_config(args.config, overrides=args.overrides)
-    validate_config(cfg, context="posthoc")
     exp_dir = Path(args.exp_dir)
     checkpoint_dir = exp_dir / "checkpoints"
     if not checkpoint_dir.exists():
@@ -1693,6 +1714,36 @@ def main():
     epoch = _parse_epoch(ckpt_path)
     if epoch is None:
         epoch = 0
+
+    # Recover the exact cfg used at training time from the checkpoint itself.
+    # LitEdgeClassifier.save_hyperparameters() (src/model/lit_model.py) saves the
+    # full resolved cfg into every checkpoint -- this is the single source of
+    # truth for anything that affects the walk cache or model architecture
+    # (dataset.*, model.*). Positional `overrides` are merged on top only for
+    # deliberate, explicit changes; they are no longer required to reproduce
+    # the training-time setup, and forgetting one no longer silently desyncs
+    # data/model from the checkpoint. This replaces the old behavior of
+    # rebuilding cfg from configs/<ds>.yaml + CLI overrides alone, which caused
+    # two documented incidents (E16 LocalAttn4 rows, E24/E25 walk-dedup sweeps
+    # -- see CLAUDE.md's posthoc section) plus a third found 2026-07-19:
+    # model.local_attention_window wasn't being restored either, so LocalAttn4
+    # checkpoints were silently re-evaluated as full attention unless the flag
+    # was manually repeated.
+    raw_ckpt = torch.load(str(ckpt_path), map_location="cpu")
+    saved_cfg = (raw_ckpt.get("hyper_parameters") or {}).get("cfg")
+    if saved_cfg is None:
+        print(
+            "⚠️  Checkpoint has no saved cfg (pre-save_hyperparameters checkpoint?) "
+            "-- falling back to config.yaml + CLI overrides. Every non-default "
+            "dataset.*/model.* override used at training time MUST be repeated "
+            "manually here or results will silently mismatch the training run."
+        )
+        cfg = load_config(args.config, overrides=args.overrides)
+    else:
+        cfg = OmegaConf.merge(
+            OmegaConf.create(saved_cfg), OmegaConf.from_dotlist(args.overrides or [])
+        )
+    validate_config(cfg, context="posthoc")
 
     cfg.training.checkpoint_dir = str(checkpoint_dir)
     cfg.training.log_dir = str(exp_dir / "logs")

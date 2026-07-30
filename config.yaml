@@ -93,14 +93,6 @@ model:
     hardness_lambda: 1.0
     hardness_map_path: null # path to hardness_map.pt, or null
 
-    # ── OWL: Occurrence-Weighted Loss ───────────────────────────────────────
-    # Up-weight rare/uncovered TRAIN∪MASK edges at loss time.
-    # Generate the weight tensor with: compute_occurrence_weights.py
-    # Set occurrence_weight_path to the saved .pt file to enable; null = disabled.
-    occurrence_weight_path: null # path to *_occurrence_weights.pt, or null
-    occurrence_weight_fn: sqrt # sqrt | linear | log  (used by compute script)
-    occurrence_weight_ceiling: 5.0 # weight for zero-coverage edges (used by compute script)
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Miner configuration (used by compute_hardness_map.py / pipeline entry point)
 # Tiny transformer trained before the main model to produce the hardness map.
@@ -124,6 +116,8 @@ training:
     lr: 0.001
     weight_decay: 0.001
     early_stopping_patience: 10
+    early_stopping_min_delta: 0.001 # min val_auc_epoch improvement to reset patience -- was 0 (implicit),
+                                     # letting noise-level upticks reset the counter; see src/training/train.py
     gradient_clip_val: 0.5
 
     # Experiment tracking

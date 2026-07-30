@@ -53,6 +53,43 @@ candidate next steps.
 > Full numbers: `outputs/lead4_entropy_heterogeneity/E15_FULLCOVERAGE_RERUN_NOTE.md`;
 > sampler/SOTA story: `outputs/walk_coverage_analysis/E15_SWEEP_RESULTS.md`.
 
+> ### ✅ 2026-06-29 LEAD 4c — joint regression RESOLVES the "in_in is mechanistically
+> ### weird" open question above
+>
+> **⚠️ SUPERSEDED later the same day by the ATOMIC decomposition** (see the Lead 4c
+> section further down, and `LEAD4_ENTROPY_REPORT.md`). The "`b_src` is weak everywhere"
+> claim below is wrong — it reflects only the `in_in` combo (source = in-edges). Entering
+> all 6 atomic directions at once shows a **source/target asymmetry**: GNNs worse only on
+> `tgt_in` (contested target reputation), but the WALK worse on `src_out` (inconsistent
+> rater — the largest effect). Keep the paragraph below for history; trust the atomic update.
+>
+> Lead 4/4b's bucket-AUC method bins the 2D (source-entropy, target-entropy) grid
+> jointly, so it can't tell whether a variant's effect comes from the source term,
+> the target term, or both. **Lead 4c (`scripts/lead4c_entropy_logit_regression.py`)
+> fits a joint logistic regression of per-edge correctness on
+> `b_src*H_src(u) + b_tgt*H_tgt(v) + b_2hop*H_2hop(edge)` separately**, with
+> two-way cluster-robust SEs (edges sharing a node aren't independent draws), for
+> all 12 (4 node-variant × 3 two-hop-variant) combos × 4 models × 6 datasets + pooled.
+> **Finding: the effect is not "in_in is special" — it's specifically the TARGET
+> node's entropy, and only when that entropy includes IN-edge (reputation) signal:**
+> `b_tgt` shows GNN-more-negative-than-walk in **18/18 (100%) of (dataset ×
+> two-hop-variant) cells, sign-test p=8e-6**, for all three node-variants whose
+> target term touches in-edges (`in_in`, `out_in`, `inout_inout` alike) — and is
+> **null** (39%, p=0.48, chance) for `out_out`, the one variant whose target term
+> is restricted to the target's own OUT-edges. `b_src` is weak/mixed everywhere
+> (53–72% win-rate, never significant). `b_2hop` runs the OPPOSITE direction
+> (22–39% win-rate; significantly *walk*-more-negative for `inout_inout`, p=0.03),
+> consistent with Lead 4b never corroborating the `in_in` story on its own.
+> **Interpretation: this resolves the earlier "in_in is mechanistically the wrong
+> variant" puzzle** — it isn't that in-anchored entropy in general is special, it's
+> that *the target node's incoming-sign entropy* ("how contested is v's reputation
+> already") is the one feature GNNs handle far worse than the walk model, which has
+> an obvious causal story (predicting a new incoming sign to a node whose existing
+> reputation is already contested is hard, and message-passing apparently smooths
+> over exactly that contestedness). Full results, metrics glossary, and the
+> one-glance summary figure: `outputs/lead4c_entropy_logit_regression/` (see
+> `advisor_summary.png`, `report.md`, `fit_results.csv`).
+
 ## The central question
 
 The walk-Transformer beats every GNN/SGNN baseline on all 6 signed-graph
@@ -239,6 +276,46 @@ per-dataset tables/heatmaps: `outputs/lead4_entropy_heterogeneity/report.md`,
 
 ---
 
+## Lead 4c — Joint Entropy Logistic Regression (refines Lead 4/4b, 2026-06-29)
+
+**Method:** Lead 4/4b bin entropy into buckets and compare per-bucket AUC —
+qualitative, and the source/target terms are conflated in one 2D grid cell.
+Lead 4c instead fits, per (dataset|pooled, model, node-variant, two-hop-variant),
+ONE joint logistic regression:
+`logit(P(correct)) = b0 + b_src*H_src(u) + b_tgt*H_tgt(v) + b_2hop*H_2hop(edge)
+[+ dataset fixed effects, pooled only]`,
+with two-way cluster-robust SEs (clustered on u and v — edges sharing an
+endpoint aren't independent draws, so naive SEs understate uncertainty by
+1.1–2.2× in this data). Reuses Lead 4/4b's entropy/2-hop machinery (no BFS
+recomputation); all 336+ fits across 6 datasets + pooled run in ~80s wall-clock.
+
+> **⚠️ UPDATED 2026-06-29 (atomic decomposition).** The "it's the target node's
+> in-edge entropy; source entropy is weak" framing below was an over-generalization.
+> Entering all **6 atomic directional entropies** (`src_out, src_in, tgt_out, tgt_in,
+> twohop_in, twohop_out`) in ONE regression (`spec="atomic"`) shows a **source/target
+> asymmetry**, not a clean "GNNs worse with entropy": GNNs are hurt more only on
+> **`tgt_in`** (contested target reputation; walk β≈−1.9 vs GNN≈−3.0, 100% of datasets,
+> p=0.031), while on **`src_out`** (inconsistent rater) — the **largest** effect of all —
+> the **walk** is hurt more (β walk≈−2.7 vs GINEConv≈−1.3). `tgt_out`/`src_in`≈null,
+> 2-hop negligible. The old "source weak" came from reading only the `in_in` headline
+> combo (source = in-edges, genuinely ≈0). Full current writeup + equations:
+> [`LEAD4_ENTROPY_REPORT.md`](LEAD4_ENTROPY_REPORT.md), `LEAD4C_EQUATIONS.md`. Outputs:
+> `outputs/lead4c_entropy_logit_regression/` (zip `lead4c_atomic_outputs.zip`) —
+> `atomic_forest.png`, `atomic_heatmap.png`, `composite_forest.png`, `report.md`.
+
+**Finding (v1, marginal3 framing — see the atomic update above, which supersedes it):**
+
+| term | meaning | win-rate (GNN beta < walk beta) by node-variant | verdict |
+|---|---|---|---|
+| `b_tgt` | log-odds of correct per +1 bit of **target** node v's entropy | in_in 100%\*\*, out_in 100%\*\*, inout_inout 100%\*\* (p=8e-6 each); out_out 39% (n.s.) | robust whenever v's term includes IN-edge info — **the `tgt_in` part survives in the atomic model** |
+| `b_src` | same, for **source** node u (here using whatever direction the node-variant dictates) | 50–72%, never significant (best p=0.10) | **misleading — the atomic model shows `src_out` is the LARGEST effect (walk-worse); only `src_in` is weak** |
+| `b_2hop` | 2-hop path-consistency entropy (Lead 4b's score) | 22–39%, *opposite* sign | negligible / runs backwards — confirmed in the atomic model |
+
+(win-rate = fraction of the 18 (6 datasets × 3 two-hop-variants) cells where
+GNN's average beta is more negative than walk's; \*\* = sign-test p<0.01.)
+
+---
+
 ## Synthesizing the leads
 
 | | Real & measurable? | Universal across 6 datasets? | Closes the AUC gap when bypassed? |
@@ -246,7 +323,7 @@ per-dataset tables/heatmaps: `outputs/lead4_entropy_heterogeneity/report.md`,
 | Over-averaging/cancellation (Lead 1) | Yes, but small (~5–9%) | Direction yes, magnitude flat | N/A — too small to test causally |
 | Bottleneck (Lead 2) | Yes (NMI well above null) | Yes (direction), magnitude varies | Only for GINEConv, only some datasets |
 | Swamping (Lead 3) | Yes, severe in theory | Yes (predicted from real dilution) | No adaptive compensation found; avoidance is structural not learned |
-| Entropy-heterogeneity gap (Lead 4/4b) | Yes, but only under the `in_in` entropy definition | `in_in`: yes, 5/6 datasets, all bucket sizes. `out_in`/other variants: no | N/A — descriptive correlation, no ablation performed yet; causal driver (heterogeneity vs. degree/hub-ness proxy) unresolved |
+| Entropy-heterogeneity gap (Lead 4/4b/4c) | Yes — a **source/target directional asymmetry** (Lead 4c atomic) | `tgt_in` (contested target reputation): GNNs worse, 100% of datasets (p=0.031). `src_out` (inconsistent rater): **walk** worse, largest effect. `tgt_out`/`src_in`≈null; 2-hop negligible | N/A — descriptive; not "GNNs worse with entropy" but direction-specific. Degree/hub-ness control for `tgt_in` is the open Phase-2 test |
 
 The honest picture for your supervisor: **we have ruled out the simplest
 single-cause story** ("GNNs lose information through averaging/bottleneck and

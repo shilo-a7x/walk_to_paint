@@ -15,38 +15,135 @@ Beats every GNN/SGNN baseline on all 6 datasets on the same canonical splits.
 
 ## Key commands
 
+All commands below assume the project venv (`.venv/bin/python`, or
+`source .venv/bin/activate` first) — the bare system `python`/`python3` has no
+`torch` installed and fails with `ModuleNotFoundError` (confirmed 2026-07-06).
+
 ### Training
 
+**GPU pinning gotcha (confirmed 2026-07-06):** `run.py` unconditionally runs
+`os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)` (line 97), where
+`args.device` is the `--device` CLI flag, **defaulting to 0 if omitted**. This
+overwrites any shell-level `CUDA_VISIBLE_DEVICES=<N>` export before the process
+actually touches the GPU — omitting `--device` on parallel runs silently piles
+every process onto physical GPU 0 (verified: 4 processes launched with
+`CUDA_VISIBLE_DEVICES=0/1/2/3` and no `--device` all landed on GPU 0). **Always
+pass `--device <N>` explicitly**; the shell `CUDA_VISIBLE_DEVICES=<N>` prefix is
+redundant/ineffective for pinning in this codebase, don't rely on it alone.
+
+Also note: `exp_name=<tag>` (no `training.` prefix) is a **silent no-op** — the
+config key is `training.exp_name`, and a bare `exp_name=` dotlist override just
+creates an unused top-level key, so `run.py` falls back to auto-generating
+`<dataset>-run_<timestamp>` instead. Always use `training.exp_name=<tag>`.
+
 ```
-CUDA_VISIBLE_DEVICES=<N> python run.py dataset.name=<ds> \
-    model.hardness_map_path=<path> model.hardness_lambda=1.0 \
-    exp_name=<tag>
+.venv/bin/python run.py --device <N> dataset.name=<ds> training.exp_name=<tag>
 ```
 
-### Posthoc aggregation — MUST pass dataset.name= override
+configs/<dataset>.yaml already default to the E25/E26 `edge_cover` sampler
+(replaced `k_cover k=5` on 2026-07-19 — see "Walk sampler" below) and its
+per-dataset `num_walks` budget (see Current SOTA below) — no override needed for
+walk sampling either way. **Hardness reweighting (H) is scrapped everywhere as of
+2026-07-19 — never set `hardness_lambda`/`hardness_map_path` on any run, full
+attention or LocalAttn4** (see the H bullet in Training feature flags below).
+**Current default is LocalAttn4** (`model.local_attention_window=4`) — **settled,
+2026-07-20**, see "Attention variant: full vs. local" below. Not chosen for a clean
+AUC win (the numbers are mixed, 4/6 vs 2/6) but confirmed as the mechanistically
+correct way to realize the PEWTER paper's "proximal" claim: a genuine ±2-hop
+attention window on a long walk preserves real local context ~85-91% of the time,
+while literally truncating the walk to match that window's span (L=2) starves
+context down to ~45-57% because a 2-edge walk rarely has room for both a target and
+a neighbor. Full attention + short walks is no longer being pursued as the
+alternative production path.
+
+**Training-regime defaults updated 2026-07-19** (opinion requested, decided
+item-by-item, see `~/.claude/plans/plan-a-fix-for-glimmering-panda.md`
+addendum): `training.early_stopping_min_delta: 0.001` is now set in
+`config.yaml` (was implicit 0 — noise-level upticks no longer reset the
+early-stopping patience counter); `epochs: 75` for epinions and
+slashdot090221 only (both showed still-climbing val AUC at the old 50-epoch
+cap in convergence curves — the other 4 datasets were unaffected and keep
+their existing epoch caps). `CosineAnnealingLR`'s horizon stays coupled to
+`cfg.training.epochs` (left as-is, no change).
+
+### Posthoc aggregation — auto-recovers training-time config from the checkpoint (fixed 2026-07-19)
+
+**Historical bug, now fixed.** `run_posthoc.py` used to rebuild `cfg` purely
+from `configs/<ds>.yaml` + CLI dotlist overrides, completely ignoring the
+checkpoint. Any non-default `dataset.*` override used at training time (or,
+found later, `model.local_attention_window`) had to be retyped verbatim on
+the posthoc call, or it silently evaluated the wrong walk cache/architecture.
+This bit three times: twice on `dataset.*` (`E16_NOHARD_RESULTS.md`
+2026-07-07 — LocalAttn4 rows used the full-budget cache instead of the local
+one; E24/E25 walk-dedup sweeps 2026-07-17, caught before being reported —
+`outputs/walk_coverage_analysis/E24_BP_SWEEP_RESULTS.md` correction note) and
+once on `model.local_attention_window` (2026-07-19 — LocalAttn4 checkpoints
+were silently re-evaluated as full attention unless the flag was manually
+repeated; see `MASKING.md`'s re-verification list).
+
+**Fix:** `LitEdgeClassifier.save_hyperparameters()` (`src/model/lit_model.py`)
+already saves the *full* resolved training-time cfg into every checkpoint —
+nothing was ever lost at save time, `run_posthoc.py` just never read it back.
+It now loads that saved cfg first and uses it as the base for both the data
+pipeline and the model; CLI positional overrides are merged on top only for
+deliberate, explicit changes and are no longer required to reproduce the
+training-time setup. (Same change also fixed a latent `validate_config` bug:
+`model.class_weights` round-trips through the checkpoint as an OmegaConf
+`ListConfig`, which the old `isinstance(x, (list, tuple))` check rejected —
+never triggered before because `class_weights` is attached to `cfg` *after*
+training's own `validate_config` call, so posthoc's new checkpoint-cfg path
+was the first caller to ever see it; fixed in `src/utils/config.py` by
+allowing `ListConfig` too.)
+
+**Verified against real checkpoints (2026-07-19):** an epinions LocalAttn4
+checkpoint (`E16_NOHARD_KCOVER_K5_NW2000000_local`) posted with only
+`dataset.name=epinions` (the old under-specified invocation that used to
+silently break) now correctly recovers `walk_strategy=k_cover,
+num_walks=2000000, local_attention_window=4` straight from the checkpoint —
+edge test AUC=0.9570, 0% NaN, matching `MASKING.md`'s independently-verified
+reference number for this exact checkpoint. A full-attention checkpoint
+posted the same way reproduced the existing E16 number exactly (0.9572),
+confirming zero regression on the already-correct common path. Checkpoints
+saved before `save_hyperparameters` existed (if any) fall back to the old
+config.yaml+CLI behavior with a loud warning — the old "repeat every
+`dataset.*` override" rule still applies only to those.
 
 ```
-python run_posthoc.py \
+.venv/bin/python run_posthoc.py \
     --exp-dir outputs/<ds>/<run>/ \
     --artifacts predictions,aggregator \
     --agg-models func_logit_power \
     --device <N> --run-id <tag> \
-    dataset.name=<ds>        # critical, else defaults to bitcoin-alpha
+    dataset.name=<ds>   # no longer required (recovered from the checkpoint), harmless to keep
 ```
 
 ### Hardness map (miner)
 
+The `--dataset`/`--device`-only form below is **stale** — the script's actual
+args are `--cache` (path to a `dataset_cache*.pt`) and `--out` (output
+`hardness_map.pt` path), both required, plus `--device`/`--epochs`/etc.:
+
 ```
-python scripts/compute_hardness_map.py --dataset <ds> --device <N>
+.venv/bin/python scripts/compute_hardness_map.py \
+    --cache data/<ds>/dataset_cache.pt --out <path>/hardness_map.pt --device <N>
 ```
+
+**Leave `--max-walk-edges` unset/0 (default).** An earlier E14-era doc claimed
+`--max-walk-edges=7` was part of the production recipe; it isn't — the actual
+`E14_HARDNODE_L10`/E17 config leaves it at 0, and the one E17 mining pass that
+used the filter by mistake had to be discarded and redone (corrected
+2026-07-07, see `PROJECT_OVERVIEW.md`'s hardness-miner section and
+`plan-hardness-miner.md`'s methodological history / `old_chats/DRH.md`).
 
 ### Optuna search
 
 ```
-python optuna_run.py --dataset <ds> --n-trials 100 --device <N>
+.venv/bin/python optuna_run.py --dataset <ds> --n-trials 100 --device <N>
 ```
 
-(Note: optuna_run.py is suspected stale — see plan-stats-rigor.md.)
+(Note: optuna_run.py is suspected stale — see `plan-stats-rigor.md` (restored
+2026-07-19 after going missing from `~/.claude/plans/`, see OPEN WORKSTREAMS below;
+nothing in it has been executed yet).)
 
 ## Canonical splits
 
@@ -59,16 +156,76 @@ only ~10%. Fixed by `baselines/prepare_splits.py::build_canonical_split`, which 
 baseline artifacts from the frozen walk split (`data/<ds>/dataset_cache.pt["splits"]`) into
 isolated `baselines/splits_canonical/`. Full story: `SPLIT_PROVENANCE.md` (+ `FABRICATED_REVERSE_EDGES.md`).
 
-**Walk coverage caveat — RESOLVED (2026-06-29) by the E15 k_cover k=5 sampler.** The old
-uniform sampler only predicted a test edge if it appeared in a sampled walk, so on sparse
-graphs it evaluated a *subset* of the nominal test split (bitcoin-alpha/otc 100%, slashdot 98%,
-epinions 88%, wiki-rfa 86%, wiki-elec 85%) while GNNs saw all of it. The new edge-anchored
-`k_cover` sampler (`walk_strategy=k_cover`, `walk_k_min=5`) drives **node AND edge coverage to
-~100% on all 6** while matching/beating uniform AUC (and improving it on the same edges where
-coverage was low). The SOTA table below is now the E15 full-coverage model — no coverage
-footnote. Old uniform-E14 numbers are in parentheses. Details: `WALK_COVERAGE.md`,
-`outputs/walk_coverage_analysis/E15_SWEEP_RESULTS.md`,
+**Walk coverage caveat — RESOLVED (2026-06-29) by the E15 k_cover k=5 sampler; sampler
+itself since SUPERSEDED (2026-07-19) by `edge_cover`.** The old uniform sampler only
+predicted a test edge if it appeared in a sampled walk, so on sparse graphs it evaluated
+a *subset* of the nominal test split (bitcoin-alpha/otc 100%, slashdot 98%, epinions 88%,
+wiki-rfa 86%, wiki-elec 85%) while GNNs saw all of it. The E15 edge-anchored `k_cover`
+sampler (`walk_strategy=k_cover`, `walk_k_min=5`) fixed that, driving node AND edge
+coverage to ~100% on all 6 — but its anchor walks turned out to contain a lot of *exact
+duplicate* walks (dead-end targets collapse all k=5 "visits" to 1 repeated context;
+29% of all walks on wiki-elec, measured directly). This didn't affect coverage or cause
+leakage, but it's bad training practice (repeated identical gradient steps) and
+undermined the "k=5 distinct views" premise. Investigated and fixed in
+`~/.claude/plans/plan-a-fix-for-glimmering-panda.md`: re-deriving k under a
+duplication-free sampler found k=1 is sufficient (k=5's marginal AUC gain was weak/
+negative once duplicates were removed), so the sampler was simplified to
+**`walk_strategy=edge_cover`** — one forced, provably-globally-distinct anchor walk per
+edge (no `walk_k_min`), with a hardened dedup-fill phase that **hard-fails
+(`RuntimeError`)** rather than silently padding with duplicates if a budget can't be
+honored. Measured 0.000000% duplication at production scale. **`edge_cover` is now the
+default in every `configs/<dataset>.yaml`**, with budgets freshly re-swept per dataset
+(not copied from the old `k_cover` absolute walk counts) — see "Walk sampler" below.
+Coverage remains ~100% on all 6 (provable, not just measured, since `edge_cover`
+guarantees coverage once `num_walks >= |E|`). Details: `WALK_COVERAGE.md`,
+`outputs/walk_coverage_analysis/{E15_SWEEP_RESULTS,E24_BP_SWEEP_RESULTS,
+E25_BUDGET_SWEEP_RESULTS,E26_WIKI_SWEEP_RESULTS}.md`,
 `~/.claude/plans/plan-a-fix-for-glimmering-panda.md`.
+
+## Walk sampler
+
+**Current default: `edge_cover` (k=1, zero-duplication guarantee)** — adopted
+2026-07-19, replacing `k_cover k=5`. Every edge gets exactly one forced anchor walk;
+since each edge's own `(u, label, v)` triple is unique, anchor-anchor collision is
+impossible *by construction*, not just unlikely — this is what makes the
+zero-duplication guarantee provable rather than empirical. Remaining budget beyond
+`|E|` is filled via a dedup-retry phase that raises `RuntimeError` (not silent
+duplicate-padding) if it can't find enough genuinely distinct walks. `k_cover`/
+`k_cover_bp` (k>1-capable, backward-prefix anchors) are untouched and remain
+available as a fallback, just no longer the default.
+
+Per-dataset production budgets (re-swept fresh under `edge_cover`, `{floor(=|E|),
+1.5×, 3×, 5×}` grid, diminishing-returns pick, signed off 2026-07-17/19 — full grids
+with every point tested, not just winners, in `E25_BUDGET_SWEEP_RESULTS.md` /
+`E26_WIKI_SWEEP_RESULTS.md`):
+
+| dataset | \|E\| | pick | num_walks | why |
+|---|---|---|---|---|
+| bitcoin-alpha | 24,186 | 5× | 120,930 | still climbing at 5×; old 5M-walk budget (207×) gains +1.56pp more but at 41× the walks — not yet re-tested past 5× |
+| bitcoin-otc | 35,592 | 5× | 177,960 | still climbing at 5×, not yet swept past it |
+| epinions | 840,799 | floor (1×) | 840,799 | floor→5× is flat/noisy (0.34pp range) — cheapest point taken |
+| slashdot090221 | 549,202 | 3× | 1,647,606 | peaks at 3×, 5×/old-ref (9.1×) both flat-to-negative past this point |
+| wiki-elec | 103,689 | 1.5× | 155,534 | over-saturates past 1.5× (confirmed genuine, not a dedup artifact — monotonic decline through 3×/5×/8×) |
+| wiki-rfa | 177,211 | 1.5× | 265,817 | same over-saturation shape, confirmed by a full 5-point sweep incl. 3×/5×/8× |
+
+bitcoin-alpha and bitcoin-otc's picks are **not yet a confirmed final floor** — both
+were still rising at the top of their tested grid (5×); only bitcoin-alpha has a
+higher reference point (5M walks, +1.56pp over 5×), and it hasn't been re-tested
+between 5× and that point. Treat those two as "current best swept point," not "proven
+plateau," unlike epinions/slashdot090221/wiki-elec/wiki-rfa which do show a real
+peak/plateau within their tested grids.
+
+**Retrain status: DONE (2026-07-19), contradicting an earlier version of this note —
+corrected 2026-07-30.** The full 6-dataset retrain-and-report against the SOTA table
+below is complete: the "Current SOTA" section's Full-attn (E25/E26) and LocalAttn4
+(E27) columns already reflect the `edge_cover` sampler at each dataset's adopted
+production budget, not the old `k_cover` checkpoints. Re-verified 2026-07-30 by exact
+numeric match against `outputs/walk_coverage_analysis/E25_BUDGET_SWEEP_RESULTS.md`
+(bitcoin-alpha 5×=0.9219, matches the SOTA table exactly), `E26_WIKI_SWEEP_RESULTS.md`
+(wiki-elec 1.5×=0.9036, matches exactly), and `HARDNESS_MINER_ROADMAP.md`'s E27 table
+(all 6 LocalAttn4 values match the SOTA table exactly). Re-running Leads 1/4/4b on the
+new predictions remains a separate, not-yet-done follow-up (unaffected by this
+correction) — see "Open threads" in Research status below.
 
 ## Walk encoding
 
@@ -78,9 +235,17 @@ Token layout: N_u0, E_s1, N_u1, E_s2, ... (alternating node/edge).
 
 ## Current SOTA (func_logit_power, test AUC)
 
-**Walk numbers are now the E15 k_cover k=5 full-coverage model** (~100% node+edge coverage
-on all 6). Old uniform-E14 numbers in parentheses (had the ~85–88% coverage caveat on the
-sparse graphs). The baseline column shows the **canonical-split** best GNN (re-run on the
+**Table below reflects the current, adopted `edge_cover` sampler** at each dataset's
+production `num_walks` budget (see "Walk sampler" above) — confirmed reproducible via
+a plain `dataset.name=<ds>` run, since `edge_cover` and its adopted budget are already
+the default in every `configs/<dataset>.yaml`. (Corrected 2026-07-30: this section
+previously and incorrectly claimed the table was still on the old `k_cover k=5`
+checkpoints pending a separate retrain — that claim was stale leftover text from
+before the "Rewritten 2026-07-19" note below the table, which already documented the
+table as edge_cover-based; the retrain this contradicted was in fact already done the
+same day. See the retrain-status note under "Walk sampler" above for the
+re-verification.) Old uniform-E14 numbers in parentheses (had the ~85–88% coverage
+caveat on the sparse graphs). The baseline column shows the **canonical-split** best GNN (re-run on the
 unified walk-derived split, `baselines/all_results_canonical.csv`); pre-canonical best-GNN in
 its own parentheses. **On the identical shared test edges the walk model beats EVERY GNN on all
 6 datasets, both attention variants** (apples-to-apples; full matched table in
@@ -89,29 +254,131 @@ its own parentheses. **On the identical shared test edges the walk model beats E
 own-full-test on all 6 — the prior wiki-elec/wiki-rfa "SiGAT marginally higher" exception was
 purely a coverage artifact and is gone.
 
-| Dataset         | Canon best-GNN (old)              | Ours (E14)      | LocalAttn4 (E14) |
-|-----------------|-----------------------------------|-----------------|------------------|
-| bitcoin-alpha   | 0.9051 SGA-GSGNN (0.8804)         | 0.9251 (0.9131) | 0.9362 (0.9370)  |
-| bitcoin-otc     | 0.8972 SNEA (0.9086)              | 0.9427 (0.9431) | 0.9410 (0.9337)  |
-| epinions        | 0.9146 SiGAT (0.9113)             | 0.9562 (0.9311) | 0.9568 (0.9445)  |
-| wiki-elec       | 0.8930 SiGAT (0.8840)             | 0.9016 (0.8928) | 0.9038 (0.8917)  |
-| wiki-rfa        | 0.8831 SiGAT (0.8673)             | 0.8932 (0.8810) | 0.8916 (0.8882)  |
-| slashdot090221  | 0.8587 SiGAT (0.8845)             | 0.9012 (0.8952) | 0.8984 (0.8958)  |
+| Dataset         | Canon best-GNN (old)              | Full attn, no-H (E25/E26) | LocalAttn4, no-H (E27) — **current default** |
+|-----------------|-----------------------------------|-----------------------------|------------------------------------------------|
+| bitcoin-alpha   | 0.9051 SGA-GSGNN (0.8804)         | **0.9219**                  | 0.9126                                          |
+| bitcoin-otc     | 0.8972 SNEA (0.9086)              | 0.9311                      | **0.9390**                                      |
+| epinions        | 0.9146 SiGAT (0.9113)             | 0.9527                      | **0.9533**                                      |
+| wiki-elec       | 0.8930 SiGAT (0.8840)             | 0.9036                      | **0.9061**                                      |
+| wiki-rfa        | 0.8831 SiGAT (0.8673)             | 0.8930                      | **0.8959**                                      |
+| slashdot090221  | 0.8587 SiGAT (0.8845)             | **0.9007**                  | 0.8981                                          |
 
-E15 per-dataset best budgets (k_cover k=5, mw80): alpha 5M/5M, otc 2M/1M, epinions 3M/2M,
-wiki-elec 0.5M/0.5M, wiki-rfa 1M/1M, slashdot 5M/3M (full/local). wiki-elec & wiki-rfa AUC
-*drops* past the minimum covering budget (over-saturation on small dense graphs) — ship the
-smallest covering budget there.
+**Rewritten 2026-07-19 — this is now the true, current, `edge_cover`-sampler, no-hardness
+picture (superseding the old E15/E16 `k_cover` table entirely).** Both columns use each
+dataset's current production `num_walks` budget (`configs/<dataset>.yaml`, see "Walk
+sampler" above) — full attention from `E25_BUDGET_SWEEP_RESULTS.md`/`E26_WIKI_SWEEP_
+RESULTS.md`, LocalAttn4 from `HARDNESS_MINER_ROADMAP.md` item 13 (`E27`). **Local beats
+full on 4/6 (otc +0.79pp, wiki-rfa +0.29pp, wiki-elec +0.25pp, epinions +0.06pp/flat) and
+loses on 2/6 (alpha −0.93pp, slashdot −0.26pp)** — bold marks the winner per row. This is
+not a clean sweep either direction; see "Attention variant: full vs. local" below for why
+LocalAttn4 is nonetheless the settled repo default (confirmed via context-availability
+measurement, not just AUC).
+Entropy-hardness numbers (E28, no longer recommended — see the H flag below) for
+provenance: alpha 0.9184, otc 0.9284, epinions 0.9535, wiki-elec 0.9064, wiki-rfa 0.8966,
+slashdot 0.8976 — flat-to-negative vs. no-H on 5/6, confirming H isn't worth carrying here
+either. Old E15/E16 `k_cover`-sampler numbers (superseded, kept for provenance only):
+`git log` this file or see `HARDNESS_MINER_ROADMAP.md`'s history.
 
 Apples-to-apples (shared edges) best GNN is always lower still — e.g. epinions GINE
 0.8642 / SiGAT 0.9109, slashdot GINE 0.7869 / SiGAT 0.8571. SE-SGformer excluded from
 "best GNN": its KNN discriminator emits hard labels, so its AUC is really balanced
 accuracy (~0.57–0.73, same as pre-canonical — not a regression; see findings doc §3).
 
-Experiment tag for current SOTA: E15_SWEEP_k5 / E15_COVERAGE_KCOVER_K5 (k_cover k=5; isolated
-keyed caches `data/<ds>/dataset_cache__k_cover_k5_nw<nw>_mw80_seed42.pt`; winner run dirs listed
-in `E15_SWEEP_RESULTS.md`). Prior uniform SOTA was E14_HARDNODE_L10 /
-E14_HARDNODE_L10_LOCALATTN4_20260615-150214 (artifacts untouched).
+Experiment tag for current SOTA: `E25_BUDGET_SWEEP`/`E26_WIKI_SWEEP` (full attention) and
+`E27_NOHARD_EDGECOVER_LOCALATTN4` (LocalAttn4), both on the `edge_cover` sampler at each
+dataset's production `num_walks` (isolated keyed caches
+`data/<ds>/dataset_cache__edge_cover_nw<nw>_mw80_seed42.pt`). Prior `k_cover`-sampler SOTA
+(E15_SWEEP_k5 / E14_HARDNODE_L10, both superseded 2026-07-19) kept for provenance only —
+see `git log` this file or `HARDNESS_MINER_ROADMAP.md`'s history.
+
+## Hardness reweighting (H): scrapped everywhere (2026-07-19, final)
+
+**Not in use, full stop — neither full attention nor LocalAttn4.** Exhaustively tested
+across both architectures, 2 hardness maps (old learned miner, role-aware entropy),
+3 reweighting formulas (mean, max, power=2), and an asymmetric source/target mixing
+weight (`hardness_combine=weighted`) — no combination gives a robust, reproducible win
+on more than 1 dataset at a time, and the one repeated "apparent win" (bitcoin-alpha)
+fails a formula-robustness check every time it's tried (see `HARDNESS_MINER_ROADMAP.md`
+"Final synthesis" and the E27/E28/E29 tables there for the complete numbers, including
+the asymmetric-weight pilot). **Production configs must not set `hardness_lambda`/
+`hardness_map_path`/`hardness_source_map_path`/`hardness_target_map_path` anywhere** —
+already the default in every `configs/<dataset>.yaml`. The `hardness_source_weight`
+knob (`lit_model.py`) stays implemented for any future revisit but is not swept further
+absent a new candidate mechanism — do not resume tuning it on the strength of the
+Lead4c coefficients alone (test-set leakage, see the roadmap doc).
+
+## Attention variant: full vs. local — SETTLED 2026-07-20, LocalAttn4 is the confirmed default
+
+**LocalAttn4 (`model.local_attention_window=4`) is the production default and the paper's
+primary vehicle for the "proximal" claim.** This was an open question through E30 (below);
+it's now closed by a direct mechanism check, not just AUC or narrative preference.
+
+**E30 pilot (2026-07-19)** tested the paper's own proposed cleaner ablation — literally
+shortening `dataset.max_walk_length` instead of masking attention within a long walk — on
+bitcoin-alpha + epinions, full attention, no hardness, `max_walk_length` ∈ {2, 4, 8, 16}:
+
+| dataset | L=2 | L=4 | L=8 | L=16 | L=80 (reference, E25/E26) |
+|---|---|---|---|---|---|
+| bitcoin-alpha | 0.9112 | 0.9196 | 0.9200 | **0.9305** | 0.9219 |
+| epinions | 0.9480 | 0.9515 | **0.9528** | 0.9491 | 0.9527 |
+
+L=8/L=16 looked like a clean win for short-walk truncation over LocalAttn4 (matches or beats
+L=80 at 1/10th the length). **But digging into *why* L=2 underperforms found the walk-length
+axis is confounded at the short end, and the confound gets worse — not better — the closer
+you push toward LocalAttn4's own ±2-hop span.**
+
+**The confound:** dynamic masking selects this epoch's supervised targets *globally* per
+edge_id (`_sample_epoch_targets`, `src/model/lit_model.py:237`), not per-walk — so a 2-edge
+walk has a real chance none of its edges are selected this epoch (measured: 43.9%/45.3% of
+L=2 walks on alpha/epinions contribute zero gradient). Raising `model.dynamic_target_ratio`
+(an override added for this investigation, decoupled from `dataset.mask_ratio`/`train_ratio`
+so it doesn't confound the actual data split) fixes that for free — same walks, same
+compute, just a different fraction of the pool selected as targets each epoch — and L=2
+bitcoin-alpha jumps from 0.9112 to **0.9251** (ratio=0.7), beating the L=80 reference.
+
+**But that "fix" trades one problem for a worse one.** Measured directly against the real
+cached walk data (`scripts/measure_local_context_availability.py`, replicating the exact
+`_sample_epoch_targets` sampling): a 2-edge walk essentially never has room for both a
+target *and* a labeled neighbor edge to condition on. At the untouched baseline (ratio=0.4),
+a target edge already has zero labeled context 43.2% of the time on bitcoin-alpha (54.6% on
+epinions) purely because there usually isn't a second pool edge in such a short walk —
+raising the ratio to fix the empty-walk waste makes this *strictly worse* (67% zero-context
+at ratio=0.7, 100% at ratio=1.0, since every pool edge becomes a target every epoch and pool
+edges can then never appear as each other's context). **So an L=2-truncated walk cannot
+cleanly demonstrate "the model conditions on nearby labeled edges" — the walk almost never
+contains a nearby labeled edge to condition on, independent of any ratio tuning.** L=8/L=16
+are NOT affected by this (only 0.5–2.1% of walks have zero context anywhere at those
+lengths) — their sufficiency result stands, uncounfounded; it's specifically the short end
+that breaks, which happens to be exactly the length range that would make the cleanest
+paper story.
+
+**The resolution: LocalAttn4 on a long walk gets the same ±2-hop locality restriction
+without the starvation, because the underlying walk keeps wandering through the real graph
+instead of being cut off.** Measured on the L=80 cache with the *default* ratio (no tuning
+needed): a target's ±2-hop window (`local_attention_window=4`) contains real labeled context
+90.6% of the time on bitcoin-alpha, 82.3% at L=8 on epinions — vastly better than literal
+L=2 truncation's 56.8%/45.4%. Full table (`scripts/measure_local_context_availability.py`,
+ratio=0.4 default throughout):
+
+| L | bitcoin-alpha: local-window context available | bitcoin-alpha: zero context anywhere | epinions: local-window context | epinions: zero context anywhere |
+|---|---|---|---|---|
+| 2 | 56.8% | 43.2% | 45.4% | 54.6% |
+| 4 | 78.2% | 15.5% | — | — |
+| 8 | 84.8% | 2.1% | 82.3% | 5.9% |
+| 16 | 88.0% | 0.5% | — | — |
+| 80 | 90.6% | 0.1% | — | — |
+
+**Verdict: full-attention-with-short-walks is not being pursued further as the production
+alternative.** L=2 (the length that would actually match LocalAttn4's window for an
+apples-to-apples comparison) is structurally unable to exercise the proximal-context
+mechanism the paper claims, regardless of masking-rate tuning — its AUC "win" there is real
+but is likely reflecting node-identity/structural signal, not proximal labeled context.
+LocalAttn4 is the mechanistically honest way to get ±2-hop locality: same restriction, but
+without conflating "restrict information" with "restrict the walk sample itself." **Not
+extending E30 to the remaining 4 datasets** — the open question it was meant to resolve
+(flip to full-attention+short-walks?) is answered. The paper's Ablation A should be anchored
+on full-vs-local attention (already-run E25/E26 vs E27), optionally citing this
+context-collapse-under-truncation finding as supporting mechanism evidence.
 
 ## Training feature flags (confirmed beneficial — already config.yaml defaults)
 
@@ -119,12 +386,20 @@ E14_HARDNODE_L10_LOCALATTN4_20260615-150214 (artifacts untouched).
   epoch within TRAIN+MASK. Prevents memorizing which edges get predicted.
 - **R — Node token replacement** (`node_context_mode: replace`, `node_replace_prob: 0.2`):
   randomly replaces node tokens with [UNK] or another node. Reduces reliance on node identity.
-- **H — Hard-node reweighting** (`hardness_lambda: 1.0`, needs `hardness_map_path`): upweights
-  loss near nodes the miner model finds hard. Currently used in E14_HARDNODE_L10 SOTA.
-- **L — Local attention window** (`local_attention_window`): null=full attention (default);
-  4=±2-hop banded mask (LocalAttn4 experiment, competitive/better on 4/6 datasets).
+- **H — Hard-node reweighting**: **scrapped everywhere, final (2026-07-19).** See
+  "Hardness reweighting (H): scrapped everywhere" above for the full picture (both
+  architectures, all maps/formulas, including the old "load-bearing for LocalAttn4"
+  claim's retraction). Production configs must not set `hardness_lambda`/
+  `hardness_map_path`/`hardness_source_map_path`/`hardness_target_map_path` anywhere.
+- **L — Local attention window** (`local_attention_window`): null=full attention;
+  4=±2-hop banded mask (LocalAttn4, **settled default, 2026-07-20** — see "Attention
+  variant: full vs. local" above; confirmed via direct context-availability
+  measurement, not just AUC or narrative preference).
 
 D and R are load-bearing defaults, not ablation toggles — don't disable them without reason.
+H is scrapped everywhere — do not enable it on either attention variant. L defaults to
+LocalAttn4, settled (see above) — full-attention+short-walks is not the production
+alternative.
 
 ## Performance philosophy — READ BEFORE ADDING ANY NEW FEATURE
 
@@ -137,32 +412,87 @@ after. **2026-06-28: local attention's masked-SDPA path WAS slow (37% wall-clock
 vs. full attention) — fixed in `src/model/model.py` (`LocalAttentionEncoderLayer`), see
 plan-performance.md for the diagnosis.**
 
+## Cost/performance tradeoff default: prefer cheap unless the gain is real
+
+When sweeping a cost knob on an *already-adopted* mechanism (walk budget, retry
+counts, epoch count — not "should we adopt mechanism X," a separate judgment call),
+the default lean is toward the cheaper/faster setting when the pricier one gains
+**<0.25pp test AUC**, flat across all 6 datasets (generalizes the bar the H-ablation
+section already used — "never exceed +0.25pp" = not a robust win — rather than
+inventing a new threshold). **This is a lean, not an auto-apply rule: any time it
+would pick the cheaper/lower-AUC setting over a more expensive one, get explicit user
+sign-off before adopting it** — surface the comparison (cost delta + AUC delta),
+don't silently swap configs. **Exception:** the headline six-dataset SOTA table is
+exempt — squeezing the max within an already-validated grid is its explicit purpose.
+
+**Sweep/ablation reporting: always keep the full table, not just the winner.** Every
+config tested in a sweep or ablation must be recorded in the results doc (numbers,
+not just the pick) — even the ones not chosen. This is what lets future work push
+toward either extreme (max performance, ignoring cost; or max cheapness, accepting
+more loss) using data already in hand, instead of re-running the sweep. Already the
+de facto style in this project's `outputs/walk_coverage_analysis/*.md` docs (see e.g.
+`E15_SWEEP_RESULTS.md`) — this makes it an explicit requirement, not just a habit.
+
 ## Key file locations
 
 - Config: config.yaml, configs/<dataset>.yaml (partial overlays merged via dataset.name=<ds>)
 - Model: src/model/model.py, src/model/lit_model.py
+- **`MASKING.md`** — full picture of all masking (split masking, key padding
+  mask, local attention window), the NaN bug found/fixed in
+  `LocalAttentionEncoderLayer` 2026-07-19 and its root cause, and the
+  merge-once design. Regression test/benchmark: scripts/test_local_attention_masking.py.
+- `scripts/measure_local_context_availability.py` — read-only diagnostic (no training):
+  replicates the exact dynamic-masking target sampling against a real cached walk file
+  and measures whether target edges actually have a labeled neighbor edge visible as
+  context, either within a LocalAttn4-style window or anywhere in the walk. This is what
+  settled the LocalAttn4-vs-short-walk-truncation question — see "Attention variant: full
+  vs. local" above.
 - Data: src/data/datasets.py, src/data/walk_sampler.py, src/data/tokenizer.py
-- Shared edge loader: scripts/balance_theory_paths.py → load_edges_canonical()
-- Hardness miner: scripts/compute_hardness_map.py
+- **`aaai2027/DATASET_STATS.md`** — cheap graph statistics (size, density, degree
+  distribution, sign balance, reciprocity, weak connectivity/giant-component fraction,
+  sampled eccentricity/clustering coefficient) for all 6 canonical datasets, plus a
+  Spearman-correlation cross-reference against Panel B's MI/phi "bump" size — generated
+  so these numbers don't get recomputed from scratch every time a new diagnostic needs
+  them. Regenerate via `scripts/paper_figures/compute_dataset_stats.py` (also writes the
+  machine-readable `aaai2027/figure_data/dataset_stats.csv`); don't hand-edit the `.md`.
+- Shared edge loader: scripts/balance_theory_paths.py → load_edges_canonical() — **verified
+  2026-07-28: this is not a separate/divergent implementation**, it's a thin wrapper doing
+  exactly `load_config(overrides=[f"dataset.name={ds}"]) ` + `get_loader(ds_name)(cfg)`, where
+  `get_loader` is imported directly `from src.data.datasets import get_loader` — the same
+  function `src/data/prepare_data.py` (the real training-data-cache builder) calls. So it does
+  load the real, canonical, training-identical edges, just via an extra hop.
+  **Known duplication (harmless today, worth cleaning up eventually):** `scripts/
+  node_mi_structural_embedding.py` defines an independent, currently-identical copy of the
+  same `DATASET_CONFIGS`/`load_edges_canonical()` — neither script is GNN-specific despite
+  the historical naming confusion (both are walk-model-side Lead-investigation analysis
+  scripts, not baseline loaders); the duplication is just organic accumulation, not a design
+  choice. **Going forward: new scripts should import `get_loader`/`load_config` directly
+  from `src/data/datasets.py`/`src/utils/config.py`** (the actual production modules) rather
+  than reaching into either analysis script's copy — don't add a third copy. If it ever
+  becomes actively annoying, consolidate into one small shared module (e.g.
+  `scripts/canonical_data.py`) that both existing files import from, rather than duplicating
+  again.
+- Hardness miner: scripts/compute_hardness_map.py. Candidate-metric screening
+  (Q5 pre-filter, correlates a candidate hardness signal against a trained
+  checkpoint's real per-node error rate without retraining):
+  scripts/hardness_predictive_validity.py — see plan-hardness-miner.md.
+  **`HARDNESS_MINER_ROADMAP.md`** — ranked, time/gain-estimated task list for
+  the hardness-miner investigation (entropy-based map, reweighting formula,
+  short walks, etc.) — check here before starting new miner work; any retrain
+  item on it requires explicit approval before launching.
 - Analysis scripts: scripts/edge_sign_mi_vs_distance_v3.py, scripts/node_mi_structural_embedding.py,
                     scripts/attention_analysis.py, scripts/lead4_entropy_heterogeneity.py,
-                    scripts/lead4_twohop_path_consistency.py
+                    scripts/lead4_twohop_path_consistency.py, scripts/lead4c_entropy_logit_regression.py
 - MI reports: outputs/mi_analysis_package.zip (full), outputs/mi_vs_dist/, outputs/node_mi_structural/,
               outputs/attention_analysis/
-- Lead 4 report/data: outputs/lead4_entropy_heterogeneity/report.md (+ raw_data.txt, computed_data.pkl).
-              Now CANONICAL-NATIVE (shared-edge): reads predictions_raw_canonical.pkl (built by
-              baselines/postprocess_canonical.py), restricts every model to the shared (walk-covered)
-              edge set so all 4 models are bucketed over IDENTICAL edges with identical per-cell n.
-              predictions_raw_canonical.pkl holds per-edge (u,v,y,p) for all 4 models × 6 datasets in
-              one raw (u,v) id space — reusable for any future per-edge investigation without rerunning
-              models. Bucket sweep is powers of 2 (--n-buckets 2 4 8 16 32).
-- Lead 4b report/data: outputs/lead4_twohop_path_consistency/report.md (+ raw_data.txt, computed_data.pkl) —
-              reuses the same predictions_raw_canonical.pkl via lead4_entropy_heterogeneity.load_shared_predictions.
-              Now has THREE path-direction variants for edge (u,v): `out` = forward 2-hop consistency from
-              target v (v->m->k), `in` = backward 2-hop consistency into source u (s->t->u), `inout` = pool
-              the out (from v) and in (into u) (total,consistent) counts into ONE tally for that edge before
-              taking entropy (not a separate undirected traversal). Bars grow from a 0.5 baseline, walk=blue
-              vs GNN=orange, shared n shown under each x-tick, bucket sweep powers of 2 (2 4 8 16 32).
+- Lead 4/4b/4c (entropy directionality — headline research thread, see Research status above):
+              outputs/lead4_entropy_heterogeneity/ (Lead 4, bucketed AUC drop, predictions_raw_canonical.pkl
+              shared across all leads), outputs/lead4_twohop_path_consistency/ (Lead 4b, 2-hop path
+              consistency), outputs/lead4c_entropy_logit_regression/ (Lead 4c, atomic + composite +
+              marginal3 logistic regression, fit_results.csv, figures, script
+              scripts/lead4c_entropy_logit_regression.py). Consolidated report: LEAD4_ENTROPY_REPORT.md.
+              Equations: LEAD4C_EQUATIONS.md. Running notes/Q&A: LEAD4C_ASYMMETRY.md. Handoff:
+              LEAD4C_HANDOFF.md. Coefficients: lead4_coefficients.csv/.md.
 - Baselines: baselines/all_results.csv, baselines/<model>/results_our_splits/
 - **FABRICATED_REVERSE_EDGES.md** — read before using `baselines/splits/<ds>.pt`'s `edge_index` as
               "all edges of the graph" for any per-edge/per-node diagnostic: 14–48% of its edges
@@ -175,42 +505,80 @@ plan-performance.md for the diagnosis.**
               (Lead 4, Lead 4b, likely Lead 1) has no shared ground truth underneath it. Needs a
               deliberate decision (intersect vs. re-evaluate vs. accept+caveat), not a quick filter.
 
-## Hardness map paths (E14 production)
+## Hardness map paths (historical — H is scrapped, not used anywhere as of 2026-07-19)
 
-bitcoin-alpha: outputs/transformer_incremental/bitcoin-alpha_seed42_nw5000000_mw80_bs1024_ep75_20260423-111407/artifacts/E14_HARDNODE_L10/hardness_map.pt
-(others: same structure, check outputs/<dataset>/<run>/artifacts/E14_HARDNODE_L10/hardness_map.pt)
+Kept for provenance only. Do not point any new run at these — see "Hardness reweighting
+(H): scrapped everywhere" above.
 
-## Research status (as of 2026-06-26)
+`outputs/<dataset>/E22_HARDNODE_ENTROPY/hardness_{source,target}.pt` — role-aware entropy
+maps, the best-quality map found (`HARDNESS_MINER_ROADMAP.md`), used in the final E28/E29
+ablation that led to the scrap decision.
+`outputs/<dataset>/E17_HARDNODE_KCOVER_REMINE/hardness_map.pt` — old learned-miner map,
+re-mined on the (now superseded) `k_cover` sampler.
+`outputs/transformer_incremental/bitcoin-alpha_.../artifacts/E14_HARDNODE_L10/hardness_map.pt`
+— original pre-`k_cover` miner map (others: same structure under each dataset's run dir).
 
-**Central question:** the walk-Transformer beats every GNN/SGNN baseline by
-3–5pp AUC on all 6 datasets despite edge-sign MI collapsing 10–1000× beyond
-1 hop. Leads 1–4b below investigate why. **Full synthesis, always read this
-first:** `RESEARCH_LEADS_SUMMARY.md` (supervisor-facing, kept in sync with
-the per-lead files below). Per-lead detail lives in its own file — don't
-duplicate findings here, just point to them:
+## Research status (leads content as of 2026-07-07, cross-checked against plan files 2026-07-19 — no changes needed, all still accurate)
 
-**2026-06-26 canonical-split rerun — `CANONICAL_RERUN_FINDINGS.md`.** All Leads
-were re-derived on the unified canonical split (shared ground truth, not the old
-~10%-overlap edge samples). Headline strengthens (walk beats every GNN on identical
-edges, all 6); Leads 1/2/3 hold; Lead 4/4b is **entropy-variant-dependent** — weak for
-`out_in`, strong/robust for `in_in` (NOT the uniform retraction first reported).
+**Central question:** the walk-Transformer beats every GNN/SGNN baseline by 3–5pp AUC on all 6
+datasets despite edge-sign MI collapsing 10–1000× beyond 1 hop. Full history: `RESEARCH_LEADS_SUMMARY.md`.
+Leads 1–3 (over-averaging, bottleneck, swamping) are each real but individually insufficient — one-liners
+below. **Lead 4/4c is the live thread and the strongest signal found so far; a paper draft is in prep
+around it.**
 
-**2026-06-29 E15 full-coverage rerun — `outputs/lead4_entropy_heterogeneity/E15_FULLCOVERAGE_RERUN_NOTE.md`.**
-`predictions_raw_canonical.pkl` rebuilt from the E15 k_cover full-coverage walk runs (walk now
-100% covers every test set; GNNs unchanged) and Leads 1/4/4b rerun on identical full-coverage
-edges. **Lead 4/4b variant-dependent picture HOLDS and slightly STRENGTHENS** — the `in_in`
-differential degradation survives on the now-complete edge set (resolving the "different-edges
-artifact" worry); `out_in` stays weak. Walk advantage is NOT a uniform offset — it concentrates
-in heterogeneous in-anchored neighborhoods. Pre-rerun reports backed up under
-`outputs/_pre_e15_lead_backup_<ts>/`.
-
-| Lead | One-line verdict | Detail |
+| Lead | Verdict | Detail |
 |---|---|---|
-| MI / attention baseline | Edge-sign MI collapses 10–1000× at d=1→2; full-attention model still attends far (mean 9–16 tokens, **provisional**, see Lead 2's bug note below); LocalAttn4 (±2 hop) competitive/better on 4/6 datasets | `outputs/mi_analysis_package.zip`, `outputs/attention_analysis/` |
-| Lead 1 — GNN over-averaging | Cancellation is real, universal (r≈−0.96), but modest (~5–9%) — not the primary driver | `LEAD1_GNN_OVER_AVERAGING_REPORT.md` |
-| Lead 2 — GNN bottleneck (+ SiGAT attention-weight follow-up) | Bottleneck real (NMI 0.008–0.27) but oracle-bypass gain is architecture/dataset-dependent (GINEConv 6/6, CSG 1/6); SiGAT attention-weight diagnostic found negative-edge "good info through bad pipe" on bitcoin-otc/epinions | `LEAD2_GNN_BOTTLENECK_STATUS.md` |
-| Lead 3 — fog of war / swamping | Swamping is real and severe in theory, but walk-model attention shows no adaptive compensation for it — robustness is structural, not learned | `LEAD3_FOG_OF_WAR_REPORT.md` |
-| Lead 4 / 4b — entropy heterogeneity | **Variant-dependent, CONFIRMED on E15 full coverage (2026-06-29).** GNN baselines degrade more than the walk as sign-heterogeneity rises for the `in_in` variant — strong & robust on all 6 (best-GNN drop − walk drop = +0.015..+0.34, ≥ the prior ~88%-cov values); `out_out`/`inout_inout` positive 5/6 (wiki-elec ~null); `out_in` weak/mixed. Survives on identical full-coverage edges ⇒ the walk advantage concentrates in heterogeneous in-anchored neighborhoods, NOT a uniform offset. (Earlier "RETRACTED / uniform offset" reading was the `out_in`-only view.) | `outputs/lead4_entropy_heterogeneity/E15_FULLCOVERAGE_RERUN_NOTE.md`, `outputs/lead4_entropy_heterogeneity/`, `outputs/lead4_twohop_path_consistency/` |
+| MI/attention baseline | MI collapses 10–1000× at d=1→2; full-attention model still attends far (provisional, Lead 2 bug caveat) | `outputs/mi_analysis_package.zip` |
+| 1 — over-averaging | Real (cancellation r≈−0.96) but modest (5–9% norm loss) — not primary | `LEAD1_GNN_OVER_AVERAGING_REPORT.md` |
+| 2 — bottleneck | Real (NMI 0.008–0.27) but oracle-bypass gain is architecture-dependent (GINEConv 6/6, CSG 1/6) | `LEAD2_GNN_BOTTLENECK_STATUS.md` |
+| 3 — swamping | Severe in theory, but walk attention shows no *learned* compensation — avoidance is structural | `LEAD3_FOG_OF_WAR_REPORT.md` |
+
+### Lead 4/4b/4c — entropy directionality (headline result)
+
+**The finding:** decomposing node sign-entropy into 6 atomic directions and fitting them jointly
+(logistic regression, `correct ~ src_out+src_in+tgt_out+tgt_in+twohop_in+twohop_out`, cluster-robust
+SEs) reveals a **source/target asymmetry**, not a uniform "GNNs worse with entropy" story:
+- **`tgt_in`** (how contested v's reputation already is): hurts **GNNs** more, on 100% of datasets (p=0.031).
+- **`src_out`** (how consistent a rater u is): hurts the **walk model** more — the single largest effect measured.
+- `tgt_out`/`src_in` ≈ null; 2-hop terms negligible.
+- Architectural explanation, corroborated independently two ways (entropy regression + a separate
+  `log(outdeg(u))`/`log(indeg(v))` degree regression): GNNs (GINEConv) build v's embedding purely
+  from message-passing over v's in-neighbors, so **u's own outgoing behavior is structurally invisible
+  to them** — the walk model and SiGAT (attention-based) can both see and use it, GINEConv can't
+  (β≈0, n.s., on out-degree(u) specifically).
+- Ruled out: forward-walk-sampling context asymmetry (measured directly — left/right context around
+  test edges is symmetric, 55.6 vs 55.5 mean tokens, anchor walks only 2.9%). The asymmetry is about
+  how each architecture *uses* context, not how much of it exists.
+
+**External validation (professor's independent information-theoretic argument, 2026-07-05):**
+predicted that a node's outgoing-edge sign entropy should be inherently lower than its incoming-edge
+entropy (raters are self-consistent; received opinions are noisier) — confirmed on
+bitcoin-alpha/bitcoin-otc/epinions/slashdot (p≤5e-4), **reversed on wiki-elec/wiki-rfa** (p=1.00
+against his direction — these are vote/election graphs where a few admin-candidate nodes concentrate
+large, genuinely mixed in-vote counts).
+
+**This split is not noise — it cleanly tracks the SOTA gap.** The 2 datasets where the entropy
+asymmetry reverses (wiki-elec, wiki-rfa) are exactly the 2 smallest walk-vs-GNN AUC gaps (1.0–1.1pp);
+the 4 where it holds are the 4 largest gaps (3.1–4.6pp) — clean separation, no overlap (Spearman
+ρ≈0.71–0.77, n=6). **Where the underlying sign data has real directional asymmetry to exploit, the
+walk model's advantage is large; where the data itself is direction-symmetric (or reversed), the
+achievable advantage shrinks toward zero.** This is the strongest causal-adjacent evidence in the
+whole investigation — it ties the architectural mechanism to an inherent property of the data, not
+just a model artifact.
+
+**Confirmed further (2026-07-06): the reversal on wiki is a genuine flip, not just an absent effect.**
+An explicit reversed-direction test (H_out > H_in) is itself significant on wiki-elec/wiki-rfa
+(p=1.7e-10, p=3.4e-14). It also shows up independently in the original pre-atomic bucketed-AUC-drop
+analysis: on the `out_in` bucket variant, the walk model drops *more* than GINEConv on both wiki
+datasets (reversed from every other dataset), while the `in_in` variant still shows GNN dropping
+more (unflipped) — reconciled by the atomic model: `tgt_in`'s GNN-worse gap shrinks a lot on wiki but
+doesn't reverse; `src_out`'s walk-worse gap (which never reverses on any dataset) becomes relatively
+dominant once `tgt_in`'s gap shrinks, flipping the *combined* bucket's ranking without any single
+atomic term actually changing sign.
+
+Full writeup + equations + Q&A: `LEAD4C_ASYMMETRY.md`, `LEAD4C_EQUATIONS.md`, `LEAD4_ENTROPY_REPORT.md`.
+Coefficients: `lead4_coefficients.csv`/`.md`. Script: `scripts/lead4c_entropy_logit_regression.py`.
+Handoff doc: `LEAD4C_HANDOFF.md`.
 
 **Known data-quality caveats (read before any new edge-level diagnostic):**
 - `FABRICATED_REVERSE_EDGES.md` — `baselines/splits/<ds>.pt`'s `edge_index`
@@ -223,15 +591,172 @@ in heterogeneous in-anchored neighborhoods. Pre-rerun reports backed up under
   and has **not** been fixed — the "attends far despite empty signal"
   number above is provisional pending that fix.
 
-OPEN WORKSTREAMS (see plan files in ~/.claude/plans/):
+### Open threads (not yet started)
 
-- plan-research-leads.md       ← active, top priority (Leads 1–4b above)
-- Lead 5/6 subplans            ← ensemble effect + trainable-features/capacity/training-regime parity (post Lead 4b follow-ups, see plan index in ~/.claude/plans/)
-- plan-stats-rigor.md          ← optuna rewrite + multiple splits + cross-validation
-- plan-hardness-miner.md       ← improve miner model, calibrate hardness_lambda
-- plan-performance.md          ← Issue 1 (local attn slower than full attn) RESOLVED 2026-06-28,
-  fixed in src/model/model.py; Issues 2/3 deprioritized, see plan file
-- plan-side-quests-misc.md     ← config cleanup, repo hygiene, walk-length sweep, OWL removal
+- Lead 5 — per-walk prediction variance / ensemble effect (cheapest untested candidate mechanism).
+- Lead 6 — training-regime confound (D/R/H tricks) + capacity mismatch + missing trainable/spectral
+  features in GNN baselines.
+
+OPEN WORKSTREAMS — audited 2026-07-19 (see plan files in ~/.claude/plans/):
+
+**Active / not started, real open work, roughly priority order:**
+- `hello-so-i-have-unified-valiant.md` — **PEWTER paper (aaai2027/), ACTIVE, top priority,
+  deadline-critical.** Abstract due 2026-07-28, full paper 2026-07-31 — as of this audit
+  that's 9 days out. Per the plan's own 2026-07-16 status update, most of
+  Results/Discussion/bib/Supplementary/final-QA tiers are NOT STARTED. Confirmed
+  in-progress and real (2026-07-19) — take this as the top-priority workstream when
+  triaging session time against everything else below.
+- **LocalAttn4 H/no-H re-ablation — CLOSED 2026-07-19.** `HARDNESS_MINER_ROADMAP.md` items
+  13/14 (`E27`/`E28`/`E29`, current sampler+masking, all 6 datasets + the asymmetric
+  source/target weight probe on bitcoin-alpha/otc) all complete. Final verdict: **H
+  scrapped everywhere** (see "Hardness reweighting (H): scrapped everywhere" above) — do
+  not cite the old "LocalAttn4+H (E14)" SOTA-table column or the E16/E17 "H is
+  load-bearing for LocalAttn4" claim as current guidance, both retracted.
+- **Short-walk ablation (E30) — CLOSED 2026-07-20.** Tracked ad hoc in CLAUDE.md's
+  "Attention variant: full vs. local" section above. Pilot (bitcoin-alpha + epinions,
+  `max_walk_length` ∈ {2,4,8,16}) initially looked like a clean win for full-attention
+  short walks, but a follow-up context-availability measurement found L=2 (the length
+  that would actually match LocalAttn4's window) structurally starves target edges of
+  any labeled neighbor to condition on, regardless of masking-rate tuning — so it can't
+  cleanly demonstrate the paper's proximal-context claim even though its raw AUC looked
+  good. LocalAttn4 confirmed as the settled default; full-attention+short-walks is not
+  being pursued further as the production alternative. Not extending to the remaining 4
+  datasets. Reusable measurement script:
+  `scripts/measure_local_context_availability.py`.
+- `plan-a-fix-for-glimmering-panda.md` ← **CLOSED 2026-07-19.** Walk sampler fix done —
+  `edge_cover` adopted, budgets swept and signed off on all 6 datasets (see "Walk sampler"
+  above), and LocalAttn4 viability confirmed via `E27` (all 6 datasets). Remaining item
+  (full-attention `edge_cover` retrain against the SOTA table) tracked separately, not
+  blocking this plan's closure.
+- `plan-stats-rigor.md` ← multi-seed variance / cross-validation / significance testing.
+  Restored 2026-07-19 (see its own recovery note) — now higher priority than when written,
+  since the PEWTER paper needs defensible, variance-aware results, not single-run point
+  estimates. No K-split infra exists yet; `optuna_run.py` is still suspected stale.
+- `plan-side-quests-misc.md` ← docs/config/repo-hygiene/research-follow-up backlog. Restored
+  2026-07-19 with a fresh relevance check against the live codebase (see its own recovery
+  note) — 3 of 10 original items are already done (doc fix, git cleanup, SiGAT+SGA baseline),
+  the rest (config-loading bug, dependency pinning, OWL dead-code removal, walk-length-sweep
+  write-up, 2 unreconfirmed LightGBM anomalies) are still open. Lowest priority of this list,
+  doesn't block anything else.
+- Lead 5/6 subplans (`plan-lead5-ensemble-effect.md`, `plan-lead6-trainable-features.md`) ←
+  ensemble effect + trainable-features/capacity/training-regime parity; neither started
+  (no `outputs/lead5_ensemble/` or `outputs/lead6_trainable_features/` on disk).
+- `hello-a-big-task-nested-muffin.md` ← Python 3.9→3.13 / numpy/scipy/pandas/lightning/torch
+  migration. Confirmed real and still wanted (2026-07-19), but explicitly **lower priority
+  than the PEWTER paper** — don't pick this up over paper work. Never started (no Phase-0
+  trial venv exists on disk).
+
+**Closed/resolved (kept only as historical pointers, not open work):**
+- `plan-hardness-miner.md` ← **full-attention** question closed 2026-07-13 (scrap H, see
+  HARDNESS_MINER_ROADMAP.md, the live tracker superseding this file's own Q1–Q5 log). The
+  **LocalAttn4** side is explicitly NOT closed — see the re-ablation item above.
+- `plan-performance.md` ← Issue 1 (local attn slower than full attn) RESOLVED 2026-06-28,
+  fixed in src/model/model.py; Issue 3 (walk batch packing) intentionally deferred, not urgent.
+- `hello-as-you-see-fancy-squid.md` (GINEConv baseline), `hello-so-there-is-resilient-sparrow.md`
+  (canonical shared test-edge split), `ancient-stargazing-barto.md` (local-attention masking
+  fix) — all DONE; their outputs are already referenced by path elsewhere in this file
+  (`baselines/GINEConv/`, `SPLIT_PROVENANCE.md`, `MASKING.md`) so they aren't repeated here.
+  Leads 1/2/3 subplans (`read-claude-plans-plan-research-leads-md-*.md`) — DONE, see the
+  Research status table below. Lead 4c handoff (`read-lead4c-handoff-md-i-abundant-cake.md`)
+  — Phase 1 DONE (reflected in the Lead 4/4b/4c section below); Phase 2 intentionally deferred.
+
+**On `plan-stats-rigor.md`/`plan-side-quests-misc.md` going missing:** both were real,
+substantive plans (created 2026-06-18, still intact as of a 2026-07-06 read) that
+disappeared from `~/.claude/plans/` by 2026-07-19. `~/.claude/.last-cleanup` shows an
+automatic cleanup routine ran that morning (2026-07-19T08:05:46Z) — the most likely cause,
+though not confirmed as the specific mechanism. `~/.claude/plans/` has no version control
+or trash, so anything a cleanup pass removes is gone unless recovered from a session
+transcript. **Both were recovered verbatim 2026-07-19** from the original `Write` tool
+calls in session transcript
+`71441ba1-21e9-41d6-b5f4-c559257125a8.jsonl` and are back in `~/.claude/plans/` (see their
+own recovery notes for the relevance re-check against the current codebase). **If plan
+files keep disappearing like this, it's worth treating as a bug to report, not routine
+housekeeping to just work around each time.**
+
+## PEWTER paper (aaai2027/) — repo-to-paper phase, file map and conventions
+
+**As of 2026-07-19 the project entered a second phase: turning this repo's findings into the
+PEWTER AAAI-27 submission.** Most day-to-day session time now goes into `aaai2027/`, not new
+modeling experiments — see "OPEN WORKSTREAMS" above (`hello-so-i-have-unified-valiant.md` is
+top priority, deadline-critical: abstract 2026-07-28, full paper 2026-07-31). This section is
+the fast-lookup index for that work; the full plan/status detail lives in the plan file, not
+here.
+
+**File map:**
+- `aaai2027/pewter_aaai.tex` — the paper source. `aaai2027/PEWTER_ASSETS_CHECKLIST.md` — the
+  live, row-per-marker/figure checklist (status + pointers); this is the first thing to read
+  when resuming any paper subtask, before re-deriving anything from scratch.
+- `scripts/paper_figures/` — one script pair per figure/table, named
+  `extract_<name>.py` / `plot_<name>.py`:
+  - **extract**: recomputes real numbers from the actual source data (checkpoints, cached
+    predictions, `computed_data.pkl`, canonical edge loaders) and writes a CSV to
+    `aaai2027/figure_data/<name>.csv`. This is the only step that touches raw data — rerun it
+    only when the underlying data/checkpoint changes.
+    - **plot**: pure rendering — reads the CSV, writes a PNG to `aaai2027/figures/<name>.png`.
+    Safe to edit freely (colors/labels/layout) without recomputation.
+  - `combine_<name>.py` — stacks two or more already-rendered PNGs into one multi-panel image
+    (so LaTeX treats a multi-panel figure as a single float instead of drifting apart on the
+    page). Rerun after re-plotting any panel it combines.
+  - `aaai2027/figure_data/*.csv` and `aaai2027/figures/*.png` are both regenerable — safe to
+    delete/regenerate, not hand-edited.
+- **Rule going forward: every `PEWTER_ASSETS_CHECKLIST.md` row that reaches DONE/NEEDS-FIGURE
+  status must name its generating script(s) and output path(s)** (the `Scripts:`/`Data:`
+  pattern already used in rows #21/#23/#25/#29/#30/#30b) — not just "done", so a future session
+  (or this one, post-compaction) can jump straight to the code instead of rediscovering which
+  script produced a given figure. Add the pointer in the same edit that changes the status.
+
+**Figure 1 rework (2026-07-28) — DONE except Panel B's final presentation call.** The
+Empirical Confirmation 3-panel figure (checklist #12, now `fig:empconf-panels`,
+`figures/empconf_panels_abc_combined.png`): Panel C converted from the smoothed
+Gaussian-kernel grid to discrete 4×4 entropy bins with per-cell AUC annotations and a
+larger panel (`scripts/paper_figures/{extract,plot}_empconf_panelC_gnn_entropy_heatmap.py`).
+Panel A (entropy asymmetry, previously text-only/deferred) is now a real boxplot
+($\Hh_\outdeg$ vs.\ $\Hh_\indeg$ per dataset, mean-diamond markers since 4/6 datasets have
+median+IQR collapsed to 0, paired $t$-test in the caption) —
+`scripts/paper_figures/{extract,plot}_empconf_panelA_entropy_boxplot.py`, reusing the same
+per-node entropy arrays as `scripts/lead4c_directionality_answers.py::claim1_for_dataset`.
+Combine script: `scripts/paper_figures/combine_empconf_panels_abc.py` (supersedes the old
+2-panel `combine_empconf_panels_bc.py`).
+
+**Panel B's post-minimum "bump" (distance 4–6) — investigated in full 2026-07-28, verdict:
+real (not a bug, not pure noise), mechanism still being pinned down.** Checked and ruled out: BFS-correctness
+(shell values matched `networkx` ground truth exactly, 0/30 mismatches; per-anchor edge
+counts matched an independent brute-force enumeration exactly, 0/8 mismatches) and
+numerical instability (integer counts throughout, no overflow, guarded `log2`). Confirmed
+via a `--shuffle-signs` null control (already implemented on the extractor) that the bump
+survives null-subtraction by 2–3 orders of magnitude on most datasets at distance 5–6 (not
+pure estimator noise), but traced its cause to two compounding, measured mechanisms: (1) a
+degree confound — nodes reached only at the outer BFS shells have collapsed degree (median
+degree 44.5→2 across shells on bitcoin-alpha; exactly 1 by shell 3–4 on wiki-elec), hence
+mechanically low entropy; (2) heavy edge reuse at the tail — the top 10 distinct context
+edges account for ~40% of all (anchor, context) pairs at the farthest distance on
+bitcoin-alpha vs. 0.2% at distance 1, so the naive per-pair-independent contingency table
+is overconfident there. Extending `d_max` to 9 (real + null, all 6 datasets) showed the
+effect does **not** keep growing — bitcoin-alpha/otc's graphs are essentially exhausted by
+distance 7 (n_pairs collapses to ~5–7K and real/null become indistinguishable or reverse),
+and wiki-elec/wiki-rfa hit **zero** remaining pairs by distance 6–7 (their graphs are simply
+that small) — ruling out "it's a truncation artifact that would keep climbing if we looked
+further."
+
+**Degree-filtering was then tried as the candidate fix and FAILED** — a pilot on
+bitcoin-alpha (5,000-anchor sample, requiring both context-edge endpoints to have degree
+>=5) left distance-6 NMI essentially unchanged (0.000534 filtered vs. 0.000472 unfiltered,
+same order of magnitude). So despite degree genuinely collapsing at the outer shells,
+removing low-degree nodes does not kill the bump — degree is a correlate, not the
+operative mechanism. **The more likely operative mechanism, per the edge-reuse
+measurement, is non-independence/clustering of the (anchor, context) pairs**: a small
+number of distinct context edges get counted many times over (top 10 distinct edges =
+~40% of pairs at the tail vs. 0.2% at distance 1), violating the naive contingency table's
+implicit "each pair is independent" assumption exactly where the bump appears — the
+effective sample size at the tail is far smaller than the nominal n_pairs. **Recommended
+next step (not yet implemented):** deduplicate by distinct context edge before forming the
+contingency table (weight each distinct edge once, not once per anchor that reaches it), or
+run a cluster-aware significance test (bootstrap over distinct edges, not raw pairs) instead
+of trusting the naive point estimate at the tail bins. This supersedes the "degree confound"
+framing as the leading candidate mechanism (degree collapse is real but not sufficient by
+itself). The current `pewter_aaai.tex` Panel B paragraph's inline `%%` comment still
+describes the superseded degree-confound framing and needs a follow-up edit once the
+clustering fix is implemented or a final presentation decision is made.
 
 ## Session management tips
 

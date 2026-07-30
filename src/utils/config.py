@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import List, Optional
-from omegaconf import OmegaConf
+from omegaconf import ListConfig, OmegaConf
 import torch
 
 
@@ -308,7 +308,7 @@ def validate_config(cfg, context: str = "train") -> None:
         _allowed_walk_strategies = {
             "uniform", "guaranteed", "neg_emphasis", "inv_degree", "node2vec",
             "edge_seeded", "neg_traversal", "set_cover", "cov_restart",
-            "sign_alt", "smart", "k_cover",
+            "sign_alt", "smart", "k_cover", "k_cover_bp", "edge_cover",
         }
         if str(walk_strategy) not in _allowed_walk_strategies:
             _invalid(
@@ -368,7 +368,7 @@ def validate_config(cfg, context: str = "train") -> None:
     if class_weights is not None and num_classes is not None:
         if not _is_int(num_classes) or int(num_classes) <= 0:
             _invalid(num_classes_path, num_classes, "positive integer")
-        if not isinstance(class_weights, (list, tuple)):
+        if not isinstance(class_weights, (list, tuple, ListConfig)):
             _invalid(class_weights_path, class_weights, "list/tuple of class weights")
         if len(class_weights) != int(num_classes):
             raise ValueError(

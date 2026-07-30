@@ -390,7 +390,15 @@ model:
 3. `hardness[node] = 1 − (correct_count / total_count)` — high when the miner consistently fails in that node's neighbourhood
 4. Save as `hardness_map.pt` (float32 tensor of shape `[vocab_size]`)
 
-**Short-walk filter** (`--max-walk-edges=7`): The miner only trains on walks with ≤7 edges, making predictions harder and hardness estimates more discriminative.
+**Short-walk filter — NOT part of the production recipe (corrected 2026-07-07):** an
+earlier version of this doc described `--max-walk-edges=7` here as if it were standard.
+Verified against `scripts/run_transformer_incremental_experiments.py`: the actual
+`E14_HARDNODE_L10` config (behind every hardness map in production) leaves this at its
+default of `0` (no filter). The filter was only used in two variants that both
+underperformed the no-filter config (`E14_DRH_SHORT7_E15_L10`, `E15_DRH_DYNMINER_L10` —
+see `old_chats/DRH.md` and `~/.claude/plans/plan-hardness-miner.md`). Combining the
+filter with the miner's already-tiny capacity over-restricts data per node. Leave
+`--max-walk-edges` at 0 unless deliberately testing it.
 
 **How it is used during main training:**
 - Load `hardness_map.pt` as a registered buffer
