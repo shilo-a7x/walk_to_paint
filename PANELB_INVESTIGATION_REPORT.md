@@ -276,6 +276,135 @@ billions of pairs exist at a given distance (this is exactly what the production
 ablation reimplementation already do) — there is no statistical reason to ever subsample here at
 all.
 
+### 3.5 Her fixed ("v2") script: 2 of 4 gaps closed, 1 new gap found
+
+The colleague produced a revised script (repo-root `load_slashdot (1).py`, untouched original;
+instrumented copy `scripts/paper_figures/load_slashdot_v2.py`) that fixes 2 of the 4 gaps above —
+`load_slashdot()` now builds `nx.Graph()` (undirected, fixing knob 1) and anchor selection is now
+`random.sample(range(len(g.edges())), 10000)` (10,000 random anchors, fixing knob 3's count/order
+problem) — while recording stays tree-only (knob 2 unfixed) and the pair-cap stays (knob 4, now at
+least seeded via `random.seed(datetime.now().timestamp())`, though a *timestamp* seed is still
+non-reproducible run-to-run; pinned to 42 in our copy per direct request).
+
+**Two more bugs found before it would even run, unrelated to the seed change**, fixed only in the
+copy: `depth_bar.close()` (line 67) references a variable never constructed in this version
+(`NameError`), and `print(str(i+1) + " " + correlations[i])` concatenates a `str` with a `float`
+(`TypeError`). Neither changes any computed result — both are pure crash-preventing fixes.
+
+**Performance finding, not just a correctness one**: her (and v2's) inner loop calls
+`list(g.edges(data=True))[edge_id]` *inside* the per-anchor for-loop — rebuilding the full O(E) edge
+list from scratch on every one of the 10,000 iterations (~5 billion redundant tuple constructions
+across a full run on this graph's 500,481 edges). A first sequential timing run measured ~1.4s/anchor
+→ tqdm's own ETA was **~3h50m** for the full 10,000 anchors — this was assumed at the time to be
+"undirected BFS is just expensive" (consistent with the earlier `undirected+tree` cost finding in
+§3.2), but hoisting the edge-list construction out of the loop (a one-line, zero-semantic-change fix)
+plus farming the now-cheap per-anchor BFS across a fork-based multiprocessing pool
+(`scripts/paper_figures/load_slashdot_v2_parallel.py`, same globals-before-`Pool()` pattern as
+`ablation_slashdot_colleague_vs_ours.py`) brought the full 10,000-anchor run down to **199 seconds**
+— confirming the redundant list rebuild, not BFS cost, was the dominant factor. Randomness ordering
+is preserved to match a sequential run: `random.seed(42)` and the anchor `random.sample()` call both
+happen in the main process before any forking, and the `MAX_PAIRS` capping step also stays
+sequential in the main process, after all workers finish (see caveat in §3.8).
+
+### 3.6 Rigorous proof: distance definitions are identical once both are undirected
+
+Formal argument: standard unweighted multi-source BFS has an order-independent invariant — every
+node gets its true shortest-path distance from the source set at first discovery, regardless of
+queue vs. level-synchronized traversal. For any discovery/tree edge `(a,b)` where `b` is newly
+reached via already-visited `a`: her label is `d[b] = d[a]+1`; production's label is
+`min(shell(a),shell(b))+1`. Since `a` was visited first, `shell(a) < shell(b)`, so
+`min(shell(a),shell(b)) = shell(a)`, and both formulas reduce to `shell(a)+1 = shell(b)`. This holds
+for *any* graph, *any* traversal order, and *any* choice of parent among ties — every valid
+discovery parent of `b` is, by the same invariant, necessarily at exactly `shell(b)-1`.
+
+Empirically confirmed at scale, `scripts/panelb_diagnostics/verify_distance_definitions.py`
+(`outputs/panelb_diagnostics/verify_distance_definitions_output.txt`): (1) our own shell computation
+vs. networkx's `single_source_shortest_path_length` ground truth — 1,232,099 node-shells checked
+across 15 anchors, **0 mismatches**; (2) her per-edge label vs. `min(shell)+1` — **500 anchors,
+41,068,944 recorded edges checked, 0 mismatches**, including 17,956,325 edges (44%) where the
+discovered node had more than one tied possible discovery parent, directly confirming the proof's
+claim that the label doesn't depend on which parent BFS happens to pick. **Conclusion: distance was
+never a real source of disagreement, in either her v1 or v2 script, once direction matches.** The
+remaining daylight is entirely about which edges get counted (recording, §3.1 knob 2) and the pair
+cap (§3.4), not how distance is measured.
+
+### 3.7 A 5th gap, found only when asked directly: reciprocal-edge handling
+
+`nx.Graph()` (her v2 default loader) silently **merges** reciprocal edge pairs — both `(u,v)` and
+`(v,u)` present as separate lines in the raw edgelist — into a single edge. `graph.add_edge(v2, v1,
+sign=...)` on a pair that already has an edge `(v1,v2)` overwrites the existing edge's `sign`
+attribute in place, keeping only whichever direction was parsed **last** in the file.
+
+Quantified (`scripts/panelb_diagnostics/check_reciprocal_edge_handling.py`,
+`outputs/panelb_diagnostics/check_reciprocal_edge_handling_output.txt`): of 549,202 raw directed
+edges, 48,721 are reciprocal pairs (both directions present). `nx.Graph()` collapses these down to
+exactly 500,481 edges (matching the count of distinct *unordered* node pairs — full collapse
+confirmed). Of the 48,721 pairs, 96.0% (46,772) agree in sign — harmless merge there — but **4.0%
+(1,949 pairs, 3,898 edges) disagree**, meaning one real, distinct sign observation is silently and
+irrecoverably discarded at graph-construction time, before BFS or recording even runs.
+
+This is genuinely a 5th independent axis, not reducible to direction/recording/sampling/cap:
+
+| Loader | Reciprocal pairs merged? | Notes |
+|---|---|---|
+| Production (array-based `full[u]`/`full[v]` or `succ[u]` adjacency, either direction) | **Never** | Every one of the 549,202 directed edges keeps its own id and sign permanently; confirmed `dg.number_of_edges() == 549,202` for the directed-adjacency equivalent. For the undirected case both directions of a pair contribute two independent observations when encountered; for the directed case both are preserved but only discoverable if BFS reaches the edge's *source* endpoint. |
+| Her v1 script, `nx.DiGraph()` | **Never** (indexes by ordered `(u,v)`) | Confirmed: 549,202 edges, matching the raw line count exactly. No merge-loss, but tree-recording (§3.1 knob 2) independently means most reciprocal edges — like most cross/back edges generally — never get sampled as context edges regardless. |
+| Her v2 script (undirected), `nx.Graph()` | **Yes — the new finding** | 549,202 → 500,481 edges; 3,898 edges' worth of information (the disagreeing 4%) permanently lost at load time, stacked on top of the same tree-recording loss as v1. Two independent loss mechanisms, not one. |
+| Her v2-directed variant (presumed `nx.DiGraph()` swap, her own follow-up experiment, §3.9) | **Never**, if `DiGraph()` was used | Same as v1 — avoids the merge loss that the *undirected* v2 default introduced as an unintended side effect of fixing knob 1. |
+
+**Ironic finding worth flagging explicitly**: fixing the direction gap (switching `DiGraph()` →
+`Graph()`) introduced this new gap as a side effect — `nx.Graph()`'s implicit "adding an edge that
+already exists just updates its attributes" semantics silently drops information that `DiGraph()`
+never touched, precisely because `DiGraph()` treats `(u,v)` and `(v,u)` as different edges by
+construction.
+
+### 3.8 Cross-machine reproducibility: same seed, different results, and why
+
+The colleague ran her v2-family script (undirected and a directed variant) on her own machine with
+what should be equivalent settings (seed=42, 10,000 random anchors, `MAX_PAIRS=10,000` cap) — her
+numbers are close to, but not identical to, our parallelized run of the same nominal configuration
+(§3.9 table). Likely cause, identified but not yet fixed: our parallel script uses
+`pool.imap_unordered` for speed, which returns chunk results in **completion order**, not submission
+order. The anchor *selection* is unaffected (that random draw happens in the main process before any
+forking), but the **order** that (anchor,context) pairs get appended into each distance's list is
+scheduler-dependent — and since `MAX_PAIRS`'s cap draws `random.sample(range(len(x)), 10000)` (an
+*index* draw), the same seeded indices land on different actual pairs depending on append order.
+This plausibly explains why the distances with the most extreme discard ratios (d3/d4/d7) diverge
+the most between our run and hers, while d1/d5/d6/d8 (much less discarding) land close. **Not yet
+fixed**: switching `imap_unordered` → `imap` (ordered) in
+`scripts/paper_figures/load_slashdot_v2_parallel.py` would make chunk-merge order match a sequential
+run's order exactly (chunks are dispatched in `edge_numbers` order and each chunk's own anchors are
+processed in order internally), which should make our run byte-for-byte reproducible against any
+sequential run using the same seed and edge-file line order. Flagged as a known, understood,
+low-effort fix if exact cross-run reproducibility is ever needed again — not applied this session.
+
+### 3.9 Master comparison across every variant tried
+
+φ (phi) by distance, every configuration run in this investigation:
+
+| variant | n_anchors | d1 | d2 | d3 | d4 | d5 | d6 | d7 | d8 |
+|---|---|---|---|---|---|---|---|---|---|
+| **PRODUCTION** (undirected/all, no cap) | 20,000 | **0.321** | **0.061** | **-0.001** | **-0.022** | **-0.083** | **-0.088** | **-0.058** | **-0.028** |
+| Production, directed only (all, no cap) | 20,000 | 0.319 | 0.072 | 0.001 | -0.004 | -0.018 | -0.038 | -0.049 | -0.053 |
+| Her v1 exact (directed/tree, `DiGraph`) | 1,000 | 0.234 | 0.042 | -0.002 | -0.003 | -0.015 | -0.012 | 0.003 | -0.021 |
+| Her v1, more anchors (directed/tree, `DiGraph`) | 3,000 | 0.379 | 0.054 | 0.006 | -0.004 | -0.018 | -0.016 | -0.040 | -0.018 |
+| Her v1, more anchors still (directed/tree, `DiGraph`) | 10,000 | 0.385 | 0.049 | 0.007 | -0.004 | -0.017 | -0.031 | -0.022 | -0.032 |
+| Her v2, undirected/tree, cap=10k, seed=42, `Graph` (**our** machine, parallel/`imap_unordered`) | 10,000 | 0.338 | 0.038 | 0.022 | -0.027 | -0.057 | -0.058 | -0.055 | -0.036 |
+| Her v2, undirected/tree, cap=10k, seed=42, `Graph` (**her** machine) | 10,000 | 0.327 | 0.040 | 0.007 | -0.033 | -0.058 | -0.062 | -0.044 | -0.034 |
+| Her v2-variant, directed/tree, cap=10k, presumed `DiGraph` (**her** machine) | 10,000 | 0.378 | 0.045 | 0.023 | 0.011 | -0.008 | -0.032 | -0.030 | -0.018 |
+
+Reading, from most to least aligned with production: fixing direction+sampling (her v2 undirected,
+both machines) gets close on d1/d5/d6/d8 and reproduces the right overall bump-then-decay shape, but
+still sits at 60-70% of production's magnitude at d2/d5/d6 and disagrees in sign at d3 — attributable
+to the still-unfixed recording gap (§3.1) plus residual cap-driven noise (§3.4/§3.8), not to distance
+(§3.6, ruled out) or reciprocal-edge handling alone (§3.7; the undirected v2 variant's extra
+reciprocal-merge loss is a real but second-order contributor next to recording).
+
+**This entire thread (§3) is closed as of this update. No config, sampler, or Figure 1 change
+resulted from it — production's existing undirected/all/no-cap convention remains canon,** exactly as
+before this investigation started; the value of this thread was fully explaining an external
+discrepancy report, not discovering anything wrong with production itself.
+
 ---
 
 ## 4. Consolidated recommendation: how to handle each knob so results stay meaningful
@@ -288,6 +417,7 @@ all.
 | **Pair pooling / cap** | Never subsample — use a running contingency table | Phi and MI are computable in O(1) memory from incremental 2×2 counts; there's no principled reason to ever materialize or cap the raw pair list. If a cap is truly unavoidable for some other reason, it must at minimum be seeded — but the better fix removes the need for a cap entirely. |
 | **CI / significance on pooled pairs** | Cluster (block) bootstrap over distinct context edges, resampling whole clusters with replacement — never bootstrap a deduped/shrunk sample | Pooled (anchor, context) pairs are not independent draws — a hub context edge appears in many anchors' neighborhoods. The correct fix changes the resampling *unit* (row → cluster) without discarding any data; bootstrapping a deduped sample instead just reproduces ordinary 1/√n widening from a smaller n and additionally biases the point estimate (measured up to −6.23pp composition shift). |
 | **Reporting** | Always report both phi (linear, signed) and NMI/MI (nonlinear, magnitude-only) | They agree on ranking here but disagree on magnitude, and phi catches genuine sign flips (real qualitative disagreements) that NMI's non-negativity structurally hides. |
+| **Reciprocal edges** | Never merge — keep both `(u,v)` and `(v,u)` as independent, separately-signed observations | `nx.Graph()`'s implicit "adding an existing edge just updates it" semantics silently overwrites one direction's sign with the other's; confirmed 4.0% of real reciprocal pairs in this dataset disagree in sign, so this is a genuine, not merely redundant, information loss. Array-based adjacency (or `nx.DiGraph()`, or a `nx.MultiGraph()`) avoids this by construction. |
 
 ---
 
@@ -298,16 +428,28 @@ all.
   undiscarded data. Supersedes and retracts an earlier flawed same-session conclusion.
   Checklist item #12 (`aaai2027/PEWTER_ASSETS_CHECKLIST.md`) should be updated to reflect this —
   its "fix NOT YET IMPLEMENTED" note is now stale.
-- **Thread B (why did the colleague get near-zero): RESOLVED.** Fully explained by 3 systematic
-  methodological gaps (direction dominant, recording secondary, anchor-count/sampling tertiary)
-  plus one independent non-determinism bug (unseeded pair-cap) that doesn't bias the result but
-  destroys run-to-run reproducibility.
+- **Thread B (why did the colleague get near-zero): FULLY RESOLVED, including two follow-up rounds
+  after the original 4-gap ablation.** Root-caused to 5 independent gaps total: direction (dominant),
+  recording (secondary, still unfixed even in her revised script), anchor sampling (tertiary), an
+  unseeded/non-reproducible pair-cap (§3.4/§3.8, orthogonal to the bias question — affects
+  reproducibility, not the point estimate's direction), and a newly-found reciprocal-edge-merge bug
+  specific to `nx.Graph()` (§3.7). Also proved rigorously (formal argument + 41M-edge empirical
+  check, §3.6) that distance itself was never a real disagreement between the two methods once
+  direction matches. Her revised ("v2") script fixes 2 of the 5 gaps (direction, sampling) and gets
+  substantially closer to production as a result (§3.9), while introducing the reciprocal-edge issue
+  as a side effect of its direction fix.
+- **Explicitly confirmed with the user (this update): no config, sampler, or Figure 1 change results
+  from any of this.** Production's undirected/all-edges/no-cap convention stays canon exactly as
+  before the investigation started. This entire thread is closed — its value was fully explaining an
+  external discrepancy report, not surfacing a defect in production.
 - **Not done / possible follow-ups, not started, no user sign-off obtained**: (1) extending the
   2×2×2 grid or the cluster-bootstrap check to the other 5 datasets (only slashdot090221 was
   tested — this was a targeted debug of one external report, not a systematic sweep); (2)
   reflecting the cluster-bootstrap-confirmed bump, and/or the resolved colleague-discrepancy
   story, into `pewter_aaai.tex`'s Panel B paragraph (currently still has an inline `%%` comment
-  describing the superseded degree-confound framing, per `CLAUDE.md`'s Figure 1 status note).
+  describing the superseded degree-confound framing, per `CLAUDE.md`'s Figure 1 status note); (3)
+  the `imap_unordered` → `imap` reproducibility fix in `load_slashdot_v2_parallel.py` (§3.8), low
+  effort, not applied since exact cross-run matching wasn't required for the conclusions drawn.
 
 ## 6. File map
 
@@ -315,12 +457,20 @@ all.
   `scripts/panelb_diagnostics/extract_panelb_raw_rows.py` (raw-pair extractor for the bootstrap
   check), `scripts/panelb_diagnostics/proper_cluster_bootstrap.py` (corrected CI method, with
   self-test), `scripts/panelb_diagnostics/demo_slashdot_cap_nondeterminism.py` (the 5-run
-  non-determinism proof).
+  non-determinism proof), `scripts/panelb_diagnostics/verify_distance_definitions.py` (§3.6's
+  formal-proof + 41M-edge empirical check), `scripts/panelb_diagnostics/check_reciprocal_edge_handling.py`
+  (§3.7's reciprocal-merge quantification).
+- **Her scripts**: repo-root `load_slashdot.py` and `load_slashdot (1).py` (both untouched,
+  user-provided originals — v1 and v2 respectively), `scripts/paper_figures/load_slashdot.py`
+  (instrumented copy of v1, byte-identical logic), `scripts/paper_figures/load_slashdot_v2.py`
+  (instrumented copy of v2 — seed pinned to 42, two crash bugs fixed, see §3.5),
+  `scripts/paper_figures/load_slashdot_v2_parallel.py` (parallelized v2, 199s vs. the sequential
+  version's ~4hr ETA — see §3.5 and the `imap_unordered` reproducibility caveat in §3.8).
 - **Data/outputs**: `aaai2027/figure_data/ablation_slashdot_colleague_vs_ours.csv` (full 8-cell
   grid), `outputs/panelb_diagnostics/` (raw pair cache `panelb_raw_rows.npy`, cluster-bootstrap
-  output, her-original-script run log, the 10k-random-anchor extra run).
-- **Her original script**: repo-root `load_slashdot.py` (untouched, user-provided original) and
-  `scripts/paper_figures/load_slashdot.py` (instrumented copy, verified byte-identical logic).
+  output, her-original-script run log, the 10k-random-anchor extra runs, `her_v2_seed42_parallel.csv`,
+  `her_v2_her_machine_results.csv`, `verify_distance_definitions_output.txt`,
+  `check_reciprocal_edge_handling_output.txt`), repo-root `slashdot_sign_correlation_v2_seed42_parallel.png`.
 - **Prior/background context**: `CLAUDE.md`'s "Panel B's post-minimum 'bump'" note (2026-07-28
   investigation this session's Thread A builds on), `aaai2027/PEWTER_ASSETS_CHECKLIST.md` item
   #12 (Panel B's checklist status — needs updating per §5 above).

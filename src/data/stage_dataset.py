@@ -138,14 +138,24 @@ class StageViewDataset(Dataset):
         return input_ids, labels, attention_mask, metadata
 
 
-def ragged_collate_fn(pad_id: int, ignore_index: int):
-    """Returns a collate function that pads variable-length ragged samples to batch max length."""
+class _RaggedCollate:
+    """Pads variable-length ragged samples to batch max length.
 
-    def collate(batch):
+    A module-level callable class rather than a closure so it stays picklable
+    for DataLoader worker processes under the `forkserver`/`spawn` start
+    methods (Python 3.14 made `forkserver` the Linux default; a local closure
+    can't be pickled by name for re-import in the worker process).
+    """
+
+    def __init__(self, pad_id: int, ignore_index: int):
+        self.pad_id = pad_id
+        self.ignore_index = ignore_index
+
+    def __call__(self, batch):
         inputs, labels, attns, metas = zip(*batch)
 
-        input_ids = pad_sequence(inputs, batch_first=True, padding_value=pad_id)
-        labels_t = pad_sequence(labels, batch_first=True, padding_value=ignore_index)
+        input_ids = pad_sequence(inputs, batch_first=True, padding_value=self.pad_id)
+        labels_t = pad_sequence(labels, batch_first=True, padding_value=self.ignore_index)
         attention_mask = pad_sequence(attns, batch_first=True, padding_value=0)
 
         edge_ids = pad_sequence(
@@ -165,7 +175,7 @@ def ragged_collate_fn(pad_id: int, ignore_index: int):
         edge_classes = pad_sequence(
             [m["edge_classes"] for m in metas],
             batch_first=True,
-            padding_value=ignore_index,
+            padding_value=self.ignore_index,
         )
         metadata = {
             "edge_ids": edge_ids,
@@ -177,7 +187,10 @@ def ragged_collate_fn(pad_id: int, ignore_index: int):
         }
         return input_ids, labels_t, attention_mask, metadata
 
-    return collate
+
+def ragged_collate_fn(pad_id: int, ignore_index: int):
+    """Returns a collate function that pads variable-length ragged samples to batch max length."""
+    return _RaggedCollate(pad_id, ignore_index)
 
 
 class BucketBatchSampler(Sampler):
