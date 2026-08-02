@@ -315,26 +315,33 @@ def analyse_dataset(ds_name, variant, out_dir, stage="test", max_samples=MAX_SAM
 
 # ── Plotting ────────────────────────────────────────────────────────────────────
 
-def plot_variant(res, out_dir, plot_radius=PLOT_RADIUS_DEFAULT):
+def plot_variant(res, out_dir, plot_radius=PLOT_RADIUS_DEFAULT, layers=None, suffix=""):
     """One subplot PER (layer, head) -- a full nlayers x nhead grid, not overlaid lines.
     The LocalAttn4 boundary is drawn at +-(window+0.5), i.e. the true wall between the
     last allowed bin and the first disallowed one, not on top of the last data point --
     overlaying it exactly on the last nonzero bin (the old behavior) made the descending
     line segment down to the next (exactly-zero) bin look like it was crossing the
     boundary, even though the underlying data is exactly zero beyond the window
-    (verified numerically, see chat)."""
+    (verified numerically, see chat).
+
+    layers: optional list of layer indices to restrict the grid to (e.g. [0] for
+    layer-0-only) -- purely a plotting-time filter over the already-computed pmf array
+    in `res`, does not touch or require recomputation. suffix is appended to the output
+    filename so a filtered plot never overwrites the full all-layers one."""
     ds_name, variant = res["ds_name"], res["variant"]
     nlayers, nhead = res["nlayers"], res["nhead"]
     max_dist, window, pmf = res["max_dist"], res["window"], res["pmf"]
     r = min(plot_radius, max_dist)
     ds_range = list(range(-r, r + 1))
+    layers_to_plot = list(layers) if layers is not None else list(range(nlayers))
+    n_rows = len(layers_to_plot)
 
     fig_width = max(3.4 * nhead, 8.5)  # floor so the (multi-line) suptitle always fits
-    fig, axes = plt.subplots(nlayers, nhead, figsize=(fig_width, 2.6 * nlayers),
+    fig, axes = plt.subplots(n_rows, nhead, figsize=(fig_width, 2.6 * n_rows),
                               squeeze=False, sharex=True)
-    for l in range(nlayers):
+    for row_idx, l in enumerate(layers_to_plot):
         for h in range(nhead):
-            ax = axes[l, h]
+            ax = axes[row_idx, h]
             for d in ds_range:
                 role_edge = (d % 2 == 0)  # d even (incl. 0) -> same parity as target (odd) -> edge token
                 ax.axvspan(d - 0.5, d + 0.5, color=EDGE_COLOR if role_edge else NODE_COLOR,
@@ -347,28 +354,32 @@ def plot_variant(res, out_dir, plot_radius=PLOT_RADIUS_DEFAULT):
                 wall = window + 0.5
                 ax.axvline(wall, color="crimson", linestyle="--", linewidth=1.1, alpha=0.85, zorder=2)
                 ax.axvline(-wall, color="crimson", linestyle="--", linewidth=1.1, alpha=0.85, zorder=2)
-            if l == 0:
+            if row_idx == 0:
                 ax.set_title(f"head {h}", fontsize=10)
             if h == 0:
                 ax.set_ylabel(f"layer {l}", fontsize=9)
-            if l == nlayers - 1:
+            if row_idx == n_rows - 1:
                 ax.set_xlabel("d = j − i", fontsize=8)
             ax.tick_params(labelsize=7)
+    layer_note = f"layers {layers_to_plot}" if layers is not None else "all layers"
     title_lines = [
-        f"{ds_name} [{variant}]: signed attention mass per (layer, head)  (n_targets={res['n_targets']:,})",
+        f"{ds_name} [{variant}]: signed attention mass per (layer, head) -- {layer_note}  "
+        f"(n_targets={res['n_targets']:,})",
         "orange bg = edge-token offsets, blue bg = node-token offsets",
     ]
     if window is not None:
         title_lines.append(f"dashed red = ±{window} LocalAttn4 window wall (mass is exactly 0 past it)")
     fig.suptitle("\n".join(title_lines), fontsize=10)
     fig.tight_layout()
-    out_png = os.path.join(out_dir, f"attention_directionality_{ds_name}_{variant}.png")
+    out_png = os.path.join(out_dir, f"attention_directionality_{ds_name}_{variant}{suffix}.png")
     fig.savefig(out_png, dpi=110, bbox_inches="tight")
     plt.close(fig)
     print(f"  ✓ Saved {os.path.basename(out_png)}")
 
 
-def plot_summary(ds_name, results_by_variant, out_dir):
+def plot_summary(ds_name, results_by_variant, out_dir, layers=None, suffix=""):
+    """layers: optional list of layer indices to restrict the mean to (e.g. [0] for
+    layer-0-only); None means mean over all layers & heads, as before."""
     variants = [v for v in ("full", "local") if v in results_by_variant]
     if not variants:
         return
@@ -378,18 +389,20 @@ def plot_summary(ds_name, results_by_variant, out_dir):
     x = np.arange(len(cats))
     for i, variant in enumerate(variants):
         res = results_by_variant[variant]
+        sl = layers if layers is not None else slice(None)
         vals = [
-            res["forward_total"].mean(), res["backward_total"].mean(),
-            res["node_total"].mean(), res["edge_total"].mean(), res["self_total"].mean(),
+            res["forward_total"][sl].mean(), res["backward_total"][sl].mean(),
+            res["node_total"][sl].mean(), res["edge_total"][sl].mean(), res["self_total"][sl].mean(),
         ]
         ax.bar(x + (i - (len(variants) - 1) / 2) * width, vals, width, label=variant)
     ax.set_xticks(x)
     ax.set_xticklabels(cats, fontsize=8)
-    ax.set_ylabel("avg attention mass (mean over layers & heads)")
-    ax.set_title(f"{ds_name}: forward/backward and node/edge mass summary")
+    layer_note = f"layers {list(layers)}" if layers is not None else "all layers"
+    ax.set_ylabel(f"avg attention mass (mean over {layer_note} & heads)")
+    ax.set_title(f"{ds_name}: forward/backward and node/edge mass summary ({layer_note})")
     ax.legend()
     fig.tight_layout()
-    out_png = os.path.join(out_dir, f"attention_directionality_{ds_name}_summary.png")
+    out_png = os.path.join(out_dir, f"attention_directionality_{ds_name}_summary{suffix}.png")
     fig.savefig(out_png, dpi=110)
     plt.close(fig)
     print(f"  ✓ Saved {os.path.basename(out_png)}")
@@ -544,7 +557,19 @@ def main():
     parser.add_argument("--replot-only", action="store_true",
                         help="skip inference; reload cached *_result.pkl files and just "
                              "regenerate plots/report (e.g. after a plotting-code change)")
+    parser.add_argument("--layers", default=None,
+                        help="comma-separated layer indices to restrict PLOTS to (e.g. '0' for "
+                             "layer-0-only). Purely a plotting-time filter over the cached pmf/mass "
+                             "arrays -- never touches the *_result.pkl files, which always keep every "
+                             "layer. Output filenames get a _layerN suffix so filtered plots never "
+                             "overwrite the all-layers ones. The .txt/.md report is unaffected (always "
+                             "full, all layers).")
     args = parser.parse_args()
+    layers_filter = None
+    layer_suffix = ""
+    if args.layers is not None:
+        layers_filter = [int(x) for x in args.layers.split(",") if x.strip() != ""]
+        layer_suffix = "_layer" + "-".join(str(x) for x in layers_filter)
 
     datasets = ALL_DATASETS if args.datasets == ["all"] else args.datasets
     max_samples = None if args.max_samples <= 0 else args.max_samples
@@ -578,7 +603,8 @@ def main():
                     continue
                 with open(pkl_path, "rb") as f:
                     result = pickle.load(f)
-                plot_variant(result, out_dir, plot_radius=args.plot_radius)
+                plot_variant(result, out_dir, plot_radius=args.plot_radius,
+                             layers=layers_filter, suffix=layer_suffix)
             else:
                 result = analyse_dataset(ds_name, variant, out_dir, stage=args.stage,
                                           max_samples=max_samples, batch_size=args.batch_size,
@@ -586,11 +612,19 @@ def main():
                 if result is not None:
                     with open(os.path.join(out_dir, f"attention_directionality_{ds_name}_{variant}_result.pkl"), "wb") as f:
                         pickle.dump(result, f)
+                    if layers_filter is not None:
+                        # analyse_dataset already plotted the all-layers version; also emit the
+                        # layer-filtered one from the same in-memory result, no recompute needed.
+                        plot_variant(result, out_dir, plot_radius=args.plot_radius,
+                                     layers=layers_filter, suffix=layer_suffix)
             if result is not None:
                 all_results[(ds_name, variant)] = result
                 per_dataset[ds_name][variant] = result
         if len(per_dataset[ds_name]) > 1:
             plot_summary(ds_name, per_dataset[ds_name], out_dir)
+            if layers_filter is not None:
+                plot_summary(ds_name, per_dataset[ds_name], out_dir,
+                             layers=layers_filter, suffix=layer_suffix)
 
     # Merge in any previously-computed results for combos not in this run.
     for ds_name in ALL_DATASETS:

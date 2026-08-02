@@ -50,6 +50,41 @@ only optionally corrupted as an input-side regularizer (the "R" flag, `node_cont
 replace`). So every masked target position $i$ used anywhere in the attention analysis
 satisfies $i \equiv 1 \pmod 2$ (always odd).
 
+### Multiple targets in the same walk
+
+A walk is not restricted to containing exactly one masked target. `StageViewDataset`
+(`src/data/stage_dataset.py`) masks **every** edge-token position belonging to the current
+stage's target split simultaneously, in one shot:
+
+$$
+\mathrm{target\_edges} = \{\, j : \mathrm{split\_mask}[j] = \mathrm{target\_split} \,\},
+\qquad x_j \leftarrow \texttt{[MASK]} \ \ \forall j \in \mathrm{target\_edges}
+$$
+
+For `stage="test"`, $\mathrm{target\_split} = \texttt{TEST}$, so *every* test-split edge
+token in a walk is replaced by `[MASK]` and gets its own label, all in the same forward
+pass. This is the common case, not a corner case — measured directly on bitcoin-alpha,
+**78% of test walks contain more than one test-split target**, averaging 4.8 targets per
+walk (max 58 in one 80-hop walk). A walk with $k$ targets therefore contributes $k$
+independent rows to any target-indexed analysis (attention-mass, effective distance, etc.)
+— one per target position $i$, each with its own signed-offset frame $d=j-i$ centered on
+itself. Nothing needs to be special-cased for this: `target_mask.nonzero()` (as used in
+both `scripts/attention_analysis.py` and `scripts/attention_directionality.py`) already
+enumerates every $(row, i)$ pair in the batch, including multiple $i$'s from the same walk
+row, and each is scored independently as its own query.
+
+The one thing this setup does NOT let you distinguish: if target $i$'s window or walk
+contains another position $j$ that is *also* a masked target (rather than a real,
+unmasked, informative edge), attention mass can still land on $j$ — but $j$'s token is
+just `[MASK]`, carrying no real sign information, not a genuine labeled neighbor. Both
+cases look identical to the position-parity/role bookkeeping above (same odd position,
+same forward/backward side) — only the *token identity* at $j$ differs, and neither
+attention script currently checks it. `scripts/measure_local_context_availability.py`
+(see CLAUDE.md, the E30 short-walk-truncation investigation) already measures this exact
+real-vs-masked distinction for a related question (whether a target has a genuinely
+informative neighbor within reach); extending that same check into the attention-mass
+scripts would be a natural follow-up, not done as of this writing.
+
 ## Step 1 — token embedding
 
 $$
