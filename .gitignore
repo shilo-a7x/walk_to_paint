@@ -1,5 +1,6 @@
 /.venv
-/.venv_seq
+/.venv313
+/.venv-py39-archive
 /data
 /logs
 /checkpoints

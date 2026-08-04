@@ -9,7 +9,7 @@ atomic entropy axes Lead4c's regression found to actually matter (src_out,
 tgt_in; the other two, tgt_out/src_in, were near-null). No new predictions --
 this reuses the already-computed per-edge (src_ent, tgt_ent, y, p) records.
 
-Models: SiGAT (SGA-augmented) and GINEConv only -- no walk column.
+Models: SiGAT (raw, not SGA-augmented) and GINEConv only -- no walk column.
 
 Binning (reverted 2026-07-28 from the Gaussian-kernel-smoothed 25x25 grid):
 plain 4x4 equal-width bins over [0,1]x[0,1] (edges at 0, .25, .5, .75, 1.0),

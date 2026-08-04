@@ -1,0 +1,78 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Panel A schematic" id="panelA">
+    <mxGraphModel dx="800" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900" pageHeight="500" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Main nodes u (-1) and v (+1) -->
+        <mxCell id="node_u" value="u" style="ellipse;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#4a4a4a;strokeWidth=2;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="280" y="230" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="label_u_index" value="-1" style="text;html=1;align=center;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="282" y="278" width="36" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="node_v" value="v" style="ellipse;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#4a4a4a;strokeWidth=2;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="580" y="230" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="label_v_index" value="+1" style="text;html=1;align=center;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="582" y="278" width="36" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Neighbor placeholder nodes -->
+        <mxCell id="node_u_out" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4a4a4a;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="140" y="100" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="node_u_in" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4a4a4a;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="140" y="372" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="node_v_out" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4a4a4a;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="732" y="372" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="node_v_in" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4a4a4a;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="732" y="100" width="28" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- Target edge (index 0) -->
+        <mxCell id="edge_target" value="0" style="edgeStyle=none;endArrow=block;html=1;strokeColor=#c0392b;strokeWidth=3;fontSize=14;fontColor=#c0392b;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="node_u" target="node_v">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- u's other edges (index -2 family) -->
+        <mxCell id="edge_u_out" value="-2" style="edgeStyle=none;endArrow=block;html=1;strokeColor=#2e75b6;strokeWidth=2;fontSize=12;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="node_u" target="node_u_out">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_u_in" value="-2" style="edgeStyle=none;endArrow=block;html=1;strokeColor=#e08a1e;strokeWidth=2;fontSize=12;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="node_u_in" target="node_u">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- v's other edges (index +2 family) -->
+        <mxCell id="edge_v_out" value="+2" style="edgeStyle=none;endArrow=block;html=1;strokeColor=#2e75b6;strokeWidth=2;fontSize=12;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="node_v" target="node_v_out">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_v_in" value="+2" style="edgeStyle=none;endArrow=block;html=1;strokeColor=#e08a1e;strokeWidth=2;fontSize=12;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="node_v_in" target="node_v">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Term labels -->
+        <mxCell id="term_u_out" value="H_out(-1)" style="text;html=1;align=center;fontSize=12;fontColor=#2e75b6;" vertex="1" parent="1">
+          <mxGeometry x="100" y="55" width="110" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="term_u_in" value="H_in(-1)" style="text;html=1;align=center;fontSize=12;fontColor=#e08a1e;" vertex="1" parent="1">
+          <mxGeometry x="100" y="420" width="110" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="term_v_out" value="H_out(1)" style="text;html=1;align=center;fontSize=12;fontColor=#2e75b6;" vertex="1" parent="1">
+          <mxGeometry x="690" y="420" width="110" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="term_v_in" value="H_in(1)" style="text;html=1;align=center;fontSize=12;fontColor=#e08a1e;" vertex="1" parent="1">
+          <mxGeometry x="690" y="55" width="110" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="caption" value="target edge to predict" style="text;html=1;align=center;fontStyle=2;fontSize=12;fontColor=#c0392b;" vertex="1" parent="1">
+          <mxGeometry x="380" y="330" width="160" height="20" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

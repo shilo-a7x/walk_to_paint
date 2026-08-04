@@ -76,7 +76,13 @@ def mi_from_cont(c):
     return float(mi), float(nmi), n
 
 
-def build_graph(raw_edges):
+def build_graph(raw_edges, direction="undirected"):
+    """direction="undirected" (production default, unchanged): adj[w] holds both
+    directions, exactly as before. direction="directed": adj[w] holds ONLY
+    out-neighbors (successors, u->v), ported from the one-off diagnostic
+    scripts/ablation_slashdot_colleague_vs_ours.py's `succ` construction -- same
+    BFS/candidate-edge code below runs unmodified either way, only the adjacency
+    it walks changes."""
     nodes = sorted({n for e in raw_edges for n in e[:2]})
     n2i = {n: i for i, n in enumerate(nodes)}
     N = len(nodes)
@@ -84,14 +90,15 @@ def build_graph(raw_edges):
     edge_x = np.empty(E, np.int32)
     edge_y = np.empty(E, np.int32)
     edge_s = np.empty(E, np.int8)
-    adj = [[] for _ in range(N)]  # adj[w] = list of (neighbor_idx, edge_id), undirected
+    adj = [[] for _ in range(N)]
     for eid, (u, v, s) in enumerate(raw_edges):
         ui, vi = n2i[u], n2i[v]
         edge_x[eid] = ui
         edge_y[eid] = vi
         edge_s[eid] = s
         adj[ui].append((vi, eid))
-        adj[vi].append((ui, eid))
+        if direction == "undirected":
+            adj[vi].append((ui, eid))
     return N, E, edge_x, edge_y, edge_s, adj
 
 
@@ -167,10 +174,11 @@ def _worker_chunk(anchor_chunk):
     return totals
 
 
-def analyse_dataset(ds_name, cfg, d_max, max_anchors, seed=42, workers=None, shuffle_signs=False):
+def analyse_dataset(ds_name, cfg, d_max, max_anchors, seed=42, workers=None, shuffle_signs=False,
+                     direction="undirected"):
     t0 = time.time()
     raw_edges = load_edges_canonical(cfg["ds_name"])
-    N, E, edge_x, edge_y, edge_s, adj = build_graph(raw_edges)
+    N, E, edge_x, edge_y, edge_s, adj = build_graph(raw_edges, direction=direction)
     print(f"\n{'='*64}\n{ds_name}: N={N:,} E={E:,}\n{'='*64}", flush=True)
 
     rng = np.random.default_rng(seed)
@@ -228,9 +236,18 @@ def main():
     ap.add_argument("--workers", type=int, default=None)
     ap.add_argument("--shuffle-signs", action="store_true",
                      help="control test: randomly permute sign labels, keep structure/balance fixed")
+    ap.add_argument("--direction", choices=["undirected", "directed"], default="undirected",
+                     help="undirected (production default, unchanged) or directed "
+                          "(out-neighbors only, u->v -- see build_graph docstring)")
     args = ap.parse_args()
 
     datasets = list(DATASET_CONFIGS.keys()) if args.datasets == ["all"] else args.datasets
+
+    out_path = args.out
+    if args.direction == "directed" and out_path == OUT_CSV_DEFAULT:
+        # auto-derive the directed output path unless the caller explicitly overrode --out,
+        # so the undirected default stays untouched for any other existing caller.
+        out_path = OUT_CSV_DEFAULT.replace(".csv", "_directed.csv")
 
     rows = []
     for ds in datasets:
@@ -238,20 +255,20 @@ def main():
             print(f"unknown dataset: {ds}")
             continue
         res = analyse_dataset(ds, DATASET_CONFIGS[ds], args.d_max, args.max_anchors, args.seed, args.workers,
-                               args.shuffle_signs)
+                               args.shuffle_signs, direction=args.direction)
         for d, r in res.items():
             rows.append({
                 "dataset": ds, "line_dist": d, "n_pairs": r["n_pairs"],
                 "mi_bits": r["mi"], "nmi": r["nmi"],
             })
-        os.makedirs(os.path.dirname(args.out), exist_ok=True)
-        with open(args.out, "w", newline="") as f:
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        with open(out_path, "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=["dataset", "line_dist", "n_pairs", "mi_bits", "nmi"])
             w.writeheader()
             w.writerows(rows)
-        print(f"  [checkpoint written to {args.out}]", flush=True)
+        print(f"  [checkpoint written to {out_path}]", flush=True)
 
-    print(f"\nDone. wrote {len(rows)} rows to {args.out}")
+    print(f"\nDone. wrote {len(rows)} rows to {out_path}")
 
 
 if __name__ == "__main__":

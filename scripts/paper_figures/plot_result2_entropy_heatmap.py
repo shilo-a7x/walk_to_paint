@@ -21,7 +21,7 @@ OUT_PNG = "aaai2027/figures/result2_entropy_heatmap.png"
 DATASETS = ["bitcoin-alpha", "bitcoin-otc", "epinions", "slashdot090221", "wiki-elec", "wiki-rfa"]
 MODELS = ["Pewter (full attn)", "Pewter (LocalAttn4)", "SiGAT", "GINEConv"]
 VMIN, VMAX = 0.5, 1.0
-DISPLAY_LABEL = {"slashdot090221": "slashdot", "SiGAT": "SiGAT (SGA)"}
+DISPLAY_LABEL = {"slashdot090221": "slashdot", "SiGAT": "SiGAT"}
 
 
 def load(path):

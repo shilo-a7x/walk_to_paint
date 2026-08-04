@@ -19,6 +19,29 @@ All commands below assume the project venv (`.venv/bin/python`, or
 `source .venv/bin/activate` first) — the bare system `python`/`python3` has no
 `torch` installed and fails with `ModuleNotFoundError` (confirmed 2026-07-06).
 
+**Environment migrated 2026-08-02:** `.venv` is now Python 3.14.6 + torch
+2.13.0+cu126 + numpy 2.5.1 + scipy 1.18.0 + pandas 3.0.5 + scikit-learn 1.9.0 +
+lightning/pytorch-lightning 2.6.5 (was Python 3.9.25 + torch 2.7.1 + numpy
+2.0.2). Full 6-dataset retrain + `func_logit_power` posthoc validation passed
+(deltas −0.34pp to +0.89pp vs. the prior stack, within the established
+same-environment noise band — see E31 in the SOTA table below). The old
+environment is archived at `.venv-py39-archive/`, untouched, for reference.
+Reproduction steps for this whole migration (or the next one): see
+`PYTHON_MIGRATION_GUIDE.md`.
+
+**Python 3.14 multiprocessing gotcha:** Python 3.14 changed the default
+`multiprocessing` start method on Linux from `fork` to `forkserver`, which
+requires anything passed to a worker process (e.g. a DataLoader's
+`collate_fn`) to be picklable — a local/nested closure is not, since pickling
+only works by recording an importable module-level name. This broke
+`ragged_collate_fn` (`src/data/stage_dataset.py`), fixed by returning a
+module-level `_RaggedCollate` class instance instead of a closure. **Any new
+multiprocessing code (DataLoader workers, `Pool`/`ProcessPoolExecutor`
+targets) must use a module-level function/class, not a closure** — this is
+now a standing rule, not just a one-time fix. (Everywhere else in the repo
+already followed this pattern, or explicitly pins `mp.get_context("fork")`,
+and was unaffected.)
+
 ### Training
 
 **GPU pinning gotcha (confirmed 2026-07-06):** `run.py` unconditionally runs
@@ -254,25 +277,30 @@ its own parentheses. **On the identical shared test edges the walk model beats E
 own-full-test on all 6 — the prior wiki-elec/wiki-rfa "SiGAT marginally higher" exception was
 purely a coverage artifact and is gone.
 
-| Dataset         | Canon best-GNN (old)              | Full attn, no-H (E25/E26) | LocalAttn4, no-H (E27) — **current default** |
+| Dataset         | Canon best-GNN (old)              | Full attn, no-H (E25/E26) | LocalAttn4, no-H (E31) — **current default** |
 |-----------------|-----------------------------------|-----------------------------|------------------------------------------------|
-| bitcoin-alpha   | 0.9051 SGA-GSGNN (0.8804)         | **0.9219**                  | 0.9126                                          |
-| bitcoin-otc     | 0.8972 SNEA (0.9086)              | 0.9311                      | **0.9390**                                      |
-| epinions        | 0.9146 SiGAT (0.9113)             | 0.9527                      | **0.9533**                                      |
-| wiki-elec       | 0.8930 SiGAT (0.8840)             | 0.9036                      | **0.9061**                                      |
-| wiki-rfa        | 0.8831 SiGAT (0.8673)             | 0.8930                      | **0.8959**                                      |
-| slashdot090221  | 0.8587 SiGAT (0.8845)             | **0.9007**                  | 0.8981                                          |
+| bitcoin-alpha   | 0.9051 SGA-GSGNN (0.8804)         | **0.9219**                  | 0.9215                                          |
+| bitcoin-otc     | 0.8972 SNEA (0.9086)              | 0.9311                      | **0.9356**                                      |
+| epinions        | 0.9146 SiGAT (0.9113)             | 0.9527                      | **0.9528**                                      |
+| wiki-elec       | 0.8930 SiGAT (0.8840)             | 0.9036                      | **0.9045**                                      |
+| wiki-rfa        | 0.8831 SiGAT (0.8673)             | 0.8930                      | **0.8938**                                      |
+| slashdot090221  | 0.8587 SiGAT (0.8845)             | **0.9007**                  | 0.9002                                          |
 
-**Rewritten 2026-07-19 — this is now the true, current, `edge_cover`-sampler, no-hardness
-picture (superseding the old E15/E16 `k_cover` table entirely).** Both columns use each
-dataset's current production `num_walks` budget (`configs/<dataset>.yaml`, see "Walk
-sampler" above) — full attention from `E25_BUDGET_SWEEP_RESULTS.md`/`E26_WIKI_SWEEP_
-RESULTS.md`, LocalAttn4 from `HARDNESS_MINER_ROADMAP.md` item 13 (`E27`). **Local beats
-full on 4/6 (otc +0.79pp, wiki-rfa +0.29pp, wiki-elec +0.25pp, epinions +0.06pp/flat) and
-loses on 2/6 (alpha −0.93pp, slashdot −0.26pp)** — bold marks the winner per row. This is
-not a clean sweep either direction; see "Attention variant: full vs. local" below for why
-LocalAttn4 is nonetheless the settled repo default (confirmed via context-availability
-measurement, not just AUC).
+**Updated 2026-08-02 — LocalAttn4 column now reflects the `E31_PY314_MIGRATION` retrain**
+under the new Python 3.14.6/torch 2.13.0/numpy 2.5.1 environment (see "Environment migrated
+2026-08-02" under "Key commands" above), promoted to canonical since the prior `E27`
+checkpoints were trained under the now-archived Python 3.9 stack (`.venv-py39-archive/`).
+Full-attention (E25/E26) column is unchanged — not retrained in this pass, still the
+original Python-3.9-stack numbers. **Local beats full on 4/6 (otc +0.45pp, epinions
++0.01pp, wiki-elec +0.09pp, wiki-rfa +0.08pp) and loses on 2/6 (alpha −0.04pp, slashdot
+−0.05pp)** — same split as the prior (E27) numbers, but now a near-total wash (all deltas
+under 0.5pp) rather than the larger E27-era margins. This is environment noise, not a
+mechanism change — see the migration validation note above (deltas −0.34pp to +0.89pp
+across all 6 datasets vs. E27, within the established same-environment noise band); the
+"Attention variant: full vs. local" section's mechanistic argument for LocalAttn4 (below)
+is unaffected either way. Old `E27` numbers (bitcoin-alpha 0.9126, bitcoin-otc 0.9390,
+epinions 0.9533, wiki-elec 0.9061, wiki-rfa 0.8959, slashdot090221 0.8981) kept for
+provenance only — `git log` this file.
 Entropy-hardness numbers (E28, no longer recommended — see the H flag below) for
 provenance: alpha 0.9184, otc 0.9284, epinions 0.9535, wiki-elec 0.9064, wiki-rfa 0.8966,
 slashdot 0.8976 — flat-to-negative vs. no-H on 5/6, confirming H isn't worth carrying here
@@ -284,12 +312,17 @@ Apples-to-apples (shared edges) best GNN is always lower still — e.g. epinions
 "best GNN": its KNN discriminator emits hard labels, so its AUC is really balanced
 accuracy (~0.57–0.73, same as pre-canonical — not a regression; see findings doc §3).
 
-Experiment tag for current SOTA: `E25_BUDGET_SWEEP`/`E26_WIKI_SWEEP` (full attention) and
-`E27_NOHARD_EDGECOVER_LOCALATTN4` (LocalAttn4), both on the `edge_cover` sampler at each
-dataset's production `num_walks` (isolated keyed caches
-`data/<ds>/dataset_cache__edge_cover_nw<nw>_mw80_seed42.pt`). Prior `k_cover`-sampler SOTA
-(E15_SWEEP_k5 / E14_HARDNODE_L10, both superseded 2026-07-19) kept for provenance only —
-see `git log` this file or `HARDNESS_MINER_ROADMAP.md`'s history.
+Experiment tag for current SOTA: `E25_BUDGET_SWEEP`/`E26_WIKI_SWEEP` (full attention,
+Python-3.9-stack, not yet retrained) and `E31_PY314_MIGRATION` (LocalAttn4, current
+Python-3.14-stack), both on the `edge_cover` sampler at each dataset's production
+`num_walks` (isolated keyed caches `data/<ds>/dataset_cache__edge_cover_nw<nw>_mw80_seed42.pt`
+— caches themselves are environment-independent, reused as-is across the migration). Prior
+LocalAttn4 tag `E27_NOHARD_EDGECOVER_LOCALATTN4` and prior `k_cover`-sampler SOTA
+(E15_SWEEP_k5 / E14_HARDNODE_L10) kept for provenance only — see `git log` this file or
+`HARDNESS_MINER_ROADMAP.md`'s history. **Paper figures/tables under `aaai2027/` still point
+at the old `E27_NOHARD_EDGECOVER_LOCALATTN4_<timestamp>` checkpoint directories
+(hardcoded paths in `scripts/paper_figures/extract_ablationC_full_sweep.py` and others) —
+repointing them to `E31_PY314_MIGRATION` is separate, not-yet-done follow-up work.**
 
 ## Hardness reweighting (H): scrapped everywhere (2026-07-19, final)
 
@@ -493,7 +526,12 @@ de facto style in this project's `outputs/walk_coverage_analysis/*.md` docs (see
               scripts/lead4c_entropy_logit_regression.py). Consolidated report: LEAD4_ENTROPY_REPORT.md.
               Equations: LEAD4C_EQUATIONS.md. Running notes/Q&A: LEAD4C_ASYMMETRY.md. Handoff:
               LEAD4C_HANDOFF.md. Coefficients: lead4_coefficients.csv/.md.
-- Baselines: baselines/all_results.csv, baselines/<model>/results_our_splits/
+- Baselines: baselines/all_results.csv, baselines/<model>/results_our_splits/. **Convention
+  (corrected 2026-08-04): unqualified "SiGAT" always means raw SiGAT, not SGA-augmented,
+  everywhere in this codebase/paper unless explicitly marked otherwise** — an earlier version
+  of `aaai2027/PEWTER_ASSETS_CHECKLIST.md` (#21/#29/#34) wrongly claimed the SiGAT number used
+  in the entropy-vs-AUC analyses was SGA-augmented (`baselines/SGA/sigat_SGA.py`); confirmed
+  with the user it's raw SiGAT throughout, docs fixed.
 - **FABRICATED_REVERSE_EDGES.md** — read before using `baselines/splits/<ds>.pt`'s `edge_index` as
               "all edges of the graph" for any per-edge/per-node diagnostic: 14–48% of its edges
               (worse on epinions/wiki-elec/wiki-rfa/slashdot090221) are fabricated reverse mirrors with
@@ -641,12 +679,19 @@ OPEN WORKSTREAMS — audited 2026-07-19 (see plan files in ~/.claude/plans/):
 - Lead 5/6 subplans (`plan-lead5-ensemble-effect.md`, `plan-lead6-trainable-features.md`) ←
   ensemble effect + trainable-features/capacity/training-regime parity; neither started
   (no `outputs/lead5_ensemble/` or `outputs/lead6_trainable_features/` on disk).
-- `hello-a-big-task-nested-muffin.md` ← Python 3.9→3.13 / numpy/scipy/pandas/lightning/torch
-  migration. Confirmed real and still wanted (2026-07-19), but explicitly **lower priority
-  than the PEWTER paper** — don't pick this up over paper work. Never started (no Phase-0
-  trial venv exists on disk).
-
 **Closed/resolved (kept only as historical pointers, not open work):**
+- `hello-a-big-task-nested-muffin.md` ← Python/stack migration, **DONE 2026-08-02**
+  (target ended up Python 3.14.6, not the originally-scoped 3.13, per a from-scratch
+  version re-investigation mid-plan — see "Environment migrated 2026-08-02" under "Key
+  commands" above). `.venv` is now the new stack; old environment archived at
+  `.venv-py39-archive/`. Full 6-dataset retrain + `func_logit_power` posthoc validation
+  passed (E31, promoted to canonical SOTA — see "Current SOTA" table). Reproduction guide:
+  `PYTHON_MIGRATION_GUIDE.md`. One code fix required and applied:
+  `ragged_collate_fn` (`src/data/stage_dataset.py`) converted from a closure to a
+  module-level picklable class, needed because Python 3.14 changed the Linux
+  multiprocessing default from `fork` to `forkserver`. Not yet done as a follow-up: paper
+  figures/tables under `aaai2027/` still point at old `E27` checkpoint paths (hardcoded in
+  several `scripts/paper_figures/*.py` files) — repointing them to `E31` is separate work.
 - `plan-hardness-miner.md` ← **full-attention** question closed 2026-07-13 (scrap H, see
   HARDNESS_MINER_ROADMAP.md, the live tracker superseding this file's own Q1–Q5 log). The
   **LocalAttn4** side is explicitly NOT closed — see the re-ablation item above.

@@ -6,11 +6,13 @@ Pure rendering: reads aaai2027/figure_data/empconf_panelC_gnn_entropy_heatmap.cs
 (built by extract_empconf_panelC_gnn_entropy_heatmap.py). Edit THIS file freely
 for colormap/scale/style/size changes -- no recomputation needed.
 
-Layout: 2 rows (models) x 6 columns (datasets), enlarged (2026-07-28, per your
-call) vs. the previous kernel-smoothed version -- each cell now also gets an
-AUC value annotated directly on it (readable at 4x4 resolution, wasn't at
-25x25), and masked (insufficient-n) cells are shown as hatched grey rather
-than left blank.
+Layout: 1 row (SiGAT only, per 2026-08-04 call -- GINEConv dropped from this
+figure, kept in the appendix/baseline table instead; the extract CSV still
+has both models' cells for that reuse) x 6 columns (datasets), enlarged
+(2026-07-28, per your call) vs. the previous kernel-smoothed version -- each
+cell now also gets an AUC value annotated directly on it (readable at 4x4
+resolution, wasn't at 25x25), and masked (insufficient-n) cells are shown as
+hatched grey rather than left blank.
 """
 import csv
 import os
@@ -25,10 +27,10 @@ IN_CSV = "aaai2027/figure_data/empconf_panelC_gnn_entropy_heatmap.csv"
 OUT_PNG = "aaai2027/figures/empconf_panelC_gnn_entropy_heatmap.png"
 
 DATASETS = ["bitcoin-alpha", "bitcoin-otc", "epinions", "slashdot090221", "wiki-elec", "wiki-rfa"]
-MODELS = ["SiGAT", "GINEConv"]
+MODELS = ["SiGAT"]  # GINEConv dropped from this figure 2026-08-04, kept in appendix/table only
 VMIN, VMAX = 0.5, 1.0
 N_BINS = 4
-DISPLAY_LABEL = {"slashdot090221": "slashdot", "SiGAT": "SiGAT (SGA)"}
+DISPLAY_LABEL = {"slashdot090221": "slashdot", "SiGAT": "SiGAT"}
 
 
 def load(path):
@@ -56,7 +58,8 @@ def main():
     data, ncounts, edges = load(IN_CSV)
     n_rows, n_cols = len(MODELS), len(DATASETS)
     # bigger panel per user request: was figsize=(1.9*n_cols, 2.0*n_rows)
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(3.1 * n_cols, 3.3 * n_rows), sharex=True, sharey=True)
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(3.1 * n_cols, 3.3 * n_rows), sharex=True, sharey=True,
+                              squeeze=False)
 
     cmap = plt.get_cmap("RdYlGn").copy()
     cmap.set_bad(color="#d9d9d0")
@@ -94,7 +97,7 @@ def main():
             if r == n_rows - 1:
                 ax.set_xlabel("src out-ent.", fontsize=8)
 
-    fig.suptitle("GNN test AUC vs. source out-entropy (rater consistency) and target in-entropy "
+    fig.suptitle("SiGAT test AUC vs. source out-entropy (rater consistency) and target in-entropy "
                   "(reputation contestedness), 4×4 bins",
                   fontsize=11)
     fig.text(0.005, 0.5, "target in-ent.", va="center", rotation="vertical", fontsize=9)

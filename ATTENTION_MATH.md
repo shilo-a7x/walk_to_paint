@@ -22,6 +22,43 @@ Everything below is one forward pass over one walk (batch dimension $B$ omitted 
 equation just gets an extra leading $B$ axis and runs identically per batch item, modulo
 padding, which is discussed separately).
 
+### Why $S$ can differ between batches without anything breaking
+
+$S$ is a **runtime shape, not an architecture constant** — it is set per batch (to the
+longest walk in that batch, after padding shorter ones; `training.bucket_batching: true`
+groups similar-length walks together first so less padding is wasted) and is free to
+differ from one batch to the next. This does not mean "the matrices are different" in any
+problematic sense, because **every learned weight matrix in the model is applied
+identically at every position and is completely independent of $S$**: $E$ (the embedding
+table), $W_{in}$/$W_O$ (attention projections), $W_1$/$W_2$ (the FFN), and $W_{out}$ (the
+output head) are all shaped in terms of $d$, $H$, $F$, $C$ only — never $S$. A batch with
+$S=41$ and a batch with $S=161$ reuse the *exact same* parameters; the only thing that
+changes is how many times each is applied (once per token) and the size of the two
+objects that legitimately do scale with $S$:
+- the positional encoding, which is precomputed once up to a fixed maximum length
+  ($2 \cdot \texttt{max\_walk\_length}+1$) and simply **sliced** down to the current
+  batch's $S$ (`pos_encoder[:S]` in `src/model/model.py`) — not recomputed or re-learned;
+- the attention matrix $A_h \in \mathbb{R}^{S\times S}$ itself, which was never a stored
+  parameter to begin with — it's *computed fresh from $Q,K$ every forward pass*, so of
+  course it takes on whatever shape that batch's $S$ implies, the same way a matrix
+  multiplication's output shape depends on its inputs' shapes without the multiplication
+  operation itself needing to change.
+
+This is the standard "sequence-length-agnostic" property shared by every attention-based
+architecture (and is exactly why the same trained model can score both a 5-token and a
+161-token walk without retraining or resizing anything).
+
+### Why $S$ can also differ between walks in the SAME batch, until padding
+
+Before padding, two real walks can have genuinely different lengths (a walk that hits a
+dead end early is shorter than one that doesn't). Padding brings them to a common $S$
+for that batch only so they can share one tensor; the padded positions are excluded from
+attention via `key_padding_mask`/`attention_mask` (Step 3a's $M[i,j]=-\infty$ for
+padding) and never contribute to any prediction or loss. So "$S$" in the equations below
+should be read as "however long *this batch's* padded walks are" — it is reset every
+batch, and nothing about the model's parameters depends on which value it happens to
+take.
+
 ## Step 0 — the raw input: a tokenized walk
 
 A walk over the signed graph is written as an alternating sequence of node and edge-sign
@@ -210,24 +247,54 @@ $X^{(l)}$ is the input to layer $l+1$. Repeat 3a/3b $N$ times total.
 
 ## Step 4 — output head
 
-Applied to **every** position (not just targets), but only ever read out at masked
-edge-token positions:
+**Yes, the model's raw output is a full sequence, one prediction-shaped vector per
+position** — but only some of those positions mean anything. Concretely: $W_{out}$ is an
+ordinary `nn.Linear`, applied positionwise (batched matrix multiply, no attention, no
+mixing across $j$) to *every* row of $X^{(N)} \in \mathbb{R}^{S\times d}$ at once:
 
 $$
 W_{out} \in \mathbb{R}^{d \times C}, \quad b_{out} \in \mathbb{R}^{C} \qquad (C=2)
 $$
 
 $$
-\mathrm{logits}_i = X^{(N)}_i\,W_{out}^{\top} + b_{out} \ \in \mathbb{R}^{C}
+\mathrm{logits} = X^{(N)} W_{out}^{\top} + b_{out} \ \in \mathbb{R}^{S \times C}
+\qquad\text{i.e., for each position: } \mathrm{logits}_i = X^{(N)}_i\,W_{out}^{\top} + b_{out} \in \mathbb{R}^{C}
 $$
 
 $$
-p_i = \mathrm{softmax}(\mathrm{logits}_i) \in \mathbb{R}^{2} \qquad \big(p_i[1] = \widehat{P}(\text{edge is positive})\big)
+p = \mathrm{softmax}(\mathrm{logits}, \text{dim}=-1) \in \mathbb{R}^{S \times 2}
+\qquad \big(p_i[1] = \widehat{P}(\text{edge at position } i \text{ is positive})\big)
 $$
 
-Cross-entropy loss is computed only where $\mathrm{labels}[i] \ne \texttt{ignore\_index}$,
-i.e. only at masked edge positions — the same set of positions the attention analysis
-scripts restrict their $i$ to.
+So yes: the tensor that comes out of the model literally has shape $[S, 2]$ — a
+probability pair for *every* token position, node positions included, not just a single
+prediction for "the" edge. What makes this not nonsensical is that **almost all of those
+$S$ rows are simply never used**:
+
+- **Node positions** ($i$ even): $p_i$ is computed (the linear layer doesn't know or care
+  what token type sits at $i$) but is meaningless and discarded — nothing was ever
+  masked there, there is no corresponding label, and no loss term or downstream
+  prediction ever reads $p_i$ for a node position.
+- **Edge positions that are NOT the current stage's target split** ($i$ odd, but
+  $\mathrm{split\_mask}[i] \notin \{\text{target\_split}\}$): these are real, *unmasked*
+  edges — their true sign token is still sitting in the input, so the model can trivially
+  "predict" its own input back. $p_i$ exists but is discarded for the same reason: no
+  label, no loss, not read anywhere.
+- **The masked target positions** ($i$ odd, $\mathrm{split\_mask}[i]=\text{target\_split}$,
+  input replaced by `[MASK]`, per the multi-target discussion above): these are the *only*
+  rows that matter. $p_i$ here is a genuine prediction — the input gives the model no
+  direct access to this edge's sign, so recovering it requires actually using context.
+
+Cross-entropy loss is computed only where $\mathrm{labels}[i] \ne \texttt{ignore\_index}$
+— by construction (`stage_dataset.py`, Step 0's multi-target discussion) that is *exactly*
+the masked target positions, i.e. `labels` is pre-filled to `ignore_index` everywhere else
+so the loss/metric code doesn't need to separately know about node-vs-real-edge-vs-target;
+checking `labels[i] != ignore_index` is sufficient and is the same restriction the
+attention analysis scripts apply to $i$ when selecting which query rows to look at.
+At inference, `p` is computed for the whole sequence just the same, but only the target
+rows' $p_i[1]$ values are ever collected into `predictions.pkl` / passed to Step 5's
+aggregation below — everything else is thrown away downstream, not fed forward or used
+for anything.
 
 ## Step 5 — beyond the transformer (not part of the math above)
 

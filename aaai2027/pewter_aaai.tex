@@ -236,7 +236,7 @@ We evaluate on the six directed signed-graph datasets described in the Methods s
 %% original design -- the walk-vs-GNN comparison now lives in its own separate figure for
 %% Result 2 (4 rows: Pewter full attn, Pewter LocalAttn4, SiGAT, GINEConv), even though that
 %% duplicates the two GNN rows shown here. See Result 2's own subsection below.
-\textbf{(C) GNN accuracy vs.\ entropy.} Baseline GNN test AUC drops as a function of source-vertex rater consistency and target-vertex reputation contestedness, consistent with Proposition~\ref{prop:bottleneck}: for both GINEConv and SGA-augmented SiGAT, on all six datasets, AUC is highest where the target vertex's incoming-edge signs are unanimous and falls toward chance as that entropy rises, with source out-entropy a secondary factor (Figure~\ref{fig:empconf-panels}c).
+\textbf{(C) GNN accuracy vs.\ entropy.} Baseline GNN test AUC drops as a function of source-vertex rater consistency and target-vertex reputation contestedness, consistent with Proposition~\ref{prop:bottleneck}: for both GINEConv and SiGAT, on all six datasets, AUC is highest where the target vertex's incoming-edge signs are unanimous and falls toward chance as that entropy rises, with source out-entropy a secondary factor (Figure~\ref{fig:empconf-panels}c).
 
 %% NEW (2026-07-28): now a 3-panel combined figure (Panel A added), superseding the
 %% earlier B+C-only combine. scripts/paper_figures/combine_empconf_panels_abc.py stacks
@@ -244,8 +244,8 @@ We evaluate on the six directed signed-graph datasets described in the Methods s
 %% them as a single float. Re-run the combine script after re-plotting any panel.
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{figures/empconf_panels_abc_combined.png}
-\caption{(a) Per-node sign entropy, source out-degree ($\Hh_\outdeg$, rater consistency) vs.\ target in-degree ($\Hh_\indeg$, reputation contestedness), six datasets; box = IQR, diamond = mean (the median and IQR collapse to exactly 0 on four datasets due to a high fraction of unanimous nodes -- the mean marker is the informative summary there), whiskers to $1.5\times$IQR, one-sided Wilcoxon signed-rank test direction and significance annotated per dataset (ties dropped). (b) Normalized mutual information ($\mathrm{NMI} = \tfrac{\MI}{\Hh(Y)}$, comparable across datasets with different label imbalance) between an anchor edge's sign and a context edge's sign, as a function of line-graph distance between them (1 = share a node; each further unit is one more undirected hop between their nearest endpoints), six datasets, linear scale. (c) Test AUC (discrete 4$\times$4 bins) for two GNN baselines, SGA-augmented SiGAT and GINEConv, as a function of source out-entropy ($\Hh_\outdeg$ of the source vertex, rater consistency) and target in-entropy ($\Hh_\indeg$ of the target vertex, reputation contestedness), six datasets.}
+\includegraphics[width=\linewidth]{figures/empconf_panels_abcde_combined.png}
+\caption{(a) Position-index notation used throughout this figure: the target edge to predict is index 0, connecting its source $u$ (index $-1$) to its target $v$ (index $+1$); each endpoint's other incident edges are indexed $\pm2$, split by direction into out-edges ($\Hh_\outdeg$) and in-edges ($\Hh_\indeg$). (b) Normalized mutual information ($\mathrm{NMI} = \tfrac{\MI}{\Hh(Y)}$, comparable across datasets with different label imbalance) between an anchor edge's sign and a context edge's sign, as a function of line-graph distance between them (1 = share a node), six datasets, linear scale; solid = directed (out-neighbor-only) traversal, dashed = undirected (production default) traversal. (c) Test AUC (discrete 4$\times$4 bins) for two GNN baselines, SiGAT and GINEConv, as a function of source out-entropy ($\Hh_\outdeg(-1)$, rater consistency) and target in-entropy ($\Hh_\indeg(1)$, reputation contestedness), six datasets. (d) Test AUC for the same two GNN baselines, pooled across six datasets, split into four buckets by whether a target edge's other in-edges (into $v$) or out-edges (from $u$) agree (\emph{same}) or disagree (\emph{diff}) in sign with the target edge itself; one prediction instance is contributed per qualifying neighbor edge, so an edge can appear in multiple buckets. (e) Pooled, $z$-scored logistic-regression coefficients (correct $\sim$ $\Hh_\outdeg(-1)+\Hh_\indeg(-1)+\Hh_\outdeg(1)+\Hh_\indeg(1)$) for the same two GNN baselines, showing which entropy term in (a)'s notation most predicts an incorrect prediction; error bars are cluster-robust standard errors, hatched bars are not significant after FDR correction ($q<0.05$).}
 \label{fig:empconf-panels}
 \end{figure}
 
@@ -334,7 +334,7 @@ GSGNN+SGA & $0.905_{\pm.008}$ & $0.885_{\pm.007}$ & -- & $0.877_{\pm.003}$ & -- 
 SNEA & $0.881_{\pm.010}$ & $0.897_{\pm.006}$ & $0.822_{\pm.002}$ & $0.864_{\pm.004}$ & $0.867_{\pm.003}$ & $0.794_{\pm.002}$ \\
 CopulaLSP & $0.882_{\pm.010}$ & $0.879_{\pm.007}$ & $0.860_{\pm.001}$ & $0.874_{\pm.003}$ & $0.857_{\pm.003}$ & $0.800_{\pm.002}$ \\
 GINEConv & $0.861_{\pm.011}$ & $0.885_{\pm.007}$ & $0.861_{\pm.001}$ & $0.875_{\pm.003}$ & $0.870_{\pm.003}$ & $0.786_{\pm.002}$ \\
-SiGAT (SGA) & $0.882_{\pm.010}$ & $0.876_{\pm.007}$ & $0.915_{\pm.001}$ & $0.893_{\pm.003}$ & $0.883_{\pm.003}$ & $0.859_{\pm.002}$ \\
+SiGAT & $0.882_{\pm.010}$ & $0.876_{\pm.007}$ & $0.915_{\pm.001}$ & $0.893_{\pm.003}$ & $0.883_{\pm.003}$ & $0.859_{\pm.002}$ \\
 GCN \ph{[PLACEHOLDER: TBD]} & -- & -- & -- & -- & -- & -- \\
 GAT \ph{[PLACEHOLDER: TBD]} & -- & -- & -- & -- & -- & -- \\
 \midrule
@@ -358,20 +358,20 @@ Figure~\ref{fig:result2-heatmap} shows kernel-smoothed test AUC over the source/
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/result2_entropy_heatmap.png}
-\caption{Test AUC (kernel-smoothed over entropy space, not discrete bins) for \method\ (full attention), \method\ (LocalAttn4), and two GNN baselines (SGA-augmented SiGAT, GINEConv), as a function of source out-entropy (rater consistency) and target in-entropy (reputation contestedness), six datasets. The two GNN rows are the same underlying data as Empirical Confirmation Figure~\ref{fig:empconf-panels}c (there shown as discrete 4$\times$4 bins; here kept as the original kernel-smoothed surface for a finer-grained comparison against \method's own smoothed rows), repeated here so this figure stands alone as a complete walk-vs-GNN comparison.}
+\caption{Test AUC (kernel-smoothed over entropy space, not discrete bins) for \method\ (full attention), \method\ (LocalAttn4), and two GNN baselines (SiGAT, GINEConv), as a function of source out-entropy (rater consistency) and target in-entropy (reputation contestedness), six datasets. The two GNN rows are the same underlying data as Empirical Confirmation Figure~\ref{fig:empconf-panels}c (there shown as discrete 4$\times$4 bins; here kept as the original kernel-smoothed surface for a finer-grained comparison against \method's own smoothed rows), repeated here so this figure stands alone as a complete walk-vs-GNN comparison.}
 \label{fig:result2-heatmap}
 \end{figure}
 
 \subsection{Result 3: \method\ and the direction of information flow}
-\ph{PLACEHOLDER: [OPEN QUESTION, LOWER PRIORITY -- deprioritized 2026-07-20] Whether \method's
-attention weights carry a directional signal related to the source/target entropy asymmetry is
-not yet resolved and is not being actively pursued at the moment. One candidate, not yet designed
-or run: compare the attention mass a masked target-edge token places on tokens belonging to the
-source node $u$ versus tokens belonging to the target node $v$, and check whether this differs on
-wiki-elec/wiki-rfa (the two datasets where the entropy asymmetry itself reverses) from the other
-four -- a reversal there would be more convincing than a skew observed only on the confirming
-datasets. Whether attention-weight magnitude can be validly read as "information flow" at all is
-an open question in its own right; revisit once higher-priority items are done.}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/attndir_panels_abcd_combined.png}
+\caption{Attention directionality, \method, layer 0, six datasets. For each masked target-edge token $i$, attention mass is split by signed offset $d=j-i$ into forward ($d>0$, toward $v$'s side of the walk) and backward ($d<0$, toward $u$'s side), and by token role (node vs.\ edge); self-attention ($d=0$) is excluded from both splits. (a) Example per-head breakdown (bitcoin-alpha, 4 heads) over the full attention window $d\in[-4,4]$ -- heads alternate their peak mass between node and edge offsets. (b) Forward vs.\ backward mass by dataset, mean over heads. (c) Node vs.\ edge mass by dataset, mean over heads. (d) Test AUC (discrete 4$\times$4 bins) for \method\ itself as a function of source out-entropy and target in-entropy, six datasets -- the same binning as Empirical Confirmation (c), for the walk model rather than the GNN baselines. \method\ here uses the local-attention window (Methods); we say "\method" rather than "LocalAttn4" throughout this figure since nothing here compares it against the full-attention variant.}
+\label{fig:attndir}
+\end{figure}
+
+For every masked target-edge token in the trained \method, we measure how attention mass splits between the source side ($u$, backward in the walk) and the target side ($v$, forward in the walk), and between node- and edge-token roles, at layer 0 (Figure~\ref{fig:attndir}). This is a property of the trained attention weights themselves, and a different question from the source/target entropy asymmetry in Empirical Confirmation (A) above -- one is a statement about what the data looks like, the other about where the model looks. On four of six datasets (bitcoin-alpha, bitcoin-otc, epinions, slashdot090221) forward and backward mass are close to balanced (differences of at most $0.06$). On wiki-elec and wiki-rfa, attention is clearly backward-dominant instead ($0.269$ vs.\ $0.463$, and $0.205$ vs.\ $0.564$) -- a genuine reversal, not a small effect, and it lands on exactly the two datasets where the entropy asymmetry itself also reverses (Empirical Confirmation (A)), even though the two measurements are independent of each other. The node/edge split shows no comparably clean pattern: three datasets (bitcoin-otc, epinions, wiki-elec) are node-dominant, two (bitcoin-alpha, slashdot090221) are edge-dominant, and wiki-rfa is split almost exactly evenly ($0.384$ vs.\ $0.385$). Panel (d) additionally shows \method's own binned entropy-vs-AUC surface, directly comparable to the GNN version in Empirical Confirmation (c). \ph{PLACEHOLDER: whether attention-weight magnitude is validly read as "information flow" at all remains an interpretive question -- this result shows the trained model's attention geometry lines up with the same wiki-vs-other split as the entropy asymmetry, not that attention causes or explains it. Scope: layer 0 only, local-attention checkpoints only; not yet extended to other layers or the full-attention variant -- decide before submission whether that scope is sufficient to keep this as a stated Result or whether it should be softened back to a suggestive/exploratory framing.}
 
 %% ORIGINAL MARKER (preserved): "XXXXX"
 \subsection{Ablations}

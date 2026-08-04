@@ -25,6 +25,7 @@ sys.path.insert(0, ROOT)
 
 from scripts.lead4c_entropy_logit_regression import (
     run_atomic_fits, run_atomic_fits_zscored, run_srctgt_fits, run_srctgt_fits_zscored,
+    run_node4_fits, run_node4_fits_zscored,
 )
 
 WIKI_DATASETS = ["wiki-elec", "wiki-rfa"]
@@ -43,14 +44,17 @@ def main():
     df_az = run_atomic_fits_zscored(joined, WIKI_DATASETS)
     df_st = run_srctgt_fits(joined, WIKI_DATASETS)
     df_stz = run_srctgt_fits_zscored(joined, WIKI_DATASETS)
+    df_n4 = run_node4_fits(joined, WIKI_DATASETS)
+    df_n4z = run_node4_fits_zscored(joined, WIKI_DATASETS)
 
-    df = pd.concat([df_a, df_az, df_st, df_stz], ignore_index=True)
+    df = pd.concat([df_a, df_az, df_st, df_stz, df_n4, df_n4z], ignore_index=True)
     fit_pkl = os.path.join(args.out_dir, "fit_results_wiki_only.pkl")
     fit_csv = os.path.join(args.out_dir, "fit_results_wiki_only.csv")
     df.to_pickle(fit_pkl)
     df.to_csv(fit_csv, index=False)
     print(f"wrote {fit_csv} ({len(df)} rows: {len(df_a)} atomic + {len(df_az)} atomic_zscored + "
-          f"{len(df_st)} srctgt2 + {len(df_stz)} srctgt2_zscored)")
+          f"{len(df_st)} srctgt2 + {len(df_stz)} srctgt2_zscored + "
+          f"{len(df_n4)} node4 + {len(df_n4z)} node4_zscored)")
 
 
 if __name__ == "__main__":

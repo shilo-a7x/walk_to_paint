@@ -977,6 +977,161 @@ def run_srctgt_fits_zscored(joined, datasets):
     return df
 
 
+# ── Node-only model: all 4 node entropy directions, no 2-hop/path terms ──────
+# User request (2026-07-28): the middle ground between the full 6-term atomic
+# model and the minimal 2-term (src_out+tgt_in) model -- keeps all 4 node-level
+# directional entropies (src_out, src_in, tgt_out, tgt_in) but drops the two
+# 2-hop/path terms entirely. Fully separate code path, same pattern as
+# run_srctgt_fits -- does not touch any other spec above.
+
+NODE4_TERMS = ["src_out", "src_in", "tgt_out", "tgt_in"]
+NODE4_LABELS = {k: ATOMIC_LABELS[k] for k in NODE4_TERMS}
+
+
+def node4_feature_columns(table):
+    cols = atomic_feature_columns(table)
+    return {k: cols[k] for k in NODE4_TERMS}
+
+
+def run_node4_fits(joined, datasets):
+    """4-term model: correct ~ src_out + src_in + tgt_out + tgt_in. No 2-hop terms.
+    Rows tagged spec='node4'."""
+    records = []
+    for ds_name in datasets:
+        for model in MODELS:
+            table = joined.get(ds_name, {}).get(model)
+            if table is None:
+                continue
+            X = node4_feature_columns(table)
+            rows = _fit_one(table["correct"], X, table["u"], table["v"],
+                            f"{ds_name}/{model}/node4")
+            if rows is None:
+                print(f"  node4 {ds_name}/{model}: degenerate, skipped")
+                continue
+            for row in rows:
+                row.update(dataset=ds_name, model=model, spec="node4",
+                           node_variant=None, twohop_variant=None, pooled=False, pooled_spec=None)
+                records.append(row)
+            print(f"  node4 {ds_name}/{model}: n={rows[0]['n']}")
+
+    all_ds_for_model = {}
+    for ds_name in datasets:
+        for model in MODELS:
+            table = joined.get(ds_name, {}).get(model)
+            if table is None:
+                continue
+            all_ds_for_model.setdefault(model, []).append((ds_name, table))
+
+    for model, parts in all_ds_for_model.items():
+        if len(parts) < 2:
+            continue
+        ds_names = [d for d, _ in parts]
+        feats = {k: [] for k in NODE4_TERMS}
+        ys, us, vs, dummies = [], [], [], []
+        offset_u = 0
+        for ds_name, table in parts:
+            cols = node4_feature_columns(table)
+            n = len(table["correct"])
+            for k in NODE4_TERMS:
+                feats[k].append(cols[k])
+            ys.append(table["correct"])
+            us.append(table["u"] + offset_u); vs.append(table["v"] + offset_u)
+            offset_u += int(max(table["u"].max(), table["v"].max())) + 1
+            dummies.append(np.full(n, ds_name))
+        X = {k: np.concatenate(feats[k]) for k in NODE4_TERMS}
+        y_all = np.concatenate(ys); u_all = np.concatenate(us); v_all = np.concatenate(vs)
+        dummy_all = np.concatenate(dummies)
+        for d in ds_names:
+            X[f"ds_{d}"] = (dummy_all == d).astype(np.float64)
+        rows = _fit_one(y_all, X, u_all, v_all, f"POOLED/{model}/node4/shared-slope", add_const=False)
+        if rows is not None:
+            for row in rows:
+                row.update(dataset="POOLED", model=model, spec="node4", node_variant=None,
+                           twohop_variant=None, pooled=True, pooled_spec="shared_slope")
+                records.append(row)
+        print(f"  node4 POOLED/{model}: shared-slope done")
+
+    df = pd.DataFrame.from_records(records)
+    if len(df):
+        df["p_fdr"] = np.nan
+        m = df["term"].isin(NODE4_TERMS) & ~df["pooled"]
+        df.loc[m, "p_fdr"] = _bh_fdr(df.loc[m, "p"].values)
+        mp = df["term"].isin(NODE4_TERMS) & df["pooled"] & (df["pooled_spec"] == "shared_slope")
+        if mp.any():
+            df.loc[mp, "p_fdr"] = _bh_fdr(df.loc[mp, "p"].values)
+    return df
+
+
+def run_node4_fits_zscored(joined, datasets):
+    """Same 4-term model as run_node4_fits, features literally standardized
+    before fitting. Rows tagged spec='node4_zscored'."""
+    records = []
+    for ds_name in datasets:
+        for model in MODELS:
+            table = joined.get(ds_name, {}).get(model)
+            if table is None:
+                continue
+            X, y_m, u_m, v_m, _ = _zscore_and_mask(
+                node4_feature_columns(table), NODE4_TERMS, table["correct"], table["u"], table["v"])
+            rows = _fit_one(y_m, X, u_m, v_m, f"{ds_name}/{model}/node4_zscored")
+            if rows is None:
+                continue
+            for row in rows:
+                row.update(dataset=ds_name, model=model, spec="node4_zscored",
+                           node_variant=None, twohop_variant=None, pooled=False, pooled_spec=None)
+                records.append(row)
+
+    all_ds_for_model = {}
+    for ds_name in datasets:
+        for model in MODELS:
+            table = joined.get(ds_name, {}).get(model)
+            if table is None:
+                continue
+            all_ds_for_model.setdefault(model, []).append((ds_name, table))
+
+    for model, parts in all_ds_for_model.items():
+        if len(parts) < 2:
+            continue
+        ds_names = [d for d, _ in parts]
+        feats = {k: [] for k in NODE4_TERMS}
+        ys, us, vs, dummies = [], [], [], []
+        offset_u = 0
+        for ds_name, table in parts:
+            cols = node4_feature_columns(table)
+            n = len(table["correct"])
+            for k in NODE4_TERMS:
+                feats[k].append(cols[k])
+            ys.append(table["correct"])
+            us.append(table["u"] + offset_u); vs.append(table["v"] + offset_u)
+            offset_u += int(max(table["u"].max(), table["v"].max())) + 1
+            dummies.append(np.full(n, ds_name))
+        X_raw = {k: np.concatenate(feats[k]) for k in NODE4_TERMS}
+        y_all = np.concatenate(ys); u_all = np.concatenate(us); v_all = np.concatenate(vs)
+        dummy_all = np.concatenate(dummies)
+        X, y_all, u_all, v_all, dummy_all = _zscore_and_mask(
+            X_raw, NODE4_TERMS, y_all, u_all, v_all, dummy_all)
+        for d in ds_names:
+            X[f"ds_{d}"] = (dummy_all == d).astype(np.float64)
+        rows = _fit_one(y_all, X, u_all, v_all,
+                        f"POOLED/{model}/node4_zscored/shared-slope", add_const=False)
+        if rows is not None:
+            for row in rows:
+                row.update(dataset="POOLED", model=model, spec="node4_zscored", node_variant=None,
+                           twohop_variant=None, pooled=True, pooled_spec="shared_slope")
+                records.append(row)
+        print(f"  node4_zscored POOLED/{model}: shared-slope done")
+
+    df = pd.DataFrame.from_records(records)
+    if len(df):
+        df["p_fdr"] = np.nan
+        m = df["term"].isin(NODE4_TERMS) & ~df["pooled"]
+        df.loc[m, "p_fdr"] = _bh_fdr(df.loc[m, "p"].values)
+        mp = df["term"].isin(NODE4_TERMS) & df["pooled"] & (df["pooled_spec"] == "shared_slope")
+        if mp.any():
+            df.loc[mp, "p_fdr"] = _bh_fdr(df.loc[mp, "p"].values)
+    return df
+
+
 def run_composite_fits(joined, datasets):
     """Compact companion: ONE node-entropy term + ONE path-entropy term, per
     (dataset, model) and pooled. Rows tagged spec="composite". FDR within the
@@ -1883,13 +2038,17 @@ def main():
         df_adz = run_atomic_degree_fits_zscored(joined, datasets)  # same, literally z-scored inputs
         df_st = run_srctgt_fits(joined, datasets)          # minimal src_out+tgt_in only (spec="srctgt2")
         df_stz = run_srctgt_fits_zscored(joined, datasets)  # same, literally z-scored inputs
-        df = pd.concat([df_m, df_a, df_c, df_az, df_cz, df_ad, df_adz, df_st, df_stz], ignore_index=True)
+        df_n4 = run_node4_fits(joined, datasets)            # all 4 node terms, no 2-hop (spec="node4")
+        df_n4z = run_node4_fits_zscored(joined, datasets)   # same, literally z-scored inputs
+        df = pd.concat([df_m, df_a, df_c, df_az, df_cz, df_ad, df_adz, df_st, df_stz, df_n4, df_n4z],
+                       ignore_index=True)
         save_pickle(df, fit_path)
         df.to_csv(fit_csv, index=False)
         print(f"wrote {fit_csv} ({len(df)} rows: {len(df_m)} marginal3 + {len(df_a)} atomic + "
               f"{len(df_c)} composite + {len(df_az)} atomic_zscored + {len(df_cz)} composite_zscored + "
               f"{len(df_ad)} atomic_degree + {len(df_adz)} atomic_degree_zscored + "
-              f"{len(df_st)} srctgt2 + {len(df_stz)} srctgt2_zscored)")
+              f"{len(df_st)} srctgt2 + {len(df_stz)} srctgt2_zscored + "
+              f"{len(df_n4)} node4 + {len(df_n4z)} node4_zscored)")
         corr = compute_correlations(joined, datasets)
         corr.to_csv(corr_path, index=False)
         print(f"wrote {corr_path} ({len(corr)} rows)")
