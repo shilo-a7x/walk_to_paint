@@ -12,13 +12,7 @@ Panel D (PEWTER's own binned entropy-vs-AUC heatmap) was dropped from this figur
 plot_attndir_panelD_pewter_entropy_heatmap.py) are kept on disk but no longer
 wired in here.
 
-**Layout changed 2026-08-05 (user call): single-column figure, not figure*.**
-This paper's single column is ~3.31in wide (aaai2027.sty: textwidth=7.0in,
-columnsep=0.375in -> (7.0-0.375)/2). WIDTH_IN below matches that directly, so
-\\includegraphics[width=\\linewidth] displays this PNG at its native size
-instead of shrinking a wider image down. Panels B and C (previously
-side-by-side) are now stacked full-width like A, one per row -- each panel
-gets the full column width instead of half of it.
+Layout: row 1 = A (full width, wide per-head grid); row 2 = B + C side by side.
 
 Pure combination step: loads the three already-rendered PNGs and lays them out in a
 gridspec. Re-run this after re-plotting any of the three panels.
@@ -35,8 +29,7 @@ PANEL_B = "aaai2027/figures/attndir_panelB_direction.png"
 PANEL_C = "aaai2027/figures/attndir_panelC_nodeedge.png"
 OUT_PNG = "aaai2027/figures/attndir_panels_abc_combined.png"
 
-WIDTH_IN = 3.31  # single-column width (aaai2027.sty: (7.0in - 0.375in) / 2)
-PANELS = [(PANEL_A, "(a)"), (PANEL_B, "(b)"), (PANEL_C, "(c)")]
+WIDTH_IN = 7.2
 
 
 def _aspect(path):
@@ -55,17 +48,24 @@ def _add_panel(fig, gs_cell, path, label):
 
 
 def main():
-    row_heights = []
-    for path, _ in PANELS:
-        _, ar = _aspect(path)
-        row_heights.append(WIDTH_IN * ar)
+    _, a_ar = _aspect(PANEL_A)
+    row1_h = WIDTH_IN * a_ar
 
-    total_h = sum(row_heights)
+    b_w = WIDTH_IN * 0.5
+    c_w = WIDTH_IN * 0.5
+    _, b_ar = _aspect(PANEL_B)
+    _, c_ar = _aspect(PANEL_C)
+    row2_h = max(b_w * b_ar, c_w * c_ar)
+
+    total_h = row1_h + row2_h
     fig = plt.figure(figsize=(WIDTH_IN, total_h))
-    gs = fig.add_gridspec(len(PANELS), 1, height_ratios=row_heights, hspace=0.08)
+    gs = fig.add_gridspec(2, 1, height_ratios=[row1_h, row2_h], hspace=0.05)
 
-    for i, (path, label) in enumerate(PANELS):
-        _add_panel(fig, gs[i], path, label)
+    _add_panel(fig, gs[0], PANEL_A, "(a)")
+
+    gs_row2 = gs[1].subgridspec(1, 2, width_ratios=[0.5, 0.5], wspace=0.03)
+    _add_panel(fig, gs_row2[0], PANEL_B, "(b)")
+    _add_panel(fig, gs_row2[1], PANEL_C, "(c)")
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
     fig.savefig(OUT_PNG, dpi=200, bbox_inches="tight", pad_inches=0.05)

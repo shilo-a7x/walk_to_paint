@@ -12,11 +12,6 @@ H_out(1)/H_in(1) (v's out/in-edge sign entropy, i.e. tgt_out/tgt_in).
 See PANELA_SCHEMATIC_GUIDE.md for what to edit for quick color/layout tweaks, and
 for the parallel draw.io version (empconf_panelA_schematic.drawio) if you want
 heavier manual edits instead.
-
-2026-08-05 (user call): native figsize shrunk to match this panel's actual
-single-column display width (~3.3in, was 7.2in) -- text/patch sizes are set in
-absolute points/data units and are unchanged, so they render at their nominal
-size instead of being shrunk ~2.2x by LaTeX at inclusion time.
 """
 import os
 import matplotlib
@@ -32,10 +27,10 @@ NODE_FACE = "#eeeeee"
 TARGET_EDGE_COLOR = "#c0392b"
 OUT_EDGE_COLOR = "#2e75b6"
 IN_EDGE_COLOR = "#e08a1e"
-NODE_RADIUS = 0.24
-FONT_SIZE_INDEX = 8
-FONT_SIZE_LABEL = 7.5
-FONT_SIZE_TERM = 7
+NODE_RADIUS = 0.16
+FONT_SIZE_INDEX = 11
+FONT_SIZE_LABEL = 9.5
+FONT_SIZE_TERM = 9
 
 
 def draw_node(ax, xy, label, index_label):
@@ -61,7 +56,7 @@ def draw_edge(ax, p_from, p_to, color, lw, index_label=None, index_xy=None, styl
 
 
 def main():
-    fig, ax = plt.subplots(figsize=(3.3, 2.0))
+    fig, ax = plt.subplots(figsize=(7.2, 3.6))
 
     u = (-1.0, 0.0)
     v = (1.0, 0.0)

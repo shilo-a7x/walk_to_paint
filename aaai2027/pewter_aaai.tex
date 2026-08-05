@@ -220,12 +220,12 @@ We evaluate on the six directed signed-graph datasets described in the Methods s
 %% earlier B+C-only combine. scripts/paper_figures/combine_empconf_panels_abc.py stacks
 %% the three already-rendered PNGs vertically with (a)/(b)/(c) labels so LaTeX treats
 %% them as a single float. Re-run the combine script after re-plotting any panel.
-\begin{figure*}[t!]
+\begin{figure}[t!]
 \centering
 \includegraphics[width=\linewidth]{figures/empconf_panels_abcde_combined.png}
 \caption{(a) Position-index notation used throughout this figure: the target edge to predict is index 0, connecting its source $u$ (index $-1$) to its target $v$ (index $+1$); each endpoint's other incident edges are indexed $\pm2$, split by direction into out-edges ($\Hh_\outdeg$) and in-edges ($\Hh_\indeg$). (b) Normalized mutual information ($\mathrm{NMI} = \tfrac{\MI}{\Hh(Y)}$, comparable across datasets with different label imbalance) between an anchor edge's sign and a context edge's sign, as a function of line-graph distance between them (1 = share a node), six datasets, linear scale; solid = directed (out-neighbor-only) traversal, dashed = undirected traversal (used throughout the rest of this paper). (c) Test AUC (discrete 4$\times$4 bins) for SiGAT, as a function of source out-entropy ($\Hh_\outdeg(-1)$, rater consistency) and target in-entropy ($\Hh_\indeg(1)$, reputation contestedness), six datasets. (d) Test AUC for SiGAT, pooled across six datasets, split into four buckets by whether a target edge's other in-edges (into $v$) or out-edges (from $u$) agree (\emph{same}) or disagree (\emph{diff}) in sign with the target edge itself; one prediction instance is contributed per qualifying neighbor edge, so an edge can appear in multiple buckets. (e) Pooled, $z$-scored logistic-regression coefficients (correct $\sim$ $\Hh_\outdeg(-1)+\Hh_\indeg(-1)+\Hh_\outdeg(1)+\Hh_\indeg(1)$) for SiGAT, showing which entropy term in (a)'s notation most predicts an incorrect prediction; error bars are cluster-robust standard errors, hatched bars are not significant after FDR correction ($q<0.05$).}
 \label{fig:empconf-panels}
-\end{figure*}
+\end{figure}
 
 \section{Methods}
 \method\ has three parts: a random-walk sampler over the directed signed graph, a per-walk transformer that classifies a masked target edge from its surrounding walk context, and a validation-tuned weighted vote across the multiple walks that contain each edge. Figure~\ref{fig:pipeline-schematic} sketches the full pipeline.
@@ -305,18 +305,18 @@ Model & bitcoin-alpha & bitcoin-otc & epinions & wiki-elec & wiki-rfa & slashdot
 CSG & $0.845_{\pm.012}$ & $0.831_{\pm.009}$ & $0.803_{\pm.002}$ & $0.775_{\pm.005}$ & $0.765_{\pm.004}$ & $0.675_{\pm.003}$ \\
 CSG-GSGNN & $0.814_{\pm.014}$ & $0.886_{\pm.007}$ & $0.897_{\pm.001}$ & $0.874_{\pm.003}$ & $0.876_{\pm.003}$ & $0.800_{\pm.002}$ \\
 GSGNN+SGA & $0.905_{\pm.008}$ & $0.885_{\pm.007}$ & -- & $0.877_{\pm.003}$ & -- & -- \\
-SNEA & $0.881_{\pm.010}$ & $0.897_{\pm.006}$ & $0.822_{\pm.002}$ & $0.864_{\pm.004}$ & $0.867_{\pm.003}$ & $0.794_{\pm.002}$ \\
+SNEA & $0.881_{\pm.010}$ & $\mathit{0.897_{\pm.006}}$ & $0.822_{\pm.002}$ & $0.864_{\pm.004}$ & $0.867_{\pm.003}$ & $0.794_{\pm.002}$ \\
 CopulaLSP & $0.882_{\pm.010}$ & $0.879_{\pm.007}$ & $0.860_{\pm.001}$ & $0.874_{\pm.003}$ & $0.857_{\pm.003}$ & $0.800_{\pm.002}$ \\
 GINEConv & $0.861_{\pm.011}$ & $0.885_{\pm.007}$ & $0.861_{\pm.001}$ & $0.875_{\pm.003}$ & $0.870_{\pm.003}$ & $0.786_{\pm.002}$ \\
 SiGAT & $0.882_{\pm.010}$ & $0.876_{\pm.007}$ & $0.915_{\pm.001}$ & $0.893_{\pm.003}$ & $0.883_{\pm.003}$ & $0.859_{\pm.002}$ \\
 GCN \ph{[PLACEHOLDER: TBD]} & -- & -- & -- & -- & -- & -- \\
 GAT \ph{[PLACEHOLDER: TBD]} & -- & -- & -- & -- & -- & -- \\
 \midrule
-\method\ (full attention) & $0.922_{\pm.007}$ & $0.936_{\pm.004}$ & $0.953_{\pm.001}$ & $0.905_{\pm.003}$ & $0.894_{\pm.002}$ & $0.900_{\pm.001}$ \\
-\method\ (local attention) & $\mathbf{0.919_{\pm.007}}$ & $\mathbf{0.936_{\pm.004}}$ & $\mathbf{0.954_{\pm.001}}$ & $\mathbf{0.908_{\pm.003}}$ & $\mathbf{0.898_{\pm.002}}$ & $\mathbf{0.898_{\pm.001}}$ \\
+\method\ (full attention) & $\mathbf{0.922_{\pm.007}}$ & $\mathbf{0.936_{\pm.004}}$ & $\mathit{0.953_{\pm.001}}$ & $\mathit{0.905_{\pm.003}}$ & $\mathit{0.894_{\pm.002}}$ & $\mathbf{0.900_{\pm.001}}$ \\
+\method\ (local attention) & $\mathit{0.919_{\pm.007}}$ & $\mathbf{0.936_{\pm.004}}$ & $\mathbf{0.954_{\pm.001}}$ & $\mathbf{0.908_{\pm.003}}$ & $\mathbf{0.898_{\pm.002}}$ & $\mathit{0.898_{\pm.001}}$ \\
 \bottomrule
 \end{tabular}
-\caption{Test AUC $\pm$ Hanley-McNeil SE on the held-out test split for every baseline we have a result for, vs.\ \method\ under both attention variants (Methods). \method\ (local attention), our default configuration, is bolded. GSGNN+SGA and the two placeholder rows (GCN, GAT) are blank where no result exists yet -- not fabricated.}
+\caption{Test AUC $\pm$ Hanley-McNeil SE on the held-out test split for every baseline we have a result for, vs.\ \method\ under both attention variants (Methods). Bold marks the best (highest-AUC) result per dataset; italic marks the second-best. GSGNN+SGA and the two placeholder rows (GCN, GAT) are blank where no result exists yet -- not fabricated.}
 \label{tab:result1}
 \end{table*}
 
@@ -331,12 +331,12 @@ Kernel-smoothed test AUC over the source/target entropy plane, for both \method\
 
 \subsection{Result 3: \method\ and the direction of information flow}
 
-\begin{figure*}[t!]
+\begin{figure}[t!]
 \centering
 \includegraphics[width=\linewidth]{figures/attndir_panels_abc_combined.png}
 \caption{Attention directionality, \method, layer 0, six datasets. For each masked target-edge token $i$, attention mass is split by signed offset $d=j-i$ into forward ($d>0$, toward $v$'s side of the walk) and backward ($d<0$, toward $u$'s side), and by token role (node vs.\ edge); self-attention ($d=0$) is excluded from both splits. (a) Example per-head breakdown (bitcoin-alpha, 4 heads) over the full attention window $d\in[-4,4]$ -- heads alternate their peak mass between node and edge offsets. (b) Forward vs.\ backward mass by dataset, mean over heads. (c) Node vs.\ edge mass by dataset, mean over heads. \method\ here uses local attention (Methods); this figure does not compare against the full-attention variant.}
 \label{fig:attndir}
-\end{figure*}
+\end{figure}
 
 For every masked target-edge token in the trained \method, we measure how attention mass splits between the source side ($u$, backward in the walk) and the target side ($v$, forward in the walk), and between node- and edge-token roles, at layer 0 (Figure~\ref{fig:attndir}). This is a property of the trained attention weights themselves, and a different question from the source/target entropy asymmetry in Empirical Confirmation (A) above -- one is a statement about what the data looks like, the other about where the model looks. \ph{PLACEHOLDER: UPDATED 2026-08-04, post-migration checkpoint (\texttt{E32\_PY314\_LOCALATTN4}), all 6 datasets complete. The story changed substantially from the pre-migration (E27) version of this paragraph, which is now known to have been run on a mislabeled checkpoint pair (see \texttt{CLAUDE.md} "Current SOTA"). On the corrected checkpoint: bitcoin-alpha and slashdot090221 are forward-dominant ($0.443$/$0.411$ and $0.417$/$0.363$); bitcoin-otc, epinions, wiki-elec, and wiki-rfa are ALL backward-dominant ($0.403$/$0.445$, $0.376$/$0.452$, $0.311$/$0.432$, $0.189$/$0.557$) -- a 2-vs-4 split, not the "4 balanced + wiki-only flip" pattern the pre-migration draft claimed. wiki-rfa remains the most extreme case by a wide margin. The clean "wiki-only flip that lines up with the entropy-asymmetry reversal" framing does not survive on the corrected checkpoint -- decide whether to reframe around "backward-dominance is actually the majority pattern (4/6), wiki-rfa is the extreme case" before submission, rather than keeping the old two-dataset-flip narrative. This is a real finding change from re-checking the checkpoint, not a bug -- flagging prominently rather than quietly re-fitting the old narrative to new numbers.} The node/edge split (panel c) is largely unchanged in character: no comparably clean pattern, mixed node-/edge-dominance across datasets. \ph{PLACEHOLDER: whether attention-weight magnitude is validly read as "information flow" at all remains an interpretive question -- this result shows the trained model's attention geometry lines up with the same wiki-vs-other split as the entropy asymmetry, not that attention causes or explains it. Scope: layer 0 only, local-attention checkpoints only; not yet extended to other layers or the full-attention variant -- decide before submission whether that scope is sufficient to keep this as a stated Result or whether it should be softened back to a suggestive/exploratory framing.}
 
@@ -375,21 +375,21 @@ $\Delta$ (pp) & $-0.27$ & $+0.02$ & $+0.07$ & $+0.30$ & $+0.38$ & $-0.21$ \\
 \toprule
 Weight $w(q)$ & bitcoin-alpha & bitcoin-otc & epinions & wiki-elec & wiki-rfa & slashdot090221 \\
 \midrule
-Uniform (mean) & $0.9185$ & $0.9360$ & $0.9527$ & $0.9075$ & $0.8975$ & $0.8980$ \\
-$q^b$ & $0.9199$ & $0.9359$ & $0.9530$ & $0.9075$ & $0.8976$ & $0.8980$ \\
-$\exp(bq)$ & $0.9206$ & $0.9359$ & $0.9527$ & $0.9076$ & $0.8975$ & $0.8980$ \\
-$|q-0.5|^b$ & $0.9189$ & $0.9359$ & $0.9532$ & $0.9075$ & $0.8976$ & $0.8981$ \\
-$\mathrm{sig}(b(q-0.5))$ & $0.9191$ & $0.9360$ & $0.9527$ & $0.9075$ & $0.8975$ & $0.8980$ \\
-$(-\log q)^b$ & $0.9200$ & $0.9357$ & $0.9530$ & $0.9075$ & $0.8976$ & $0.8981$ \\
-$|\mathrm{logit}(q)|^b$ (default) & $\mathbf{0.9188}$ & $\mathbf{0.9358}$ & $\mathbf{0.9535}$ & $\mathbf{0.9075}$ & $\mathbf{0.8976}$ & $\mathbf{0.8981}$ \\
-$(\ln2-H(q))^b$ & $0.9189$ & $0.9359$ & $0.9532$ & $0.9075$ & $0.8976$ & $0.8981$ \\
-$\exp(-aH(q))$ & $0.9186$ & $0.9358$ & $0.9535$ & $0.9074$ & $0.8976$ & $0.8982$ \\
-$(q(1-q))^{-b}$ (Fisher-info) & $0.9193$ & $0.9357$ & $0.9537$ & $0.9075$ & $0.8976$ & $0.8983$ \\
-$\max(q,1-q)^b$ & $0.9188$ & $0.9360$ & $0.9533$ & $0.9075$ & $0.8976$ & $0.8981$ \\
+Uniform (mean) & $0.9185$ & $\mathbf{0.9360}$ & $0.9527$ & $\mathit{0.9075}$ & $\mathit{0.8975}$ & $0.8980$ \\
+$q^b$ & $0.9199$ & $\mathit{0.9359}$ & $0.9530$ & $\mathit{0.9075}$ & $\mathbf{0.8976}$ & $0.8980$ \\
+$\exp(bq)$ & $\mathbf{0.9206}$ & $\mathit{0.9359}$ & $0.9527$ & $\mathbf{0.9076}$ & $\mathit{0.8975}$ & $0.8980$ \\
+$|q-0.5|^b$ & $0.9189$ & $\mathit{0.9359}$ & $0.9532$ & $\mathit{0.9075}$ & $\mathbf{0.8976}$ & $0.8981$ \\
+$\mathrm{sig}(b(q-0.5))$ & $0.9191$ & $\mathbf{0.9360}$ & $0.9527$ & $\mathit{0.9075}$ & $\mathit{0.8975}$ & $0.8980$ \\
+$(-\log q)^b$ & $\mathit{0.9200}$ & $0.9357$ & $0.9530$ & $\mathit{0.9075}$ & $\mathbf{0.8976}$ & $0.8981$ \\
+$|\mathrm{logit}(q)|^b$ (default) & $0.9188$ & $0.9358$ & $\mathit{0.9535}$ & $\mathit{0.9075}$ & $\mathbf{0.8976}$ & $0.8981$ \\
+$(\ln2-H(q))^b$ & $0.9189$ & $\mathit{0.9359}$ & $0.9532$ & $\mathit{0.9075}$ & $\mathbf{0.8976}$ & $0.8981$ \\
+$\exp(-aH(q))$ & $0.9186$ & $0.9358$ & $\mathit{0.9535}$ & $0.9074$ & $\mathbf{0.8976}$ & $\mathit{0.8982}$ \\
+$(q(1-q))^{-b}$ (Fisher-info) & $0.9193$ & $0.9357$ & $\mathbf{0.9537}$ & $\mathit{0.9075}$ & $\mathbf{0.8976}$ & $\mathbf{0.8983}$ \\
+$\max(q,1-q)^b$ & $0.9188$ & $\mathbf{0.9360}$ & $0.9533$ & $\mathit{0.9075}$ & $\mathbf{0.8976}$ & $0.8981$ \\
 \bottomrule
 \end{tabular}%
 }
-\caption{Ablation B: test AUC for \method\ (local attention) under 11 alternative aggregator weight functions $w(q)$, each depending only on the walk's predicted probability $q$ (Methods, Aggregation). Default weighting bolded.}
+\caption{Ablation B: test AUC for \method\ (local attention) under 11 alternative aggregator weight functions $w(q)$, each depending only on the walk's predicted probability $q$ (Methods, Aggregation). Bold marks the best-performing weighting per dataset; italic marks the second-best (many-way ties on some datasets, since all 11 functions are within 0.0022 AUC of each other there).}
 \label{tab:ablationB}
 \end{table}
 
@@ -399,7 +399,7 @@ $\max(q,1-q)^b$ & $0.9188$ & $0.9360$ & $0.9533$ & $0.9075$ & $0.8976$ & $0.8981
 %% Fisher-information/inverse-variance), one-sided (1-q)-only forms dropped entirely; two new
 %% functions added (func_fisher_power, func_maxprob_power). Converted from bar chart to table
 %% (Table~\ref{tab:ablationB}). All 6 datasets complete.
-\textbf{B) Weighting is a safe choice, not a necessary one.} The confidence-weighted vote (Methods, Aggregation) is compared against 11 position/length-free weighting functions, all depending only on $q$ -- simple, theoretically motivated forms (uniform mean, log-probability, certainty, Bernoulli entropy, and Fisher-information/inverse-variance weighting, the last two symmetric in $q$ by construction). The chosen weighting ($|\mathrm{logit}(q)|^b$) is best-or-tied on 2/6 datasets (wiki-elec, wiki-rfa) and never more than $0.0018$ AUC behind the best alternative elsewhere (Table~\ref{tab:ablationB}) -- the Fisher-information form is the single best performer on both epinions ($0.9537$) and slashdot090221 ($0.8983$), a small but genuine signal that inverse-variance weighting, not just log-odds weighting, is worth having in the candidate set. Across all 11 functions on all 6 datasets, the full spread is under $0.0022$ AUC -- the weighted vote is never meaningfully worse than a plain mean, but the aggregation step is not where \method's advantage over GNN baselines comes from.
+\textbf{B) Weighting is a safe choice, not a necessary one.} The confidence-weighted vote (Methods, Aggregation) is compared against 11 position/length-free weighting functions, all depending only on $q$ -- simple, theoretically motivated forms (uniform mean, log-probability, certainty, Bernoulli entropy, and Fisher-information/inverse-variance weighting, the last two symmetric in $q$ by construction). The chosen weighting ($|\mathrm{logit}(q)|^b$) is best-or-tied on wiki-rfa, within $0.0001$ AUC of the best on wiki-elec, and never more than $0.0018$ AUC behind the best alternative elsewhere (Table~\ref{tab:ablationB}) -- the Fisher-information form is the single best performer on both epinions ($0.9537$) and slashdot090221 ($0.8983$), a small but genuine signal that inverse-variance weighting, not just log-odds weighting, is worth having in the candidate set. Across all 11 functions on all 6 datasets, the full spread is under $0.0022$ AUC -- the weighted vote is never meaningfully worse than a plain mean, but the aggregation step is not where \method's advantage over GNN baselines comes from.
 
 \section{Discussion and Limitations}
 The two limitations we prove are about what is conditioned on, so they apply to any vertex-centric read-out, not to a particular architecture. \method\ sidesteps them by conditioning on labeled edges in the forward neighborhood, at the cost of sampling walks and running a transformer per edge. The method assumes some edges are observed near the target.
