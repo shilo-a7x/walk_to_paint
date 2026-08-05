@@ -1,9 +1,12 @@
-"""Plot for Ablation C -- uniform mean vs. production choice (func_logit_power)
-vs. best-of-full-sweep (all ~39 func_ forms, no lgbm/attention), all 6 datasets.
+"""Plot for Ablation B (paper enumeration; formerly "Ablation C" in code/data) --
+uniform mean vs. production choice (func_logit_power) vs. best-of-full-sweep (all
+~39 func_ forms, no lgbm/attention), all 6 datasets. Superseded by the
+tab:ablationB LaTeX table (extract_ablationB_full_sweep.py) -- kept on disk,
+unused going forward.
 
-Reads aaai2027/figure_data/ablationC_summary3.csv (built by
-extract_ablationC_full_sweep.py from the real run_posthoc.py sweep). SE via
-Hanley-McNeil on real per-dataset test counts.
+Reads aaai2027/figure_data/ablationB_summary3.csv (built by an earlier version of
+the extract step from the real run_posthoc.py sweep). SE via Hanley-McNeil on
+real per-dataset test counts.
 """
 import csv
 import os
@@ -17,9 +20,9 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hanley_mcneil import auc_se
 
-IN_CSV = "aaai2027/figure_data/ablationC_summary3.csv"
+IN_CSV = "aaai2027/figure_data/ablationB_summary3.csv"
 COUNTS_CSV = "aaai2027/figure_data/test_set_counts.csv"
-OUT_PNG = "aaai2027/figures/ablationC_full_sweep.png"
+OUT_PNG = "aaai2027/figures/ablationB_full_sweep.png"
 
 DATASET_ORDER = ["bitcoin-alpha", "bitcoin-otc", "epinions", "slashdot090221", "wiki-elec", "wiki-rfa"]
 DISPLAY_LABEL = {"slashdot090221": "slashdot"}

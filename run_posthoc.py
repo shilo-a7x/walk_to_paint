@@ -487,6 +487,23 @@ def _func_registry():
       lambda t, q, ds, de, l, rp: np.exp(np.clip(-t[0] * _bern_ent(q), -30, 30)),
       [2.], "exp(-a*H(q))")
 
+    # ── Group 12: two more position/length-free, theoretically simple forms
+    # (2026-08-04, added for the Ablation C candidate-set refinement) ────────
+    # Fisher-information / inverse-Bernoulli-variance weighting: Var(Bernoulli(q)) =
+    # q(1-q), so this is literally the same "comparable to inverse-variance weighting"
+    # idea already in the paper's Methods/Aggregation paragraph, just computed from the
+    # walk's own predicted probability instead of an external variance estimate.
+    r("func_fisher_power",
+      lambda t, q, ds, de, l, rp: np.power(np.maximum(q * (1. - q), E), -t[0]),
+      [1.], "(q(1-q))^{-b}  Fisher-information / inverse-variance weighting")
+    # "Confidence in the predicted class" -- max(q,1-q) is a simple, symmetric-by-
+    # construction alternative to func_conf_cert's |q-0.5|^b (they're related by a shift,
+    # max(q,1-q) = |q-0.5|+0.5, but a power transform of one isn't a power transform of
+    # the other, so this is a genuinely different curve shape, not a duplicate).
+    r("func_maxprob_power",
+      lambda t, q, ds, de, l, rp: np.power(np.maximum(np.maximum(q, 1. - q), E), t[0]),
+      [1.], "max(q,1-q)^b  confidence in predicted class")
+
     return reg
 
 

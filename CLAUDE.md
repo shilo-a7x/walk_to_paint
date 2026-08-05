@@ -79,6 +79,17 @@ context down to ~45-57% because a 2-edge walk rarely has room for both a target 
 a neighbor. Full attention + short walks is no longer being pursued as the
 alternative production path.
 
+**`config.yaml`'s `model.local_attention_window` default was `null` (full attention)
+from 2026-07-20 until 2026-08-04** despite the "settled default" claim above — real
+production LocalAttn4 runs only got there via a manually-added
+`model.local_attention_window=4` CLI override that was never actually part of the
+documented training command below, which silently trained full attention instead. This
+bit the `E31_PY314_MIGRATION` retrain (see "CORRECTED 2026-08-04" under "Current SOTA").
+**Fixed 2026-08-04: `config.yaml`'s default is now `local_attention_window: 4`** — the
+plain command below now gets real LocalAttn4 with no override needed. To get full
+attention (e.g. to reproduce an E25/E26-style run), pass
+`model.local_attention_window=null` explicitly.
+
 **Training-regime defaults updated 2026-07-19** (opinion requested, decided
 item-by-item, see `~/.claude/plans/plan-a-fix-for-glimmering-panda.md`
 addendum): `training.early_stopping_min_delta: 0.001` is now set in
@@ -277,52 +288,60 @@ its own parentheses. **On the identical shared test edges the walk model beats E
 own-full-test on all 6 — the prior wiki-elec/wiki-rfa "SiGAT marginally higher" exception was
 purely a coverage artifact and is gone.
 
-| Dataset         | Canon best-GNN (old)              | Full attn, no-H (E25/E26) | LocalAttn4, no-H (E31) — **current default** |
+| Dataset         | Canon best-GNN (old)              | Full attn, no-H (E25/E26) | LocalAttn4, no-H (E32) — **current default** |
 |-----------------|-----------------------------------|-----------------------------|------------------------------------------------|
-| bitcoin-alpha   | 0.9051 SGA-GSGNN (0.8804)         | **0.9219**                  | 0.9215                                          |
-| bitcoin-otc     | 0.8972 SNEA (0.9086)              | 0.9311                      | **0.9356**                                      |
-| epinions        | 0.9146 SiGAT (0.9113)             | 0.9527                      | **0.9528**                                      |
-| wiki-elec       | 0.8930 SiGAT (0.8840)             | 0.9036                      | **0.9045**                                      |
-| wiki-rfa        | 0.8831 SiGAT (0.8673)             | 0.8930                      | **0.8938**                                      |
-| slashdot090221  | 0.8587 SiGAT (0.8845)             | **0.9007**                  | 0.9002                                          |
+| bitcoin-alpha   | 0.9051 SGA-GSGNN (0.8804)         | **0.9219**                  | 0.9188                                          |
+| bitcoin-otc     | 0.8972 SNEA (0.9086)              | 0.9311                      | **0.9358**                                      |
+| epinions        | 0.9146 SiGAT (0.9113)             | 0.9527                      | **0.9535**                                      |
+| wiki-elec       | 0.8930 SiGAT (0.8840)             | 0.9036                      | **0.9075**                                      |
+| wiki-rfa        | 0.8831 SiGAT (0.8673)             | 0.8930                      | **0.8976**                                      |
+| slashdot090221  | 0.8587 SiGAT (0.8845)             | **0.9007**                  | 0.8981                                          |
 
-**Updated 2026-08-02 — LocalAttn4 column now reflects the `E31_PY314_MIGRATION` retrain**
-under the new Python 3.14.6/torch 2.13.0/numpy 2.5.1 environment (see "Environment migrated
-2026-08-02" under "Key commands" above), promoted to canonical since the prior `E27`
-checkpoints were trained under the now-archived Python 3.9 stack (`.venv-py39-archive/`).
-Full-attention (E25/E26) column is unchanged — not retrained in this pass, still the
-original Python-3.9-stack numbers. **Local beats full on 4/6 (otc +0.45pp, epinions
-+0.01pp, wiki-elec +0.09pp, wiki-rfa +0.08pp) and loses on 2/6 (alpha −0.04pp, slashdot
-−0.05pp)** — same split as the prior (E27) numbers, but now a near-total wash (all deltas
-under 0.5pp) rather than the larger E27-era margins. This is environment noise, not a
-mechanism change — see the migration validation note above (deltas −0.34pp to +0.89pp
-across all 6 datasets vs. E27, within the established same-environment noise band); the
-"Attention variant: full vs. local" section's mechanistic argument for LocalAttn4 (below)
-is unaffected either way. Old `E27` numbers (bitcoin-alpha 0.9126, bitcoin-otc 0.9390,
-epinions 0.9533, wiki-elec 0.9061, wiki-rfa 0.8959, slashdot090221 0.8981) kept for
-provenance only — `git log` this file.
-Entropy-hardness numbers (E28, no longer recommended — see the H flag below) for
-provenance: alpha 0.9184, otc 0.9284, epinions 0.9535, wiki-elec 0.9064, wiki-rfa 0.8966,
-slashdot 0.8976 — flat-to-negative vs. no-H on 5/6, confirming H isn't worth carrying here
-either. Old E15/E16 `k_cover`-sampler numbers (superseded, kept for provenance only):
-`git log` this file or see `HARDNESS_MINER_ROADMAP.md`'s history.
+**Corrected 2026-08-04/2026-08-05: `E31_PY314_MIGRATION` is full attention, not
+LocalAttn4.** Root cause: `config.yaml`'s `model.local_attention_window` default was
+`null`, not `4`, so the plain documented training command silently trained full
+attention — confirmed by inspecting the checkpoint config directly
+(`local_attention_window=None` on all 6) and by the AUCs matching the Full-attn
+(E25/E26) column almost exactly. **Fixed at the root**: `config.yaml`'s default is now
+`local_attention_window: 4` (full attention now requires an explicit
+`model.local_attention_window=null`). `E31_PY314_MIGRATION` checkpoints are kept on
+disk (`outputs/<ds>/E31_PY314_MIGRATION_*`) as an incidental extra full-attention data
+point under the Python 3.14 stack — **not adopted into this table's Full-attn column**,
+which stays on its original Python-3.9-stack (E25/E26) numbers; do not use E31 as
+LocalAttn4 for anything.
 
-Apples-to-apples (shared edges) best GNN is always lower still — e.g. epinions GINE
+**`E32_PY314_LOCALATTN4`** is the corrected, properly-configured post-migration
+LocalAttn4 retrain (verified via direct checkpoint inspection to carry
+`local_attention_window=4` on all 6 datasets) and is what the LocalAttn4 column above
+reflects. Deltas vs. the old Python-3.9-stack E27 numbers: alpha +0.62pp, otc -0.32pp,
+epinions +0.02pp, wiki-elec +0.14pp, wiki-rfa +0.17pp, slashdot090221 0.00pp -- all
+within the established noise band; Local-vs-Full keeps the same 4/6-win split as
+before (otc, epinions, wiki-elec, wiki-rfa win for Local; alpha, slashdot090221 win
+for Full).
+
+Entropy-hardness numbers (E28, no longer recommended -- see the H flag below) for
+provenance: alpha 0.9184, otc 0.9284, epinions 0.9535, wiki-elec 0.9064, wiki-rfa
+0.8966, slashdot 0.8976 -- flat-to-negative vs. no-H on 5/6.
+
+Apples-to-apples (shared edges) best GNN is always lower still -- e.g. epinions GINE
 0.8642 / SiGAT 0.9109, slashdot GINE 0.7869 / SiGAT 0.8571. SE-SGformer excluded from
 "best GNN": its KNN discriminator emits hard labels, so its AUC is really balanced
-accuracy (~0.57–0.73, same as pre-canonical — not a regression; see findings doc §3).
+accuracy (~0.57-0.73).
 
-Experiment tag for current SOTA: `E25_BUDGET_SWEEP`/`E26_WIKI_SWEEP` (full attention,
-Python-3.9-stack, not yet retrained) and `E31_PY314_MIGRATION` (LocalAttn4, current
-Python-3.14-stack), both on the `edge_cover` sampler at each dataset's production
-`num_walks` (isolated keyed caches `data/<ds>/dataset_cache__edge_cover_nw<nw>_mw80_seed42.pt`
-— caches themselves are environment-independent, reused as-is across the migration). Prior
-LocalAttn4 tag `E27_NOHARD_EDGECOVER_LOCALATTN4` and prior `k_cover`-sampler SOTA
-(E15_SWEEP_k5 / E14_HARDNODE_L10) kept for provenance only — see `git log` this file or
-`HARDNESS_MINER_ROADMAP.md`'s history. **Paper figures/tables under `aaai2027/` still point
-at the old `E27_NOHARD_EDGECOVER_LOCALATTN4_<timestamp>` checkpoint directories
-(hardcoded paths in `scripts/paper_figures/extract_ablationC_full_sweep.py` and others) —
-repointing them to `E31_PY314_MIGRATION` is separate, not-yet-done follow-up work.**
+Experiment tags: `E25_BUDGET_SWEEP`/`E26_WIKI_SWEEP` (full attention, Python-3.9-stack
+-- this table's canonical Full-attn column) and `E32_PY314_LOCALATTN4` (LocalAttn4,
+Python-3.14-stack, canonical as of 2026-08-05), both on the `edge_cover` sampler at
+each dataset's production `num_walks` (isolated keyed caches
+`data/<ds>/dataset_cache__edge_cover_nw<nw>_mw80_seed42.pt`, environment-independent,
+reused across the migration). Prior LocalAttn4 tag `E27_NOHARD_EDGECOVER_LOCALATTN4`
+(Python-3.9-stack) and prior `k_cover`-sampler SOTA (E15/E14) kept for provenance only
+-- `git log` this file or `HARDNESS_MINER_ROADMAP.md`'s history.
+
+**Paper figures/tables rebuilt 2026-08-05** against the corrected checkpoints (full
+attn = `E31_PY314_MIGRATION`, LocalAttn4 = `E32_PY314_LOCALATTN4`) -- Result 1 table,
+Result 2 heatmap, Attention Directionality figure, Ablations A and B (formerly C). See
+`aaai2027/PEWTER_ASSETS_CHECKLIST.md` rows #20-25 for scripts/data pointers; nothing
+pending on this front.
 
 ## Hardness reweighting (H): scrapped everywhere (2026-07-19, final)
 
@@ -427,7 +446,10 @@ context-collapse-under-truncation finding as supporting mechanism evidence.
 - **L — Local attention window** (`local_attention_window`): null=full attention;
   4=±2-hop banded mask (LocalAttn4, **settled default, 2026-07-20** — see "Attention
   variant: full vs. local" above; confirmed via direct context-availability
-  measurement, not just AUC or narrative preference).
+  measurement, not just AUC or narrative preference). **`config.yaml`'s actual default
+  only matched this claim starting 2026-08-04** — before that it was `null` and every
+  real LocalAttn4 run relied on a manual CLI override (see the "Key commands" note
+  above); now enforced at the config level, no override needed.
 
 D and R are load-bearing defaults, not ablation toggles — don't disable them without reason.
 H is scrapped everywhere — do not enable it on either attention variant. L defaults to
@@ -679,45 +701,6 @@ OPEN WORKSTREAMS — audited 2026-07-19 (see plan files in ~/.claude/plans/):
 - Lead 5/6 subplans (`plan-lead5-ensemble-effect.md`, `plan-lead6-trainable-features.md`) ←
   ensemble effect + trainable-features/capacity/training-regime parity; neither started
   (no `outputs/lead5_ensemble/` or `outputs/lead6_trainable_features/` on disk).
-**Closed/resolved (kept only as historical pointers, not open work):**
-- `hello-a-big-task-nested-muffin.md` ← Python/stack migration, **DONE 2026-08-02**
-  (target ended up Python 3.14.6, not the originally-scoped 3.13, per a from-scratch
-  version re-investigation mid-plan — see "Environment migrated 2026-08-02" under "Key
-  commands" above). `.venv` is now the new stack; old environment archived at
-  `.venv-py39-archive/`. Full 6-dataset retrain + `func_logit_power` posthoc validation
-  passed (E31, promoted to canonical SOTA — see "Current SOTA" table). Reproduction guide:
-  `PYTHON_MIGRATION_GUIDE.md`. One code fix required and applied:
-  `ragged_collate_fn` (`src/data/stage_dataset.py`) converted from a closure to a
-  module-level picklable class, needed because Python 3.14 changed the Linux
-  multiprocessing default from `fork` to `forkserver`. Not yet done as a follow-up: paper
-  figures/tables under `aaai2027/` still point at old `E27` checkpoint paths (hardcoded in
-  several `scripts/paper_figures/*.py` files) — repointing them to `E31` is separate work.
-- `plan-hardness-miner.md` ← **full-attention** question closed 2026-07-13 (scrap H, see
-  HARDNESS_MINER_ROADMAP.md, the live tracker superseding this file's own Q1–Q5 log). The
-  **LocalAttn4** side is explicitly NOT closed — see the re-ablation item above.
-- `plan-performance.md` ← Issue 1 (local attn slower than full attn) RESOLVED 2026-06-28,
-  fixed in src/model/model.py; Issue 3 (walk batch packing) intentionally deferred, not urgent.
-- `hello-as-you-see-fancy-squid.md` (GINEConv baseline), `hello-so-there-is-resilient-sparrow.md`
-  (canonical shared test-edge split), `ancient-stargazing-barto.md` (local-attention masking
-  fix) — all DONE; their outputs are already referenced by path elsewhere in this file
-  (`baselines/GINEConv/`, `SPLIT_PROVENANCE.md`, `MASKING.md`) so they aren't repeated here.
-  Leads 1/2/3 subplans (`read-claude-plans-plan-research-leads-md-*.md`) — DONE, see the
-  Research status table below. Lead 4c handoff (`read-lead4c-handoff-md-i-abundant-cake.md`)
-  — Phase 1 DONE (reflected in the Lead 4/4b/4c section below); Phase 2 intentionally deferred.
-
-**On `plan-stats-rigor.md`/`plan-side-quests-misc.md` going missing:** both were real,
-substantive plans (created 2026-06-18, still intact as of a 2026-07-06 read) that
-disappeared from `~/.claude/plans/` by 2026-07-19. `~/.claude/.last-cleanup` shows an
-automatic cleanup routine ran that morning (2026-07-19T08:05:46Z) — the most likely cause,
-though not confirmed as the specific mechanism. `~/.claude/plans/` has no version control
-or trash, so anything a cleanup pass removes is gone unless recovered from a session
-transcript. **Both were recovered verbatim 2026-07-19** from the original `Write` tool
-calls in session transcript
-`71441ba1-21e9-41d6-b5f4-c559257125a8.jsonl` and are back in `~/.claude/plans/` (see their
-own recovery notes for the relevance re-check against the current codebase). **If plan
-files keep disappearing like this, it's worth treating as a bug to report, not routine
-housekeeping to just work around each time.**
-
 ## PEWTER paper (aaai2027/) — repo-to-paper phase, file map and conventions
 
 **As of 2026-07-19 the project entered a second phase: turning this repo's findings into the

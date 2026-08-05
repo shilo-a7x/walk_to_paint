@@ -3,12 +3,14 @@ vs-AUC heatmap for PEWTER itself (the local-attention walk model), directly
 comparable to Empirical Confirmation Panel C's GNN version (SiGAT only, as of
 2026-08-04).
 
-Source: outputs/lead4_entropy_heterogeneity/computed_data.pkl, variant "out_in"
-(src_ent = H(out-signs of u), tgt_ent = H(in-signs of v)), model "walk_localattn4" --
-same canonical shared-edge predictions used throughout Lead 4/4b/4c and Empirical
-Confirmation Panel C (see that extract script's docstring for the full provenance).
-No new predictions -- this reuses the already-computed per-edge (src_ent, tgt_ent, y,
-p) records, restricted to one model instead of two.
+**Updated 2026-08-04 (post-migration rebuild):** repointed from the stale
+outputs/lead4_entropy_heterogeneity/computed_data.pkl (built from a pre-`edge_cover`
+checkpoint, predates even E27) to a fresh outputs/lead4_entropy_heterogeneity_e32/
+computed_data.pkl, built by baselines/postprocess_canonical_e32.py (raw predictions,
+E32_PY314_LOCALATTN4) + `lead4_entropy_heterogeneity.py --mode compute`. 5/6 datasets
+-- slashdot090221 omitted, its E32 training still in progress; rerun both steps once
+done. Variant "out_in" (src_ent = H(out-signs of u), tgt_ent = H(in-signs of v)),
+model "walk_localattn4".
 
 Binning: identical 4x4 equal-width scheme to Empirical Confirmation Panel C (edges at
 0, .25, .5, .75, 1.0), AUC via roc_auc_score per cell, cells below MIN_CELL_N or with
@@ -21,7 +23,7 @@ import pickle
 import numpy as np
 from sklearn.metrics import roc_auc_score
 
-DATA_PATH = "outputs/lead4_entropy_heterogeneity/computed_data.pkl"
+DATA_PATH = "outputs/lead4_entropy_heterogeneity_e32/computed_data.pkl"
 OUT_CSV = "aaai2027/figure_data/attndir_panelD_pewter_entropy_heatmap.csv"
 VARIANT = "out_in"
 DATASETS = ["bitcoin-alpha", "bitcoin-otc", "epinions", "wiki-elec", "wiki-rfa", "slashdot090221"]

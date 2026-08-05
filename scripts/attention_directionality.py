@@ -62,12 +62,18 @@ FULL_RUN_INFO = {
     "slashdot090221":  ("E25_BUDGET_slashdot_x3_20260717-190227", 39),
 }
 LOCAL_RUN_INFO = {
-    "bitcoin-alpha":   ("E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-121955", 27),
-    "bitcoin-otc":     ("E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-121955", 46),
-    "epinions":        ("E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-121955", 30),
-    "wiki-elec":       ("E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-122848", 36),
-    "wiki-rfa":        ("E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-123214", 33),
-    "slashdot090221":  ("E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-121955", 34),
+    # Updated 2026-08-04 (post-migration rebuild) -- E27 (pre-migration) replaced with
+    # E32_PY314_LOCALATTN4 (post-migration, correctly-configured LocalAttn4 retrain; E31
+    # turned out to be full attention, see CLAUDE.md "Current SOTA"). Epochs match the ones
+    # each dataset's run_posthoc.py actually selected (checkpoints/<ds>_predictions/epoch_*),
+    # not just the highest val_auc_epoch filename, for consistency with Result 1/2's numbers.
+    # slashdot090221 omitted -- its E32 training is still in progress; add back once done.
+    "bitcoin-alpha":   ("E32_PY314_LOCALATTN4_20260804-225948", 35),
+    "bitcoin-otc":      ("E32_PY314_LOCALATTN4_20260804-231122", 35),
+    "epinions":        ("E32_PY314_LOCALATTN4_20260804-225948", 30),
+    "wiki-elec":       ("E32_PY314_LOCALATTN4_20260804-232140", 44),
+    "wiki-rfa":        ("E32_PY314_LOCALATTN4_20260804-232239", 33),
+    "slashdot090221":  ("E32_PY314_LOCALATTN4_20260804-225948", 34),
 }
 RUN_INFO_BY_VARIANT = {"full": FULL_RUN_INFO, "local": LOCAL_RUN_INFO}
 ALL_DATASETS = list(FULL_RUN_INFO.keys())

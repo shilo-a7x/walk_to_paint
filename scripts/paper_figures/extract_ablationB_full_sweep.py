@@ -1,33 +1,52 @@
-"""Extract step for Ablation C -- full functional-aggregator sweep (all ~39
-func_* forms registered in run_posthoc.py, NO lgbm/attention variants per your
-call), computed fresh on the current production LocalAttn4 checkpoint
-(E27) for all 6 datasets.
+"""Extract step for Ablation B (paper enumeration; formerly "Ablation C" in code/
+data before the paper's A/C gap was fixed to A/B) -- curated functional-aggregator
+sweep, computed fresh on the post-migration LocalAttn4 checkpoint
+(E32_PY314_LOCALATTN4).
 
-Unlike the earlier 2-bar weighted-vs-mean check (extract_ablationC_aggregator.py,
-kept for provenance but superseded by this), this reads the real sweep run
-via run_posthoc.py --artifacts aggregator --agg-models <all 39 func_ names>
---run-id funcsweep_20260727, parsing each model's saved summary.txt under
-outputs/<ds>/<run>/posthoc/funcsweep_20260727/aggregator/<model>/summary.txt.
+**Updated 2026-08-04 (post-migration rebuild + candidate-set refinement, per the
+user's call):** two changes from the original ~39-function sweep. (1) Checkpoint
+repointed from E27 (pre-migration) to E32_PY314_LOCALATTN4 (post-migration,
+correctly-configured LocalAttn4 -- E31 turned out to be full attention, see
+CLAUDE.md "Current SOTA"). (2) Candidate set restricted to CURATED_MODELS below:
+only functions depending on the walk's predicted probability q alone (none of
+run_posthoc.py's position/length-dependent forms), theoretically simple and
+easily explained (mean, log-probability, certainty, entropy, Fisher-information/
+inverse-variance), with one-sided (1-q)-only forms dropped entirely rather than
+just deprioritized. Includes two new registry entries added this session
+(func_fisher_power, func_maxprob_power) -- see run_posthoc.py::_func_registry
+"Group 12" for their definitions/rationale.
+
+Reads the real sweep run via run_posthoc.py --artifacts aggregator --agg-models
+<CURATED_MODELS> --run-id ablationB_e32, parsing each model's saved summary.txt
+under outputs/<ds>/<run>/posthoc/ablationB_e32/aggregator/<model>/summary.txt
+(that on-disk run-id/directory was itself renamed 2026-08-05 from ablationC_e32
+to ablationB_e32 to match the paper's letter -- it's just a tag, not tied to any
+particular checkpoint).
 
 Purely a parsing/aggregation step -- the actual sweep was run once via
-run_posthoc.py (CPU-only, no retraining, no GPU: aggregator fitting reads
-already-cached val/test prediction pkls).
+run_posthoc.py (aggregator-only, reusing already-cached val/test prediction
+pkls from the func_logit_power posthoc pass, no GPU inference re-run needed).
 """
 import csv
 import os
 import re
 
-OUT_CSV = "aaai2027/figure_data/ablationC_full_sweep.csv"
+OUT_CSV = "aaai2027/figure_data/ablationB_full_sweep.csv"
 
 RUN_DIRS = {
-    "bitcoin-alpha":   "E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-121955",
-    "bitcoin-otc":     "E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-121955",
-    "epinions":        "E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-121955",
-    "wiki-elec":       "E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-122848",
-    "wiki-rfa":        "E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-123214",
-    "slashdot090221":  "E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-121955",
+    "bitcoin-alpha":   "E32_PY314_LOCALATTN4_20260804-225948",
+    "bitcoin-otc":     "E32_PY314_LOCALATTN4_20260804-231122",
+    "epinions":        "E32_PY314_LOCALATTN4_20260804-225948",
+    "wiki-elec":       "E32_PY314_LOCALATTN4_20260804-232140",
+    "wiki-rfa":        "E32_PY314_LOCALATTN4_20260804-232239",
+    "slashdot090221":  "E32_PY314_LOCALATTN4_20260804-225948",
 }
-RUN_ID = "funcsweep_20260727"
+RUN_ID = "ablationB_e32"
+CURATED_MODELS = [
+    "func_uniform", "func_conf_power", "func_conf_exp", "func_conf_cert",
+    "func_conf_logit", "func_logq_power", "func_logit_power",
+    "func_entropy_power", "func_entropy_exp", "func_fisher_power", "func_maxprob_power",
+]
 
 
 def parse_summary(path):
@@ -41,10 +60,10 @@ def main():
     rows = []
     for ds, run_dir in RUN_DIRS.items():
         agg_dir = f"outputs/{ds}/{run_dir}/posthoc/{RUN_ID}/aggregator"
-        models = sorted(os.listdir(agg_dir))
-        for model in models:
+        for model in CURATED_MODELS:
             summary_path = f"{agg_dir}/{model}/summary.txt"
             if not os.path.exists(summary_path):
+                print(f"  ✗ missing: {summary_path}")
                 continue
             train_auc, test_auc = parse_summary(summary_path)
             rows.append({"dataset": ds, "model": model, "train_auc": train_auc, "test_auc": test_auc})

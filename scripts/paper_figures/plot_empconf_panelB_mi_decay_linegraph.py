@@ -17,6 +17,11 @@ Plots NMI (not raw MI bits): the 6 datasets have different label imbalance,
 so raw MI isn't directly comparable across them (H(Y) differs), while NMI =
 MI/H(Y) puts every dataset on the same "fraction of the anchor's own
 uncertainty explained by context" scale.
+
+2026-08-05 (user call): native figsize shrunk to match this panel's actual
+single-column display width (~3.3in, was 5.6in) -- axis-label/tick fonts use
+matplotlib defaults (unaffected by figsize), so they render larger relative to
+the plot area now instead of being shrunk down by LaTeX at inclusion time.
 """
 import csv
 import os
@@ -58,7 +63,7 @@ def main():
     undirected = load(UNDIRECTED_CSV)
     directed = load(DIRECTED_CSV)
 
-    fig, ax = plt.subplots(figsize=(5.6, 3.9))
+    fig, ax = plt.subplots(figsize=(3.3, 2.7))
     all_x = set()
     for ds, color, marker in zip(DATASET_ORDER, COLORS, MARKERS):
         for data, style, alpha in ((directed, "-", 1.0), (undirected, "--", 0.75)):
@@ -68,7 +73,7 @@ def main():
             xs = [p[0] for p in pts]
             ys = [p[1] for p in pts]
             all_x.update(xs)
-            ax.plot(xs, ys, color=color, marker=marker, markersize=4.5, linewidth=1.6,
+            ax.plot(xs, ys, color=color, marker=marker, markersize=3.5, linewidth=1.3,
                      linestyle=style, alpha=alpha, zorder=3)
 
     ax.set_xlabel("edge-to-edge distance (line-graph hops)")
@@ -85,7 +90,7 @@ def main():
     # two-part legend: dataset (color) and direction (linestyle), kept separate so
     # neither explodes into 12 entries.
     dataset_handles = [
-        Line2D([0], [0], color=color, marker=marker, markersize=4.5, linewidth=1.6,
+        Line2D([0], [0], color=color, marker=marker, markersize=3.5, linewidth=1.3,
                label=DISPLAY_LABEL.get(ds, ds))
         for ds, color, marker in zip(DATASET_ORDER, COLORS, MARKERS)
     ]
@@ -93,10 +98,10 @@ def main():
         Line2D([0], [0], color="black", linestyle="-", linewidth=1.6, label="directed"),
         Line2D([0], [0], color="black", linestyle="--", linewidth=1.6, alpha=0.75, label="undirected"),
     ]
-    leg1 = ax.legend(handles=dataset_handles, frameon=False, fontsize=7.5, loc="upper right")
+    leg1 = ax.legend(handles=dataset_handles, frameon=False, fontsize=6.5, loc="upper right")
     ax.add_artist(leg1)
-    ax.legend(handles=direction_handles, frameon=False, fontsize=7.5, loc="upper right",
-              bbox_to_anchor=(1.0, 0.62))
+    ax.legend(handles=direction_handles, frameon=False, fontsize=6.5, loc="upper right",
+              bbox_to_anchor=(1.0, 0.55))
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)

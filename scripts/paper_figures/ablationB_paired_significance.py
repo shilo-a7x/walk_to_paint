@@ -1,4 +1,6 @@
-"""Paired-bootstrap significance check for Ablation C's aggregator comparison.
+"""Paired-bootstrap significance check for Ablation B's (paper enumeration;
+"Ablation C" in this file's own code/data, pre-dating the A/B relabel)
+aggregator comparison.
 
 Why this is needed: the Hanley-McNeil SE bars in the plot are computed
 INDEPENDENTLY per aggregator, but all aggregators are evaluated on the exact

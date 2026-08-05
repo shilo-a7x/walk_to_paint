@@ -6,10 +6,15 @@ Panel A: schematic (position-index notation). Panel B: directed+undirected NMI
 decay. Panel C: GNN AUC-vs-entropy heatmap (reused unchanged). Panel D: 4-way
 sign-agreement AUC bars. Panel E: pooled regression-coefficient bars.
 
-Layout: row 1 = A (small schematic) + B (line plot, wider); row 2 = C (full
-width -- it's already 2 rows x 6 datasets); row 3 = D + E (both grouped bar
-charts, side by side). Adjust ROW_HEIGHT_IN / column width ratios below if the
-real panel proportions need rebalancing once viewed at actual paper width.
+**Layout changed 2026-08-05 (user call): single-column figure, not figure*.**
+This paper's single column is ~3.31in wide (aaai2027.sty: textwidth=7.0in,
+columnsep=0.375in -> (7.0-0.375)/2). WIDTH_IN below is set to match that
+directly, so \\includegraphics[width=\\linewidth] in the tex displays this PNG
+at its native size instead of shrinking a wider image down (which is what made
+panels unreadably small before). All five panels are now stacked one-per-row
+(no more A+B or D+E side-by-side pairs) so each panel gets the FULL column
+width instead of half of it -- the "make it bigger without going full-width"
+trick: trade width you don't have for height, which is free in a float.
 
 Pure combination step: loads the five already-rendered PNGs and lays them out
 in a gridspec so LaTeX treats them as a single float. Re-run this after
@@ -29,11 +34,8 @@ PANEL_D = "aaai2027/figures/empconf_panelD_signagreement_auc.png"
 PANEL_E = "aaai2027/figures/empconf_panelE_coefficients.png"
 OUT_PNG = "aaai2027/figures/empconf_panels_abcde_combined.png"
 
-WIDTH_IN = 7.2
-# row heights are set relative to each row's tallest panel (by aspect ratio at
-# that panel's share of WIDTH_IN) -- see main() for the actual computation.
-ROW1_A_FRAC = 0.34    # fraction of WIDTH_IN given to panel A in row 1 (rest -> B)
-ROW3_SPLIT = 0.5       # D/E even split in row 3
+WIDTH_IN = 3.31  # single-column width (aaai2027.sty: (7.0in - 0.375in) / 2)
+PANELS = [(PANEL_A, "(a)"), (PANEL_B, "(b)"), (PANEL_C, "(c)"), (PANEL_D, "(d)"), (PANEL_E, "(e)")]
 
 
 def _aspect(path):
@@ -52,34 +54,17 @@ def _add_panel(fig, gs_cell, path, label):
 
 
 def main():
-    a_w = WIDTH_IN * ROW1_A_FRAC
-    b_w = WIDTH_IN * (1 - ROW1_A_FRAC)
-    _, a_ar = _aspect(PANEL_A)
-    _, b_ar = _aspect(PANEL_B)
-    row1_h = max(a_w * a_ar, b_w * b_ar)
+    row_heights = []
+    for path, _ in PANELS:
+        _, ar = _aspect(path)
+        row_heights.append(WIDTH_IN * ar)
 
-    _, c_ar = _aspect(PANEL_C)
-    row2_h = WIDTH_IN * c_ar
-
-    d_w = WIDTH_IN * ROW3_SPLIT
-    e_w = WIDTH_IN * (1 - ROW3_SPLIT)
-    _, d_ar = _aspect(PANEL_D)
-    _, e_ar = _aspect(PANEL_E)
-    row3_h = max(d_w * d_ar, e_w * e_ar)
-
-    total_h = row1_h + row2_h + row3_h
+    total_h = sum(row_heights)
     fig = plt.figure(figsize=(WIDTH_IN, total_h))
-    gs = fig.add_gridspec(3, 1, height_ratios=[row1_h, row2_h, row3_h], hspace=0.06)
+    gs = fig.add_gridspec(len(PANELS), 1, height_ratios=row_heights, hspace=0.08)
 
-    gs_row1 = gs[0].subgridspec(1, 2, width_ratios=[ROW1_A_FRAC, 1 - ROW1_A_FRAC], wspace=0.03)
-    _add_panel(fig, gs_row1[0], PANEL_A, "(a)")
-    _add_panel(fig, gs_row1[1], PANEL_B, "(b)")
-
-    _add_panel(fig, gs[1], PANEL_C, "(c)")
-
-    gs_row3 = gs[2].subgridspec(1, 2, width_ratios=[ROW3_SPLIT, 1 - ROW3_SPLIT], wspace=0.06)
-    _add_panel(fig, gs_row3[0], PANEL_D, "(d)")
-    _add_panel(fig, gs_row3[1], PANEL_E, "(e)")
+    for i, (path, label) in enumerate(PANELS):
+        _add_panel(fig, gs[i], path, label)
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
     fig.savefig(OUT_PNG, dpi=200, bbox_inches="tight", pad_inches=0.05)

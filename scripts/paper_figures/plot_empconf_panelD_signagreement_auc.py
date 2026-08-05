@@ -9,6 +9,9 @@ uneven across buckets -- annotated on each bar per the plan's verification step.
 SiGAT only (2026-08-04 call) -- GINEConv dropped from this figure, kept in the
 appendix/baseline table instead; the extract CSV still has both models' rows
 for that reuse.
+
+2026-08-05 (user call): native figsize shrunk to match this panel's actual
+single-column display width (~3.3in, was 6.6in).
 """
 import csv
 import os
@@ -44,7 +47,7 @@ def main():
 
     x = np.arange(len(BUCKET_ORDER))
     width = 0.6 if len(MODELS) == 1 else 0.35
-    fig, ax = plt.subplots(figsize=(6.6, 4.2))
+    fig, ax = plt.subplots(figsize=(3.3, 2.8))
 
     YMIN = 0.4
     ax.set_ylim(YMIN, 1.05)
@@ -58,21 +61,21 @@ def main():
                        color=MODEL_COLOR[model], label=model, zorder=3)
         for bar, auc, n in zip(bars, aucs, ns):
             ax.text(bar.get_x() + bar.get_width() / 2, auc + 0.012, f"{auc:.3f}",
-                     ha="center", va="bottom", fontsize=8)
+                     ha="center", va="bottom", fontsize=7)
             ax.text(bar.get_x() + bar.get_width() / 2, YMIN + 0.012, fmt_n(n),
-                     ha="center", va="bottom", fontsize=6.5, rotation=90, color="white")
+                     ha="center", va="bottom", fontsize=5.5, rotation=90, color="white")
 
     ax.set_xticks(x)
-    ax.set_xticklabels([BUCKET_LABEL[b] for b in BUCKET_ORDER])
-    ax.set_ylabel("Test AUC")
-    ax.set_title("SiGAT AUC by target-edge / neighbor-edge sign agreement\n"
-                  "(pooled, 6 datasets; in = v's other in-edges, out = u's other out-edges)")
+    ax.set_xticklabels([BUCKET_LABEL[b] for b in BUCKET_ORDER], fontsize=8)
+    ax.set_ylabel("Test AUC", fontsize=9)
+    ax.set_title("SiGAT AUC by sign agreement\n"
+                  "(pooled, 6 datasets; in=v's in-edges, out=u's out-edges)", fontsize=8)
     if len(MODELS) > 1:
-        ax.legend(loc="lower right")
+        ax.legend(loc="lower right", fontsize=7)
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
-    fig.savefig(OUT_PNG, dpi=150, bbox_inches="tight")
+    fig.savefig(OUT_PNG, dpi=200, bbox_inches="tight")
     plt.close(fig)
     print(f"saved {OUT_PNG}")
 

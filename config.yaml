@@ -83,8 +83,10 @@ model:
 
     # ── Local attention window ──────────────────────────────────────────────
     # Cap self-attention to |i-j| <= local_attention_window token positions
-    # (banded mask). null = unrestricted (full attention, default).
-    local_attention_window: null
+    # (banded mask). 4 = LocalAttn4, the settled production default (see
+    # CLAUDE.md "Attention variant: full vs. local"). Set to null explicitly
+    # to get full attention (e.g. for reproducing the E25/E26 full-attn runs).
+    local_attention_window: 4
 
     # ── H: Hard-node reweighting ────────────────────────────────────────────
     # Scale each walk's loss by (1 + λ · avg_hardness_of_adjacent_nodes).

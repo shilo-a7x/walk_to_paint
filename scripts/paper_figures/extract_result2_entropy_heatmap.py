@@ -86,11 +86,19 @@ def main():
     rows = []
     for ds in DATASETS:
         for model in MODELS:
-            rec = walk_data[ds][model] if model.startswith("Pewter") else gnn_data[ds][VARIANT][model]
-            auc_grid, neff_grid = weighted_auc_grid(
-                rec["src_ent"], rec["tgt_ent"], rec["y"], rec["p"], grid, BANDWIDTH)
-            print(f"{ds} / {model}: n={len(rec['y'])}, "
-                  f"valid grid cells={np.isfinite(auc_grid).sum()}/{GRID_N*GRID_N}")
+            if model.startswith("Pewter") and model not in walk_data.get(ds, {}):
+                # E.g. slashdot090221's E32_PY314_LOCALATTN4 posthoc not done yet as of
+                # 2026-08-04 -- leave this (dataset, model) as all-NaN rather than crashing,
+                # fill in once extract_result2_walk_entropy_fresh.py has that row.
+                print(f"{ds} / {model}: PENDING (no walk data yet), writing NaN grid")
+                auc_grid = np.full((GRID_N, GRID_N), np.nan)
+                neff_grid = np.zeros((GRID_N, GRID_N))
+            else:
+                rec = walk_data[ds][model] if model.startswith("Pewter") else gnn_data[ds][VARIANT][model]
+                auc_grid, neff_grid = weighted_auc_grid(
+                    rec["src_ent"], rec["tgt_ent"], rec["y"], rec["p"], grid, BANDWIDTH)
+                print(f"{ds} / {model}: n={len(rec['y'])}, "
+                      f"valid grid cells={np.isfinite(auc_grid).sum()}/{GRID_N*GRID_N}")
             for i, s0 in enumerate(grid):
                 for j, t0 in enumerate(grid):
                     rows.append({

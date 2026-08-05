@@ -12,6 +12,9 @@ harmful". Non-significant bars (p_fdr >= 0.05) are drawn hatched/lighter.
 SiGAT only (2026-08-04 call) -- GINEConv dropped from this figure, kept in the
 appendix/baseline table instead; the extract CSV still has both models' rows
 for that reuse.
+
+2026-08-05 (user call): native figsize shrunk to match this panel's actual
+single-column display width (~3.3in, was 6.4in).
 """
 import csv
 import os
@@ -35,7 +38,7 @@ def main():
 
     x = np.arange(len(TERM_ORDER))
     width = 0.5 if len(MODELS) == 1 else 0.35
-    fig, ax = plt.subplots(figsize=(6.4, 4.0))
+    fig, ax = plt.subplots(figsize=(3.3, 2.8))
 
     for i, model in enumerate(MODELS):
         betas = [float(data[(model, t)]["beta"]) for t in TERM_ORDER]
@@ -56,15 +59,18 @@ def main():
 
     ax.axhline(0, color="black", linewidth=0.9, zorder=2)
     ax.set_xticks(x)
-    ax.set_xticklabels(TERM_ORDER)
-    ax.set_ylabel("coefficient (z-scored, raw $\\beta$)\n negative = higher entropy $\\to$ lower P(correct)")
-    ax.set_title("Which entropy term hurts SiGAT\n(pooled, node4 spec; hatched = not significant, FDR-$q$<0.05)")
+    ax.set_xticklabels(TERM_ORDER, fontsize=8)
+    ax.set_ylabel("coefficient ($z$-scored, raw $\\beta$)\nneg. = higher entropy $\\to$ lower P(correct)",
+                   fontsize=7)
+    ax.set_title("Which entropy term hurts SiGAT\n(pooled; hatched = not significant, FDR-$q$<0.05)",
+                  fontsize=8)
+    ax.tick_params(labelsize=7)
     if len(MODELS) > 1:
-        ax.legend()
+        ax.legend(fontsize=7)
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
-    fig.savefig(OUT_PNG, dpi=150, bbox_inches="tight")
+    fig.savefig(OUT_PNG, dpi=200, bbox_inches="tight")
     plt.close(fig)
     print(f"saved {OUT_PNG}")
 

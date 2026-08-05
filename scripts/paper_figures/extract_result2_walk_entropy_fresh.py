@@ -1,10 +1,10 @@
 """Extract fresh (src_ent, tgt_ent, y, p) records for BOTH current production
-walk-model variants -- full attention (E25/E26) and LocalAttn4 (E27) -- for
-Result 2's dedicated 4-row heatmap (Pewter full, Pewter local, SiGAT,
-GINEConv). Sibling of extract_walk_entropy_fresh.py (which only does
-LocalAttn4, for Panel C's now-reverted walk column); this one covers both
-variants since Result 2 shows all 4 rows even though 2 of them (the GNNs)
-duplicate Panel C.
+walk-model variants -- full attention (E31_PY314_MIGRATION) and LocalAttn4
+(E32_PY314_LOCALATTN4), post-migration -- for Result 2's dedicated 4-row
+heatmap (Pewter full, Pewter local, SiGAT, GINEConv). Sibling of
+extract_walk_entropy_fresh.py (which only does LocalAttn4, for Panel C's
+now-reverted walk column); this one covers both variants since Result 2 shows
+all 4 rows even though 2 of them (the GNNs) duplicate Panel C.
 
 Same pipeline as extract_walk_entropy_fresh.py (see that file for the full
 method writeup): aggregate raw per-occurrence test predictions with the
@@ -13,11 +13,14 @@ each run's own saved summary.txt, then recover each occurrence's (u, v) via a
 fresh deterministic get_edge_list(cfg) call and compute out/in-entropy from
 that same full edge list.
 
-Full-attention run dirs/epochs/run-ids are the CLAUDE.md "Attention variant"
-production-budget picks (E25_BUDGET_*/E26_WIKI_* sweep winners), NOT the
-E27 LocalAttn4 dirs -- posthoc run-id differs per dataset (x5/floor/x3/p1_5x,
-not a uniform "E27_noH"), verified individually against each run's own
-summary.txt before use (all 6 reproduce CLAUDE.md's Full-attn column exactly).
+**Updated 2026-08-04** (post-migration rebuild): both RUN_INFO dicts repointed
+from the pre-migration E25/E26 (full) and E27 (LocalAttn4) checkpoints to the
+post-migration E31_PY314_MIGRATION (full -- adopted after it turned out to be
+mislabeled, see CLAUDE.md "Current SOTA") and E32_PY314_LOCALATTN4 (LocalAttn4)
+checkpoints. Both used a uniform posthoc run-id (E31_posthoc/E32_posthoc) this
+time, not the old per-dataset x5/floor/x3/p1_5x scheme. slashdot090221's
+LocalAttn4 entry is temporarily omitted below -- its E32 training is still in
+progress; add it back once its posthoc completes.
 """
 import csv
 import json
@@ -39,20 +42,20 @@ _FUNC_EPS = 1e-9
 
 # (run_dir, epoch, posthoc_run_id) per dataset, per variant
 FULL_RUN_INFO = {
-    "bitcoin-alpha":  ("E25_BUDGET_alpha_x5_20260717-162755", 35, "x5"),
-    "bitcoin-otc":    ("E25_BUDGET_otc_x5_20260717-163145", 28, "x5"),
-    "epinions":       ("E25_BUDGET_epinions_floor_20260717-163552", 42, "floor"),
-    "wiki-elec":      ("E26_WIKI_elec_p1_5x_20260719-113223", 36, "p1_5x"),
-    "wiki-rfa":       ("E26_WIKI_rfa_p1_5x_20260719-113223", 24, "p1_5x"),
-    "slashdot090221": ("E25_BUDGET_slashdot_x3_20260717-190227", 39, "x3"),
+    "bitcoin-alpha":  ("E31_PY314_MIGRATION_20260802-130454", 35, "E31_posthoc"),
+    "bitcoin-otc":    ("E31_PY314_MIGRATION_20260802-135051", 46, "E31_posthoc"),
+    "epinions":       ("E31_PY314_MIGRATION_20260802-130454", 41, "E31_posthoc"),
+    "wiki-elec":      ("E31_PY314_MIGRATION_20260802-135051", 37, "E31_posthoc"),
+    "wiki-rfa":       ("E31_PY314_MIGRATION_20260802-135051", 33, "E31_posthoc"),
+    "slashdot090221": ("E31_PY314_MIGRATION_20260802-130454", 51, "E31_posthoc"),
 }
 LOCAL_RUN_INFO = {
-    "bitcoin-alpha":   ("E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-121955", 27, "E27_noH"),
-    "bitcoin-otc":     ("E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-121955", 46, "E27_noH"),
-    "epinions":        ("E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-121955", 30, "E27_noH"),
-    "wiki-elec":       ("E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-122848", 36, "E27_noH"),
-    "wiki-rfa":        ("E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-123214", 33, "E27_noH"),
-    "slashdot090221":  ("E27_NOHARD_EDGECOVER_LOCALATTN4_20260719-121955", 34, "E27_noH"),
+    "bitcoin-alpha":   ("E32_PY314_LOCALATTN4_20260804-225948", 35, "E32_posthoc"),
+    "bitcoin-otc":     ("E32_PY314_LOCALATTN4_20260804-231122", 35, "E32_posthoc"),
+    "epinions":        ("E32_PY314_LOCALATTN4_20260804-225948", 30, "E32_posthoc"),
+    "wiki-elec":       ("E32_PY314_LOCALATTN4_20260804-232140", 44, "E32_posthoc"),
+    "wiki-rfa":        ("E32_PY314_LOCALATTN4_20260804-232239", 33, "E32_posthoc"),
+    "slashdot090221":  ("E32_PY314_LOCALATTN4_20260804-225948", 34, "E32_posthoc"),
 }
 VARIANTS = [("Pewter (full attn)", FULL_RUN_INFO), ("Pewter (LocalAttn4)", LOCAL_RUN_INFO)]
 

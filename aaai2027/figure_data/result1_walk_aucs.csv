@@ -1,0 +1,13 @@
+dataset,variant,auc,se,n_edges
+bitcoin-alpha,full,0.9215,0.0070,2419
+bitcoin-alpha,local,0.9188,0.0072,2419
+bitcoin-otc,full,0.9356,0.0044,3560
+bitcoin-otc,local,0.9358,0.0044,3560
+epinions,full,0.9528,0.0007,84080
+epinions,local,0.9535,0.0007,84080
+wiki-elec,full,0.9045,0.0029,10370
+wiki-elec,local,0.9075,0.0029,10370
+wiki-rfa,full,0.8938,0.0024,17722
+wiki-rfa,local,0.8976,0.0023,17722
+slashdot090221,full,0.9002,0.0013,54921
+slashdot090221,local,0.8981,0.0013,54921

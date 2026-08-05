@@ -10,8 +10,14 @@ truncated," when actually mass is exactly 0 past the window (that's the whole po
 of the mask). Per the user's call, this version just sets the x-axis limits to the
 window itself -- there is no "beyond the wall" region to show, so nothing is lost by
 not drawing it.
+
+2026-08-05 (user call): the figure this feeds into is single-column, not full-page
+width, so a 1xnhead row (very wide, very short) would render illegibly small at
+column width. Switched to a near-square grid (ceil(sqrt(nhead)) columns) instead --
+trades width for height, which the combined figure has room for.
 """
 import csv
+import math
 import os
 from collections import defaultdict
 
@@ -38,8 +44,13 @@ def main():
         by_head[int(r["head"])][int(r["d"])] = float(r["mass"])
 
     nhead = len(heads)
-    fig, axes = plt.subplots(1, nhead, figsize=(2.8 * nhead, 3.0), sharey=True, squeeze=False)
-    axes = axes[0]
+    ncols = math.ceil(math.sqrt(nhead))
+    nrows = math.ceil(nhead / ncols)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(3.3, 1.55 * nrows + 0.55),
+                              sharey=True, squeeze=False)
+    axes = axes.flatten()
+    for ax in axes[nhead:]:
+        ax.axis("off")
 
     d_range = list(range(-window, window + 1))
     for h in heads:
@@ -49,25 +60,24 @@ def main():
             ax.axvspan(d - 0.5, d + 0.5, color=EDGE_COLOR if role_edge else NODE_COLOR,
                        alpha=0.18, lw=0, zorder=0)
         y = [by_head[h][d] for d in d_range]
-        ax.plot(d_range, y, color="tab:blue", linewidth=1.6, marker="o", markersize=3, zorder=3)
+        ax.plot(d_range, y, color="tab:blue", linewidth=1.3, marker="o", markersize=2.3, zorder=3)
         ax.fill_between(d_range, y, color="tab:blue", alpha=0.25, zorder=2)
-        ax.axvline(0, color="k", linewidth=0.8, alpha=0.6, zorder=2)
+        ax.axvline(0, color="k", linewidth=0.7, alpha=0.6, zorder=2)
         ax.set_xlim(-window - 0.5, window + 0.5)
         ax.set_xticks(d_range)
-        ax.set_title(f"head {h}", fontsize=10)
-        ax.set_xlabel("d = j − i", fontsize=8)
-        ax.tick_params(labelsize=7)
-    axes[0].set_ylabel("attention mass", fontsize=9)
+        ax.set_title(f"head {h}", fontsize=8)
+        ax.set_xlabel("d = j − i", fontsize=6.5)
+        ax.tick_params(labelsize=5.5)
+    for r in range(nrows):
+        axes[r * ncols].set_ylabel("attention mass", fontsize=7)
 
-    fig.suptitle(f"{dataset} [PEWTER, window=±{window}], layer {layer}: "
-                 "signed attention mass per head\n"
-                 "orange bg = edge-token offsets, blue bg = node-token offsets "
-                 "(x-axis is the full allowed window -- mass is 0 outside it, by construction)",
-                 fontsize=9.5)
-    fig.tight_layout()
+    fig.suptitle(f"{dataset} [PEWTER, window=±{window}], layer {layer}:\n"
+                 "signed attention mass per head (orange=edge, blue=node offsets)",
+                 fontsize=7.5)
+    fig.tight_layout(rect=(0, 0, 1, 0.90))
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
-    fig.savefig(OUT_PNG, dpi=150, bbox_inches="tight")
+    fig.savefig(OUT_PNG, dpi=200, bbox_inches="tight")
     plt.close(fig)
     print(f"saved {OUT_PNG}")
 

@@ -1,9 +1,12 @@
-"""Combine Ablation A (full vs. local attention) and Ablation C (weighted vs.
-plain mean vote) into ONE figure -- same technique as
-combine_empconf_panels_bc.py, so LaTeX treats them as a single float. Ablation
-B (smart sampling) was dropped 2026-07-26 (not a meaningful ablation --
-edge_cover's coverage guarantee is essential for fair evaluation, not a
-performance lever), so this is a 2-panel, not 3-panel, composite.
+"""RETIRED 2026-08-04: both ablations are now LaTeX tables (tab:ablationA,
+tab:ablationB), not a combined figure -- kept on disk, unused.
+
+Combine Ablation A (full vs. local attention) and Ablation B in the paper's
+enumeration (weighted vs. plain mean vote; "Ablation C" in code/data, since the
+"smart sampling" ablation that used to be B was dropped 2026-07-26 -- edge_cover's
+coverage guarantee is essential for fair evaluation, not a performance lever) into
+ONE figure -- same technique as combine_empconf_panels_bc.py, so LaTeX treats them
+as a single float.
 
 Re-run this after re-plotting either panel.
 """
@@ -15,8 +18,8 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
 PANEL_A = "aaai2027/figures/ablationA_full_vs_local.png"
-PANEL_C = "aaai2027/figures/ablationC_full_sweep.png"
-OUT_PNG = "aaai2027/figures/ablations_ac_combined.png"
+PANEL_C = "aaai2027/figures/ablationB_full_sweep.png"
+OUT_PNG = "aaai2027/figures/ablations_ab_combined.png"
 
 
 def main():
