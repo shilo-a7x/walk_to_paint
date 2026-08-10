@@ -1,0 +1,409 @@
+\documentclass[sigconf, review, anonymous]{acmart}
+
+\acmConference[WSDM '27]{ACM International Conference on Web Search and Data Mining}{February 2027}{Location TBD}
+\acmYear{2027}
+\acmISBN{}
+\acmDOI{}
+\setcopyright{none}
+
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{xspace}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+%% Convenience macros
+\newcommand{\method}{\textsc{Pewter}\xspace}
+\newcommand{\ph}[1]{\textbf{[#1]}} % placeholder marker -- MUST BE EMPTY AT SUBMISSION
+\newcommand{\Hh}{\mathrm{H}}
+\newcommand{\MI}{\mathrm{I}}
+\newcommand{\indeg}{\mathrm{in}}
+\newcommand{\outdeg}{\mathrm{out}}
+
+\theoremstyle{plain}
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{assumption}{Assumption}
+\newtheorem{remark}{Remark}
+
+\begin{document}
+
+\title{PEWTER: Predicting Edge Signs with Proximal Edge-Walk Transformers}
+
+\author{Anonymous Author(s)}
+\affiliation{%
+  \institution{Anonymous Institution}
+  \country{Anonymous Country}
+}
+\email{anon@email.com}
+
+\begin{abstract}
+Signed networks on the web, such as trust ratings on marketplaces, reviewer endorsements, and adminship votes, carry their label on edges rather than on vertices. The dominant approach for predicting such labels is vertex-centric: a graph neural network (GNN) embeds the two endpoints and maps the pair of embeddings to an edge label.
+
+We show that this design has an inherent limit. Because a message-passing GNN can only distinguish vertices up to their Weisfeiler-Leman colors, every edge sharing a color pair receives the same prediction, and the error is bounded below by the label entropy that survives that coarsening (Proposition~\ref{prop:bottleneck}, with a capacity form in Proposition~\ref{prop:capacity}).  Empirically, baseline GNN accuracy on six public signed networks falls toward chance as this entropy rises. Edge sign is correlated over a short range - the mutual information between an edge sign and a neighboring edge sign drops by two to nearly five orders of magnitude between one and two hops in the line graph, so the usable signal is concentrated in a small labeled neighborhood. Interestingly, the signal is not symmetric and depends on the graph family. 
+
+We thus propose to condition on both the labeled edges and the neighboring vertices near the target edge, instead of on only the two vertex summaries. We propose Pewter, which samples short walks that pass through the target edge, classifies the masked target sign with a transformer that reads each walk as a token sequence of both vertices and edges, and combines the walks containing an edge by a confidence-weighted vote. Pewter significantly improves test AUC over the best of six signed and message-passing baselines on all six datasets XXXXX PLEASE GIVE VALUES XXXXXX, with the largest gains on edges whose endpoints carry high label entropy, which is where the bound predicts vertex-centric models are weakest XXXXX AGAIN GIVE GAIN XXXX. 
+
+XXXXX THE LAST PART HERE SHOULD BE THE RELATION BETWEEN ATTENTION ON EITHER VERTICES OR EDGES AND THE DIRECTION, BUT i AM NOT SURE I UNDERSTAND THE RESULTS XXXXXX
+
+
+The code of Pewter and the test data are availble are XXXXXX GITHUB XXXXX
+\end{abstract}
+
+%% ACM Computing Classification System (CCS) Concepts
+\begin{CCSXML}
+<ccs2012>
+   <concept>
+       <concept_id>10010147.10010257.10010293.10010294</concept_id>
+       <concept_desc>Computing methodologies~Neural networks</concept_desc>
+       <concept_significance>500</concept_significance>
+       </concept>
+   <concept>
+       <concept_id>10002951.10003260.10003282</concept_id>
+       <concept_desc>Information systems~Web applications</concept_desc>
+       <concept_significance>300</concept_significance>
+       </concept>
+ </ccs2012>
+\end{CCSXML}
+
+\ccsdesc[500]{Computing methodologies~Neural networks}
+\ccsdesc[300]{Information systems~Web applications}
+
+\keywords{Signed Graphs, Edge Sign Prediction, Graph Neural Networks, Random Walk Transformers, Trust and Reputation}
+
+\maketitle
+
+\section{Introduction}
+
+Many of the graphs that matter on the web put the label on the edge, not on the vertex. A buyer rates a seller as trustworthy or not on a peer-to-peer marketplace, a reviewer marks another reviewer as trusted or distrusted on a product review site, and an editor supports or opposes a candidate in an adminship election. In each case a directed edge carries a sign, most edges are unlabeled or unobserved, and the practical task is to predict the missing signs from the observed ones. Downstream, these predictions drive reputation displays, ranking, and moderation triage, so their failure modes matter as much as their average accuracy.
+
+Other works fold external vertex or edge features, such as review text, timestamps, or account metadata, into the prediction. We do not: an edge's sign is predicted from the graph's topology and the signs already observed on other edges alone.
+
+The classical recipe extracts a fixed set of features around an edge, either external or topological, and classifies the edge from them \citep{leskovec2010predicting}. Such features are hand-built and cannot adapt to the data. To address this, vertex-centric graph neural networks (GNNs) \citep{kipf2016semi,gilmer2017neural} were proposed: they produce an embedding for each vertex, and classify an edge from the pair of embeddings at its endpoints, optionally with a few edge features. This works when the endpoints determine the label, and it degrades in a way that is predictable once we look at what a vertex embedding can and cannot hold.
+
+A vertex embedding is a single vector that every edge touching that vertex must share. If a vertex sits on edges of several classes, that one vector stands in for all of them at once, and no read-out can recover which class a particular incident edge belongs to. The severity is controlled by the label entropy that survives the coarsening a message-passing GNN applies to vertex identity, and it does not go away with more layers or wider layers, because it is a property of what is being conditioned on, not of the model that conditions. We state this as Proposition~\ref{prop:bottleneck} and, in a capacity form, as Proposition~\ref{prop:capacity}. Note that in a simple graph, each edge is fully defined by the vertices surrounding it, and as such could be claimed to be fully defined. However, for an edge with an unknown class, a pair of vertices with the same WL coloring will induce the same edge class. 
+
+We propose an edge-centric approach based on the embedding of an edge and the classification through a random walk on edges. We show that the mutual information between an edge's sign and a neighboring edge's sign collapses by two to nearly five orders of magnitude between line-graph distance 1 and distance 2--3 across all six datasets we study (Section~\ref{sec:empconf}). As such, almost all of the decodable signal about an edge sign sits in the labeled edges one hop away. We thus propose very short walks, which keeps the cost low.
+
+In directed graphs, an edge label need not be equally predictable from its two endpoints. On four of the six datasets the label entropy seen from the source side is significantly lower than from the target side, so the source carries more of the label information; on the two Wikipedia vote graphs the direction significantly reverses. To ensure generality of Pewter, we perform walks starting two edges before the current edge and ending two edges after it, to allow a transformer the choice where to extract the information.  We call this directed short-path classifier Pewter (Proximal Edge-Walk Transformer with Ensemble Read-out).
+
+\paragraph{Contributions.}
+\begin{itemize}
+\item We state and prove a limitation of vertex-centric edge classification: an information bottleneck controlled by the vertex label entropy that survives WL coarsening (Proposition~\ref{prop:bottleneck}), with an embedding-capacity form (Proposition~\ref{prop:capacity}). Unlike oversquashing, this bound is a property of the read-out and is not removed by rewiring, depth, or width.
+\item We confirm the bottleneck empirically on six public signed networks, showing that the accuracy of edge-signed GNN baselines degrades on the high-entropy endpoints the bound points to (Figure~\ref{fig:empconf-panels}), and we quantify how fast edge-sign information decays with line-graph distance.
+\item We report an asymmetry in edge class information of edges from/ to source and target vertices. This asymmetry varies across datasets. 
+\item We propose Pewter, and show that it (1) improves AUC over six baselines on all six datasets, and (2) improves accuracy most on edges whose endpoints have high label entropy, where the bound says vertex-centric models are weakest.
+\item XXXXX  THE STRANGE DISTANT CORRELATIONS RESULTS XXXXXX
+\end{itemize}
+
+\section{Related Work}
+\paragraph{Edge and sign prediction.} Early work on signed network models predicted edge labels using local graph structure around an edge rather than its endpoints in isolation. Structural balance theory predicts a sign from the parity of a closed triad XXX REFS XXXX, and later work replaces balance with status differences and other triad-count features XXX REFS XXXX. These methods rely on a fixed, hand-crafted set of local structural patterns rather than representations learned from data. Pewter keeps the local, edge-centric view of this line of work and replaces the hand-built patterns with a learned sequence model. XXXX HERE PLEASE ALSO CITE OUR OWN MODEL XXXX
+
+\paragraph{Vertex-centric GNNs.} The dominant modern approach replaces hand-built triad features with message-passing GNNs specialized to signed and directed graphs XXX REFS XXXX. These architectures aggregate the signs and directions of incident edges over one or more rounds of message passing, with some variants aggregating in- and out-edges separately to track orientation. Edge labels are then predicted from the resulting pair of endpoint embeddings, optionally concatenated with edge features. Propositions~\ref{prop:bottleneck} and~\ref{prop:capacity} apply to every member of this family, since they constrain the read-out rather than the aggregation.
+
+\paragraph{Walk and sequence representations.} A separate line of work embeds vertices from random walks over the graph XXX REFS XXXX, including signed-graph extensions of the same idea XXX REFS XXXX. There, the walk generates the training pairs, or context windows, used to fit a per-vertex embedding, and a downstream edge classifier reads a pair of such vertex embeddings, so the vertex bottleneck is reintroduced at the read-out. Sequence models applied directly to walks for vertex or graph classification process the walk token-by-token, but typically summarize it into one fixed per-vertex or per-graph vector before classification. Pewter differs in that the walk is never summarized into a vertex representation: the prediction is read at the masked edge position itself.
+
+\paragraph{Graph transformers.} Transformer architectures have been adapted to attend over an entire graph or large subgraphs, using structural or positional encodings in place of a fixed adjacency prior XXX REFS XXXX. Attention allows information to move between distant vertices in a single step rather than only through a fixed number of message-passing hops. These models typically attend over a vertex set and pool the result back down to one representation per vertex before an edge is scored, so they too are covered by Proposition~\ref{prop:bottleneck} whenever the final read-out is a function of two per-vertex vectors. Pewter attends over a short token sequence of alternating vertices and signed edges, which keeps attention cost independent of graph size.
+
+\paragraph{Oversquashing and information bottlenecks.} A related line of work studies how message-passing GNNs lose information as receptive fields grow with depth: each vertex's neighborhood grows exponentially with the number of rounds while the message vector stays a fixed width, so distant information is compressed into a channel too narrow to carry it XXX REFS XXXX. That bottleneck is a property of propagation depth and can in principle be mitigated by rewiring. The bottleneck of Propositions~\ref{prop:bottleneck} and~\ref{prop:capacity} is different in kind: it is a property of the read-out step, and applies to a single fixed-width vertex embedding regardless of how many rounds produced it or how the graph was rewired.
+
+Across these approaches, the mechanism used to propagate sign information differs substantially, but most approaches still predict an edge's label from a pair of fixed per-vertex representations.
+
+\section{Problem Setting and Notation}
+Let $G=(V,E)$ be a graph, directed unless stated otherwise, and let each edge $e\in E$ carry a label $y_e$ from a finite set $\mathcal{C}$ of size $|\mathcal{C}|=c$ (for sign prediction, $c=2$; the propositions hold for general $c$). We observe labels on $E_{\mathrm{obs}}\subset E$ and predict $y_e$ for $e\in E\setminus E_{\mathrm{obs}}$.
+
+For a vertex $v$ we write $\Hh(Y\mid v)$ for the entropy of the label distribution over the edges incident to $v$, split into $\Hh_\indeg(v)$ over in-edges and $\Hh_\outdeg(v)$ over out-edges. For an edge $e$ we write $\Hh_{\mathrm{src}}(e)=\Hh_\outdeg(u)$ for the out-edge entropy at its source $u$ and $\Hh_{\mathrm{tgt}}(e)=\Hh_\indeg(v)$ for the in-edge entropy at its target $v$. For a random variable $Z$ we write $\Hh(Y\mid Z)$ for conditional entropy and $\MI(Y;Z)$ for mutual information. We use Fano's inequality XXX REFS XXXX: for any predictor $\hat Y=g(Z)$ of $Y$ over $c$ classes with error probability $P_e$ and entropy $\Hh_b(P_e)$,
+\begin{equation}
+\Hh(Y\mid Z)\le \Hh_b(P_e)+P_e\log(c-1).
+\label{eq:fano}
+\end{equation}
+
+Our setting is binary sign prediction, $c=2$, where $\log(c-1)=0$ and \eqref{eq:fano} holds with no weakening: $\Hh(Y\mid Z)\le \Hh_b(P_e)$. Since $\Hh_b$ is a strictly increasing bijection $[0,\tfrac12]\to[0,1]$ its inverse $\Hh_b^{-1}$ is strictly increasing (Appendix~\ref{app:proofs}, Lemma), and any predictor with $P_e>\tfrac12$ can be improved by flipping its output, so the bound inverts to
+\begin{equation}
+P_e\ \ge\ \Hh_b^{-1}\big(\Hh(Y\mid Z)\big).
+\label{eq:invfano}
+\end{equation}
+This is the form we use throughout: larger conditional entropy of the conditioning variable forces larger error, for every model. We set $\Hh_b^{-1}(x):=0$ for $x\le 0$ by convention, so \eqref{eq:invfano} stays well defined, and trivially true rather than undefined, when its argument is non-positive. For clarity, we use sign instead of (the binary) label along the following text. 
+
+We use \eqref{eq:invfano} rather than the more familiar linear corollary $P_e\ge(\Hh(Y\mid Z)-1)/\log c$ because at $c=2$ the latter is vacuous: $\log c=1$ and $\Hh(Y\mid Z)\le 1$ bit, so its right-hand side is never positive. The linear form remains valid and useful for $c>2$ and is restated in Appendix~\ref{app:proofs}, together with an explicit Pinsker-type relaxation of \eqref{eq:invfano} XXX REF XXX for readers who prefer a closed form to an inverse function.
+
+\section{Limitations of Vertex-Centric Edge Classification}
+A vertex-centric edge classifier is any map $\hat y_{uv}=g(h_u,h_v)$, where $h_u=\phi(\mathcal{T}_u)$ is a vertex representation computed from the rooted computation tree $\mathcal{T}_u$ of $u$, and $g$ is arbitrary. This covers GCN, GraphSAGE XXX REFS XXXX, GAT~\cite{velickovic2018gat}, and the signed GNNs of Section~2 with an edge read-out. Let $\chi(\cdot)$ denote the stable Weisfeiler-Leman (WL) coloring. Any message-passing GNN factors through it XXX REFS XXXX, so $h_u=\psi(\chi(u))$ for some $\psi$ and $\hat y_{uv}=\tilde g(\chi(u),\chi(v))$.
+
+\begin{assumption}[Structural regime]
+\label{as:structural}
+The endpoints enter the read-out only through their WL colors $\chi(u),\chi(v)$, and these colors are not injective on the edges we predict: with positive probability a color pair is shared by two edges of different label.
+\end{assumption}
+
+This assumption is forced whenever the endpoints of test edges are unseen at training time, and it holds inside any graph with structural symmetry or repeated motifs. Note that in theory, a model that learns a free embedding per vertex, indexed by identity, escapes the WL coarsening and therefore escapes Proposition~\ref{prop:bottleneck}, at the price of not transferring to new vertices and of fitting one parameter vector per vertex. 
+
+\begin{proposition}[Endpoint bottleneck]
+\label{prop:bottleneck}
+Under Assumption~\ref{as:structural}, every vertex-centric edge classifier $\hat y_{uv}=g(h_u,h_v)$ has population error
+\[
+P_e \ \ge\ \Hh_b^{-1}\Big(\Hh\big(Y\mid \chi(U),\chi(V)\big)\Big)\ >\ 0,
+\]
+for a random edge $(U,V)$. The quantity $\Hh(Y\mid \chi(U),\chi(V))$ is the label entropy that remains after endpoint identities are replaced by their WL colors, and it does not decrease with depth or width.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+Any message-passing GNN factors as $\tilde g(\chi(U),\chi(V))$, so it is measurable with respect to the color pair. Among such predictors the error is minimized by the majority label in each color class; applying \eqref{eq:invfano} within each color pair and combining across pairs via Jensen's inequality, using convexity of $\Hh_b^{-1}$ (Appendix~\ref{app:proofs}), gives the bound. Assumption~\ref{as:structural} makes the entropy positive, hence $P_e>0$. Full argument, including the general-$c$ form, in Appendix~\ref{app:proofs}.
+\end{proof}
+
+\begin{remark}
+As noted above, in a simple graph the two vertex \emph{identities} fix the single edge between them, so $\Hh(Y\mid U,V)=0$. This is not the quantity that bounds a structural GNN. Message passing cannot see past the WL colors, and identities neither survive that coarsening nor transfer to a held-out edge whose endpoints were never seen carrying that label. The bottleneck is set by the resolution of the representation, not by whether the graph carries more than one edge per pair.
+\end{remark}
+
+\begin{corollary}[Single-endpoint reading]
+\label{cor:endpoint}
+Fix a source $u$ and a target color $b$. Every edge from $u$ to a target of color $b$ receives one prediction, so the error on that group is at least $\Hh_b^{-1}\big(\Hh(Y\mid \text{source}{=}u,\ \text{target color}{=}b)\big)$. A source whose out-edge labels are mixed and are not separated by target color, that is, high $\Hh_\outdeg(u)$ left unresolved by $\chi(V)$, forces error on those edges for every such model.
+\end{corollary}
+
+Informally, high endpoint entropy breaks the vertex-centric read-out. The same claim can be made from the side of the embedding width rather than the coloring.
+
+\begin{proposition}[Capacity form]
+\label{prop:capacity}
+Suppose each vertex representation takes at most $N$ distinguishable values under the read-out (for width $d$ at $b$ bits per coordinate, $N=2^{bd}$; in general $N$ is the covering number of the representation space at the decision margin of $g$). Then
+\[
+\MI\big(Y;h_U,h_V\big)\ \le\ 2\log N,
+\qquad
+P_e\ \ge\ \Hh_b^{-1}\big(\Hh(Y)-2\log N\big).
+\]
+Per vertex, $h_U$ carries at most $\log N$ bits about the joint label of all edges at $U$, so if $U$ has out-degree $D$ with near-independent out-edge labels of entropy $\Hh_\outdeg(U)$ each, then $D\,\Hh_\outdeg(U)-\log N$ bits are unrecoverable once $D\,\Hh_\outdeg(U)>\log N$.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+$\MI(Y;h_U,h_V)\le \Hh(h_U)+\Hh(h_V)\le 2\log N$ since each embedding takes $\le N$ values; substitute into $\Hh(Y\mid h_U,h_V)=\Hh(Y)-\MI(Y;h_U,h_V)$ and apply \eqref{eq:invfano} with the monotonicity of $\Hh_b^{-1}$. The per-vertex statement is the same cardinality bound on $h_U$ alone. Details in Appendix~\ref{app:proofs}.
+\end{proof}
+The two statements say the same thing from two sides. Depth and width do not help, because the object being conditioned on, the endpoint summary, is the bottleneck. 
+
+\section{Methods}
+\label{sec:methods}
+Pewter has three parts: a random-walk sampler over the signed graph, a per-walk transformer that classifies a masked target edge from its surrounding walk context, and a validation-tuned weighted vote across the scores of the same edge across walks. Figure~\ref{fig:pipeline-schematic} sketches the pipeline.
+
+\begin{figure*}[t!]
+\centering
+\includegraphics[width=\linewidth]{figures/pipeline_schematic.png}
+\caption{\method\ is two separately trained models, shown for one target edge $(u,v)$. \textbf{Stage 1} (left): walks through $(u,v)$ are sampled from the graph, sign masked (`?'), tokenized, and read by a frozen Transformer; each walk's $\pm2$-hop window around $u,v$ is highlighted. The three example walks disagree, giving one prediction $q_k$ per walk ($q_1,q_2$ positive, $q_3$ negative). \textbf{Stage 2} (right, purple): an aggregator combines the $k$ predictions into one score, $p_{uv}=\sum_k w_k q_k/\sum_k w_k$. Legend: N = node, `+'/`-' = edge sign, `?' = the masked target edge.}
+\label{fig:pipeline-schematic}
+\end{figure*}
+
+\paragraph{Walk sampler.} We build the walk corpus in two passes. First, every edge gets one walk that starts by traversing it: from its source vertex, cross that edge, then continue as an ordinary random walk for the remaining hops. This alone guarantees that every edge is covered by at least one walk. Second, we fill the rest of the $M$-walk budget with ordinary random walks starting anywhere in the graph, keeping a walk only if it is not identical to a walk already in the corpus XXXX HOW DO YOU COMPARE??? XXXX, so that no two of the $M$ walks coincide. Traversal is directed. Each walk is encoded as an alternating sequence of vertex and edge tokens $N_{u_0}, E_{s_1}, N_{u_1}, E_{s_2}, \ldots$, where $E_{s_i}\in\{+1,-1\}$ is the observed sign of the traversed edge. Because each walk touches up to $L$ edges, a given edge typically appears as a token inside many walks, not just the one it anchors; these occurrences are combined by the vote below.
+
+\paragraph{No label leakage.} Sign tokens are populated only from the context split of the training edges. Validation and test edge signs never appear as tokens in any walk, at training or at inference: when a walk traverses a held-out edge, that position carries the mask token. The masked target position is likewise never readable from its own token. This is the reason the training portion is split further into a context set and a supervised-masking set (Datasets below) rather than used as a single pool.
+
+\paragraph{Per-walk classifier.} Each walk is embedded token-by-token (embedding dimension $d$), given sinusoidal positional encodings, and passed through a Transformer encoder ($n_\text{layer}$ layers, $n_\text{head}$ heads). We consider two self-attention variants: \emph{full} attention, where every token attends to every other token in the walk, and \emph{local} attention, where token $i$ attends only to tokens $j$ with $|i-j|\le w$. Since each graph hop spans two token positions, a vertex followed by the edge that follows it, a window of $w=4$ restricts every token to roughly its $\pm2$-hop surroundings within the walk (see Figure XXXX for definitions of positions). During training, one edge token per walk is masked and the model recovers its sign from the surrounding vertex and edge context, in the style of masked language modeling, reading the encoder output at the masked position through a linear classification head. Two standard regularizers are applied: the masked edge is re-sampled every epoch rather than fixed once, and vertex-identity tokens are randomly replaced with an unknown-vertex placeholder or with another vertex's token with probability $p$, so the model cannot fall back on memorized vertex identity in place of structural and sign context. The second of these matters for the argument of Section~4: with identity dropout, \method's advantage cannot be attributed to memorizing the vertices of test edges.
+
+\paragraph{Aggregation across walks.} A given edge occurs in many sampled walks, each yielding a probability estimate $q_j=P(\text{sign}=1\mid \text{walk}_j)$. We combine these into an edge-level score with a parametric weighted mean, $\hat{y}_e = \frac{\sum_j w_j q_j}{\sum_j w_j}$, with weights $w_j = |\operatorname{logit}(q_j)|^{b}$, where $b$ is fit by maximizing validation AUC. The weighting has a natural reading: $|\operatorname{logit}(q_j)|$ is a monotone decreasing function of the walk-level predictive entropy, so the aggregator symmetrically up-weights confident walk occurrences over uncertain ones, regardless of which class they favor. This is a standard confidence-weighted ensemble rule, comparable to inverse-variance weighting, rather than a fitted heuristic; Ablation~B shows that the specific choice barely matters, so we present it as a defensible default rather than as a contribution. The per-walk estimates are not independent, since walks overlap, so the weighted mean should be read as a variance-reducing pooling rule and not as a likelihood. Algorithm~\ref{alg:pewter} gives the full inference procedure for one edge.
+
+\begin{algorithm}[tb]
+\caption{\method: inference for edge $(u,v)$}
+\label{alg:pewter}
+\textbf{Input}: target edge $(u,v)$; walk corpus; per-walk classifier $f_\theta$, already trained; aggregator weight function $w(\cdot)$\\
+\textbf{Output}: predicted sign probability $\hat y_{uv}$
+\begin{algorithmic}[1]
+\STATE Let $W_1,\ldots,W_K$ be the $K$ corpus walks containing $(u,v)$
+\FOR{$j = 1$ to $K$}
+  \STATE Tokenize $W_j$ as alternating vertex/edge tokens, masking $(u,v)$'s sign
+  \STATE $q_j \gets f_\theta(W_j)$ \COMMENT{per-walk class-1 probability}
+\ENDFOR
+\STATE $\hat y_{uv} \gets \frac{\sum_j w(q_j)\, q_j}{\sum_j w(q_j)}$
+\STATE \textbf{return} $\hat y_{uv}$
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Datasets.} We evaluate on six public directed signed-graph benchmarks: \textsc{bitcoin-alpha} (3{,}783 vertices, 24{,}186 edges) and \textsc{bitcoin-otc} (5{,}901 vertices, 35{,}592 edges), both peer-to-peer marketplace trust ratingsXXX REFS XXXX; \textsc{epinions} ($\sim$131k vertices, 841{,}372 edges) and \textsc{slashdot090221} ($\sim$82k vertices, 549{,}202 edges), review-site and news-site trust/friend networksXXX REFS XXXX; and \textsc{wiki-elec} ($\sim$7.1k vertices, 103{,}689 edges) and \textsc{wiki-rfa} ($\sim$11.4k vertices, 184{,}546 edges), Wikipedia adminship votes XXX REFS XXXX. Edge signs are heavily imbalanced toward positive/trust in all six (77--94\% positive), which is why we report AUC rather than accuracy. Each graph is split 80/10/10 into train/validation/test with a fixed seed; the training portion is further split into a context set and a supervised-masking set for the masked-edge objective (48\%/32\% of the total).
+
+\paragraph{Baselines.} We compare against a foundational message-passing GNN with edge features, GINEConv XXX REFS XXXX, and five signed-graph-specific methods: SiGAT XXX REFS XXXX, SNEA XXX REFS XXXX, CSG and CSG-GSGNN XXX REFS XXXX, GSGNN augmented with SGA XXX REFS XXXX, and CopulaLSP XXX REFS XXXX. All are re-run on our own split so that every method is evaluated on exactly the same held-out edges rather than on an independently sampled split. 
+
+\paragraph{Setup.} \method's per-walk transformer uses embedding dimension $d=32$, $n_\text{head}=8$, feed-forward dimension 16, $n_\text{layer}=5$, dropout 0.5, batch size 1024, learning rate $10^{-3}$, and early stopping on validation AUC. Walks have varying length up to a maximum $L=80$ hops; the local-attention window means that even a long walk contributes only a $\pm2$-hop context to each prediction, so the effective receptive field is short even though the sampled sequence need not be XXX NEED A MORE PRECISE ON HOW YOU DO THE WALKS XXXX. The total budget $M$ is tuned per dataset; following a sweep over $\{1\times,1.5\times,3\times,5\times\}|E|$ the chosen budgets are $M=5|E|$ for bitcoin-alpha and bitcoin-otc (120{,}930 and 177{,}960 walks), $M=3|E|$ for slashdot090221 (1{,}647{,}606 walks), $M=1.5|E|$ for wiki-elec and wiki-rfa (155{,}534 and 265{,}817 walks), and $M=1|E|$ for epinions (840{,}799 walks, the floor of the grid). On bitcoin-alpha and bitcoin-otc performance was still improving at the top of the grid, so those two budgets are grid boundaries rather than confirmed plateaus.
+
+\paragraph{Statistical evaluation and reproducibility.} Each reported AUC is a point estimate on the fixed test split, given with the Hanley--McNeil/DeLong nonparametric standard error for AUC XXX REFS ALSO PLEASE CHANGE EVERYTHING TO CROSS VALIDATION XXXX The exact splits, the sampled walk corpora, and the configuration files for every number in this paper are released in an anonymized repository \ph{ANONYMOUS GITHUB LINK}; all experiments run on a single GPU XXX WHAT GPU?XXXX. 
+
+\section{Results}
+
+\subsection{Empirical Confirmation of the Bottleneck}
+\label{sec:empconf}
+To test for the association between edges signs and the vertex and edge properties,  we evaluate edge sign correlations and edge sign predictions on the six directed signed-graph datasets described in Section~\ref{sec:methods} (Datasets). The test AUC of the prediction is computed on message-passing and signed-GNN baselines listed there. All quantities in this section are properties of the data and of the baseline models only; Pewter is not involved.
+
+\paragraph{(A) Information decays sharply with distance.}
+Mutual information between an edge's sign and a nearby edge's sign collapses by two to nearly five orders of magnitude ($178\times$--$73{,}000\times$ across the six datasets) between line-graph distance 1 (edges sharing a vertex) and distance 2--3 (Figure~\ref{fig:empconf-panels}b). Decodable signal is concentrated within about one hop, which is what licenses the short walks and the local attention window of Section~\ref{sec:methods}.
+
+\paragraph{(B) Baseline accuracy falls as endpoint entropy rises.}
+Baseline test AUC drops as a function of source-vertex rater consistency and target-vertex reputation contestedness, as Proposition~\ref{prop:bottleneck} predicts: for SiGAT, on all six datasets, AUC is highest where the target vertex's incoming-edge signs are unanimous and falls toward chance as that entropy rises, with source out-entropy a secondary factor (Figure~\ref{fig:empconf-panels}c,e). This is a consistency check on the bound, not a proof of it: the bound constrains the achievable error, and what we observe is that a strong practical model tracks that constraint.
+
+\paragraph{(C) Entropy asymmetry is significant within datasets and heterogeneous across them.}
+A per-vertex paired test of $\Hh_\outdeg(v)$ against $\Hh_\indeg(v)$ across all six datasets shows that on four (bitcoin-alpha, bitcoin-otc, epinions, slashdot090221) source-side entropy is lower with overwhelming per-dataset significance ($p$ from $5.1\times10^{-4}$ to $3.7\times10^{-244}$, one-sided Wilcoxon signed-rank test), while on two (wiki-elec, wiki-rfa) the direction reverses, itself significantly ($p=1.7\times10^{-10}$ and $3.4\times10^{-14}$). A pooled random-effects estimate across the four confirming datasets gives $58.1\%$ of non-tied vertex pairs favoring lower source entropy (95\% CI $[55.3\%, 60.8\%]$); pooled across all six the estimate is not significant, its interval spanning the null. 
+
+\begin{figure}[t!]
+\centering
+\includegraphics[width=\linewidth]{figures/empconf_panels_abcde_combined.png}
+\caption{(a) Position-index notation used throughout: the target edge is index 0, connecting its source $u$ (index $-1$) to its target $v$ (index $+1$); each endpoint's other incident edges are indexed $\pm2$, split by direction into out-edges ($\Hh_\outdeg$) and in-edges ($\Hh_\indeg$). (b) Normalized mutual information ($\mathrm{NMI}=\MI/\Hh(Y)$, comparable across datasets with different label imbalance) between an anchor edge's sign and a context edge's sign, as a function of line-graph distance (1 = share a vertex), six datasets, linear scale; solid = directed (out-neighbor-only) traversal, dashed = undirected traversal (used throughout the rest of this paper). (c) Test AUC (discrete $4\times4$ bins) for SiGAT as a function of source out-entropy ($\Hh_\outdeg(-1)$, rater consistency) and target in-entropy ($\Hh_\indeg(1)$, reputation contestedness), six datasets. (d) Test AUC for SiGAT, pooled, split into four buckets by whether a target edge's other in-edges (into $v$) or out-edges (from $u$) agree (\emph{same}) or disagree (\emph{diff}) in sign with the target edge; one prediction instance is contributed per qualifying neighbor edge, so an edge can appear in multiple buckets. (e) Pooled, $z$-scored logistic-regression coefficients (correct $\sim \Hh_\outdeg(-1)+\Hh_\indeg(-1)+\Hh_\outdeg(1)+\Hh_\indeg(1)$) for SiGAT, showing which entropy term most predicts an incorrect prediction; error bars are cluster-robust standard errors, hatched bars are not significant after FDR correction ($q<0.05$).}
+\label{fig:empconf-panels}
+\end{figure}
+
+\subsection{Pewter is more accurate that SOTA}
+XXXX DESCRIBE REALLY SHORLY WHAT PEWTER DOES AND WHAT DID YOU TEST XXXX
+
+Pewter has a higher test AUC that all best baseline on all six datasets, under both attention variants (Table~\ref{tab:result1}). XXXXX give the mean and range of the improvement in AUC points in one sentence here; and please add statistical tests - also please make sure that this is all on cross-validations XXXXX
+
+\begin{table*}[t!]
+\centering
+\scriptsize
+\caption{Test AUC $\pm$ Hanley--McNeil SE on the held-out test split, for every baseline vs.\ Pewter under both attention variants. Bold marks the best result per dataset, italic the second best. Dashes mark runs that did not complete (Baselines).}
+\label{tab:result1}
+\begin{tabular}{lcccccc}
+\toprule
+Model & bitcoin-alpha & bitcoin-otc & epinions & wiki-elec & wiki-rfa & slashdot090221 \\
+\midrule
+CSG & $0.845_{\pm.012}$ & $0.831_{\pm.009}$ & $0.803_{\pm.002}$ & $0.775_{\pm.005}$ & $0.765_{\pm.004}$ & $0.675_{\pm.003}$ \\
+CSG-GSGNN & $0.814_{\pm.014}$ & $0.886_{\pm.007}$ & $0.897_{\pm.001}$ & $0.874_{\pm.003}$ & $0.876_{\pm.003}$ & $0.800_{\pm.002}$ \\
+GSGNN+SGA & $0.905_{\pm.008}$ & $0.885_{\pm.007}$ & -- & $0.877_{\pm.003}$ & -- & -- \\
+SNEA & $0.881_{\pm.010}$ & $\mathit{0.897_{\pm.006}}$ & $0.822_{\pm.002}$ & $0.864_{\pm.004}$ & $0.867_{\pm.003}$ & $0.794_{\pm.002}$ \\
+CopulaLSP & $0.882_{\pm.010}$ & $0.879_{\pm.007}$ & $0.860_{\pm.001}$ & $0.874_{\pm.003}$ & $0.857_{\pm.003}$ & $0.800_{\pm.002}$ \\
+GINEConv & $0.861_{\pm.011}$ & $0.885_{\pm.007}$ & $0.861_{\pm.001}$ & $0.875_{\pm.003}$ & $0.870_{\pm.003}$ & $0.786_{\pm.002}$ \\
+SiGAT & $0.882_{\pm.010}$ & $0.876_{\pm.007}$ & $\mathit{0.915_{\pm.001}}$ & $\mathit{0.893_{\pm.003}}$ & $\mathit{0.883_{\pm.003}}$ & $\mathit{0.859_{\pm.002}}$ \\
+\ph{TODO: add a line-graph GNN row} & -- & -- & -- & -- & -- & -- \\
+\ph{TODO: add a local-majority heuristic row} & -- & -- & -- & -- & -- & -- \\
+\midrule
+Pewter (full attention) & $\mathbf{0.922_{\pm.007}}$ & $\mathbf{0.936_{\pm.004}}$ & $0.953_{\pm.001}$ & $0.905_{\pm.003}$ & $0.894_{\pm.002}$ & $\mathbf{0.900_{\pm.001}}$ \\
+Pewter (local attention) & $\mathit{0.919_{\pm.007}}$ & $\mathbf{0.936_{\pm.004}}$ & $\mathbf{0.954_{\pm.001}}$ & $\mathbf{0.908_{\pm.003}}$ & $\mathbf{0.898_{\pm.002}}$ & $\mathit{0.898_{\pm.001}}$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+
+\subsection{The gain concentrates where the bound bites}
+
+Proposition~\ref{prop:bottleneck} predicts that vertex-centric models fail on high-entropy endpoints, so the sharpest test of the paper's argument is whether \method's advantage grows there. We stratify the test edges of each dataset by endpoint entropy and report AUC per stratum for Pewter and for the two strongest baselines.
+
+XXXX we need heatmaps of the difference between pewter and SOTA in the same beans as above.
+
+\subsection{Relation between attention and entropy}
+
+For every masked target-edge token we measure how attention mass at layer 0 splits between the source side ($u$, backward in the walk) and the target side ($v$, forward), and between vertex- and edge-token roles (Figure~\ref{fig:attndir}). This is a property of the trained attention weights, and a different question from the entropy asymmetry of Section~\ref{sec:empconf}(A): one describes what the data contains, the other where the model looks.
+
+The split is heterogeneous. Two datasets are forward-dominant (bitcoin-alpha $0.443$ forward vs.\ $0.411$ backward; slashdot090221 $0.417$ vs.\ $0.363$), and four are backward-dominant (bitcoin-otc $0.403$ vs.\ $0.445$; epinions $0.376$ vs.\ $0.452$; wiki-elec $0.311$ vs.\ $0.432$; wiki-rfa $0.189$ vs.\ $0.557$). We therefore do not claim that Pewter recovers a universal direction of information flow. What the measurement does show is that the model allocates attention asymmetrically at all, and that the asymmetry is dataset-specific rather than an artifact of the architecture, which is consistent with the heterogeneity found in the data itself. \ph{TODO: the honest version of this result is a correlation, and it is testable with what you already have: does the per-dataset forward-minus-backward attention mass track the per-dataset source-minus-target entropy gap from Section 5(A)? With six points this is only suggestive, but a reported Spearman $\rho$ turns a descriptive figure into a claim. If the correlation is absent, say so and keep the subsection as a descriptive observation. Checkpoint: E32\_PY314\_LOCALATTN4, all 6 datasets, updated 2026-08-04.}
+
+\begin{figure}[t!]
+\centering
+\includegraphics[width=\linewidth]{figures/attndir_panels_abc_combined.png}
+\caption{Attention directionality, \method, layer 0, six datasets. For each masked target-edge token $i$, attention mass is split by signed offset $d=j-i$ into forward ($d>0$, toward $v$'s side of the walk) and backward ($d<0$, toward $u$'s side), and by token role (vertex vs.\ edge); self-attention ($d=0$) is excluded. (a) Per-head breakdown (bitcoin-alpha, 4 heads) over the window $d\in[-4,4]$: heads alternate their peak mass between vertex and edge offsets. (b) Forward vs.\ backward mass by dataset, mean over heads. (c) vertex vs.\ edge mass by dataset, mean over heads. Pewter here uses local attention; this figure does not compare against the full-attention variant.}
+\label{fig:attndir}
+\end{figure}
+
+\subsection{Ablations}
+
+\paragraph{A) Proximal attention is sufficient.} Restricting attention to a $\pm2$-hop window matches or beats full attention on four of six datasets (bitcoin-otc $+0.02$pp, epinions $+0.07$pp, wiki-elec $+0.30$pp, wiki-rfa $+0.38$pp) and trails on the other two (bitcoin-alpha $-0.27$pp, slashdot090221 $-0.21$pp); both variants appear in Table~\ref{tab:result1}. The differences are within the reported standard errors, so the correct reading is that the local window costs nothing rather than that it helps. That is the useful claim, since the window reduces per-walk attention cost from $O(L^2d)$ to $O(Lwd)$ and is what makes long sampled walks affordable. A direct check finds that target edges have a labeled neighbor edge inside their attention window 82--91\% of the time (bitcoin-alpha, epinions), so the window captures real local context rather than an empty span. \ph{TODO: re-verify these percentages, and give them for all six datasets rather than two.}
+
+\paragraph{B) The aggregator weighting is nearly irrelevant.} We compare the confidence weighting against 11 alternatives depending only on $q$, including the uniform mean, log-probability, certainty, Bernoulli-entropy and Fisher-information/inverse-variance forms (Table~\ref{tab:ablationB}, Appendix~\ref{app:extra}). Across all 11 functions on all 6 datasets the full spread is under $0.0022$ AUC, and the Fisher-information form is best on epinions and slashdot090221 rather than our default. We report this as a null result: the gain of Pewter comes from the per-walk edge-centric representation, not from how the walks are pooled, and the aggregator should be treated as a design detail rather than as a contribution.
+
+\ph{TODO -- one further ablation is worth the space more than either of the above, because it answers ``is this just an ensemble?''. Report AUC as a function of $K$, the number of walks aggregated per edge, from $K=1$ upward. If a single walk already beats the best GNN, the edge-centric representation is doing the work and the paper's story is confirmed. If the gain only appears at large $K$, the honest conclusion is that much of the improvement is ensembling, and the baselines should be ensembled too before the comparison is fair. Either answer is publishable; not answering is the risk.}
+
+\subsection{Complexity}
+Let $K$ be the number of corpus walks containing a given edge, an occurrence count that follows from the budget $M$ and length $L$ rather than a per-edge sampling parameter, and let $L$ be the maximum walk length in hops, so each walk is a token sequence of length at most $2L+1$. Sampling one walk costs $O(L)$; the per-walk transformer costs $O(L^2 d)$ under full attention and $O(Lwd)$ under the local window. Classifying one already-specified target edge therefore costs $O(K L^2 d)$, independent of $|V|$ and $|E|$ once $K$ and $L$ are fixed, unlike a $T$-layer message-passing GNN whose per-vertex receptive field, and hence per-edge inference cost, grows with local degree and $T$. The per-edge claim does not extend to the cost of covering a whole graph: the coverage guarantee requires a total budget $M=\kappa|E|$ for a small dataset-chosen constant $\kappa\in[1,5]$ (Setup below), so total sampling cost is $O(|E|)$ up to $\kappa$. Since $K$ is in the hundreds to thousands, the constant in front of the per-edge cost is much larger than a GNN's, and we report measured wall-clock cost alongside AUC rather than resting on the asymptotic statement \ph{TODO: add the wall-clock/throughput column or a small timing table. For a web-scale venue this is the single most likely reviewer objection to the method's practicality, and it is cheap to measure.} \ph{TODO: why $\kappa$ varies 1--5$\times$ by dataset (density? degree skew?) is not characterized, and no log-log wall-clock scaling curve across graph sizes has been measured; both are stated as future work in Section~\ref{sec:limits}.}
+
+\section{Discussion and Limitations}
+\label{sec:limits}
+The bounds we prove concern what is conditioned on, so they apply to any vertex-centric read-out rather than to a particular architecture, and they are not removed by rewiring, depth, or width. Pewter sidesteps them by conditioning on labeled edges near the target, at the cost of sampling a walk corpus and running a transformer for every walk that contains a queried edge.
+
+Several limitations bound what we can claim. The method assumes labeled edges near the target: on an edge whose neighborhood is entirely unlabeled, Pewter has nothing to condition on and degrades to the prior, whereas a vertex-centric model can still use a memorized endpoint embedding. Per-edge inference aggregates hundreds to thousands of walk evaluations, so the constant factor is high even though the asymptotic cost is independent of graph size. All results come from a single fixed split seed \ph{TODO: remove this sentence if the multi-seed runs land}. The two Wikipedia vote graphs behave differently from the four trust graphs on the directionality analysis, and we do not have a mechanism for that beyond the observation that a public vote and a private bilateral rating are different acts; six datasets from two genres is too few to settle it. Finally, our bound is stated for the structural component of a model, and a fully transductive model with free per-vertex embeddings is outside its scope, as discussed after Assumption~\ref{as:structural}.
+
+\section{Conclusion}
+Reading an edge label off two endpoint embeddings discards information in a way that is predictable from the label entropy that survives WL coarsening, and no depth or width recovers it. Pewter conditions instead on the labeled edges around the target, read directly from short walks, and pools across the walks that contain each edge. It improves AUC over six baselines on six public signed networks, with the largest gains in the high-entropy regime the bound identifies \ph{TODO: update with the final numbers}. Two of our findings are negative and we think worth stating plainly: the direction of edge-label information is not consistent across dataset genres, and how the per-walk predictions are pooled barely matters.
+
+\section*{Ethical Considerations}
+This work predicts trust and distrust signs on publicly available social and marketplace networks. We see four issues worth stating.
+
+\emph{Data provenance and privacy.} All six datasets are public research benchmarks released by their original authors and widely used in prior work on signed networks; we collected no new data and interacted with no human subjects. vertices are pseudonymous identifiers, and we made no attempt to re-identify individuals, to link records across datasets, or to recover attributes beyond the graph structure and edge signs already present in the released files. The Wikipedia vote graphs derive from public deliberations whose participants had a reasonable expectation of visibility; the marketplace and review-site graphs derive from platform features whose users may not have anticipated research reuse, which is a limitation inherited from the benchmarks rather than introduced here.
+
+\emph{Negative societal impact.} A model that predicts distrust edges predicts an accusatory statement about a named account. Deployed carelessly, such predictions could support automated reputation penalties, shadow-banning, or exclusion from a marketplace on the basis of an inferred rather than an actual judgement, and could be used to impute hostility between users who never expressed it. Predicted signs could also be used adversarially, for example to target users a model marks as likely to be distrusted, or to probe which of a user's ratings are inferable and therefore which are safe to withhold.
+
+\emph{Distribution of errors.} All six datasets are heavily imbalanced toward positive edges (77--94\%), so a model tuned for aggregate AUC will make its errors disproportionately on the negative class, which is precisely the class with consequences for the person on the receiving end. Proposition~\ref{prop:bottleneck} implies a related fairness concern: error is forced upward exactly where endpoint label entropy is high, and contested or newly active accounts are over-represented there. Aggregate accuracy therefore understates the error rate faced by the users most likely to be affected by a decision.
+
+\emph{Mitigations.} We recommend that predicted signs be used only as ranking or triage signals with a human decision-maker in the loop, never as an automatic basis for sanctioning an account; that any deployment report calibration and error rates separately for the negative class and for high-entropy endpoints rather than a single aggregate; and that predicted signs be labelled as inferred wherever they are surfaced, and not stored or displayed as if they were user-provided ratings. The models and datasets used here carry no dual-use capability beyond what the released benchmarks already permit, and we release code and configurations to make these error characteristics auditable rather than only the headline metric.
+
+\begin{acks}
+Anonymized funding acknowledgement and grants information.
+\end{acks}
+
+%% References Section
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{pewter_references}
+
+\appendix
+\section{Full Proofs}
+\label{app:proofs}
+We work with a distribution $\mathcal{D}$ over labeled edges: draw an edge $(U,V)$ and read its label $Y$. All bounds are on the population (Bayes) error of the stated hypothesis class, which lower-bounds the test error of any member of that class.
+
+\paragraph{Lemma (monotonicity and convexity of $\Hh_b^{-1}$).}
+\emph{Monotonicity.} $\Hh_b$ restricted to $[0,\tfrac12]$ is a strictly increasing bijection onto $[0,1]$; write $f=\Hh_b|_{[0,\tfrac12]}$. Its inverse $f^{-1}=\Hh_b^{-1}$ is then strictly increasing: if $f^{-1}(x_1)\ge f^{-1}(x_2)$ for some $x_1<x_2$, applying the strictly increasing $f$ to both sides gives $x_1=f(f^{-1}(x_1))\ge f(f^{-1}(x_2))=x_2$, contradicting $x_1<x_2$. This licenses every ``larger entropy implies larger forced error'' reading in the main text and is used again below for the strict positivity in Proposition~\ref{prop:bottleneck} and the substitution in Proposition~\ref{prop:capacity}.
+
+\emph{Convexity.} $f$ is strictly concave. The inverse of a strictly increasing, strictly concave function is strictly convex: for $x,y\in[0,\tfrac12]$ and $\alpha,\beta>0$ with $\alpha+\beta=1$, strict concavity gives $f(\alpha x+\beta y) > \alpha f(x)+\beta f(y)$. Since $f^{-1}$ is strictly increasing, applying it to both sides preserves the inequality; writing $X=f(x)$, $Y=f(y)$,
+\[
+\alpha f^{-1}(X)+\beta f^{-1}(Y) \ =\ \alpha x+\beta y \ >\ f^{-1}(\alpha X+\beta Y),
+\]
+which is strict convexity of $\Hh_b^{-1}$ on $[0,1]$. Neither argument needs differentiability. Convexity licenses the Jensen step below.
+
+\paragraph{Pinsker-type relaxation.} $\Hh_b^{-1}$ has no elementary closed form. The bound $\Hh_b(p)\le 1-\tfrac{2}{\ln 2}(\tfrac12-p)^2$ gives the explicit, slightly looser alternative
+\[
+P_e\ \ge\ \tfrac12-\sqrt{\tfrac{\ln 2}{2}\big(1-\Hh(Y\mid Z)\big)},
+\]
+which may be substituted for \eqref{eq:invfano} wherever an explicit formula is preferred.
+
+\paragraph{Proposition~\ref{prop:bottleneck}.}
+\emph{Setup.} A message-passing GNN with any finite number $T$ of rounds assigns to each vertex a color $\chi_T(\cdot)$ that refines to at most the stable WL coloring, and the vertex representation is a fixed function of that color, $h_u=\psi(\chi_T(u))$~\cite{xu2019gin,morris2019wl}. Hence any edge read-out satisfies $\hat y_{uv}=g(\psi(\chi_T(u)),\psi(\chi_T(v)))=\tilde g(\chi_T(u),\chi_T(v))$, so $\hat Y$ is measurable with respect to the $\sigma$-algebra $\mathcal{F}$ generated by the color pair $(\chi_T(U),\chi_T(V))$.
+
+\emph{Bound.} Among all $\mathcal{F}$-measurable predictors the error is minimized by the maximum-a-posteriori rule $\tilde g^\star(a,b)=\arg\max_y \Pr(Y=y\mid \chi_T(U)=a,\chi_T(V)=b)$. Conditional on a fixed color pair $(a,b)$ this is the binary problem of the Problem Setting, so $P_e(a,b)\ge \Hh_b^{-1}\big(\Hh(Y\mid \chi_T(U)=a,\chi_T(V)=b)\big)$. The overall error is $P_e=\mathbb{E}_{(a,b)}[P_e(a,b)]$; applying Jensen's inequality to the convex $\Hh_b^{-1}$ gives
+\begin{multline*}
+P_e \ \ge\ \mathbb{E}_{(a,b)}\Big[\Hh_b^{-1}\big(\Hh(Y\mid a,b)\big)\Big] \ \ge\ \Hh_b^{-1}\Big(\mathbb{E}_{(a,b)}\big[\Hh(Y\mid a,b)\big]\Big) \\
+\ =\ \Hh_b^{-1}\big(\Hh(Y\mid \chi_T(U),\chi_T(V))\big),
+\end{multline*}
+the last step being the chain rule for conditional entropy. Since any GNN lies in this class, its error is at least this bound. Because $\chi_T$ refines toward the stable coloring $\chi$, $\Hh(Y\mid \chi_T(U),\chi_T(V))\ge \Hh(Y\mid \chi(U),\chi(V))$, and $\Hh_b^{-1}$ is increasing, so the bound at the stable coloring lower-bounds the bound at any finite $T$. Assumption~\ref{as:structural} makes $\Hh(Y\mid \chi(U),\chi(V))$ strictly positive, hence $P_e>0$. Neither depth nor width lowers it, since both only refine within the WL ceiling.
+
+\emph{Identity versus color.} In a simple graph the identity pair $(U,V)$ fixes the unique incident edge, so $\Hh(Y\mid U,V)=0$; the whole bound is the information gap $\Hh(Y\mid \chi(U),\chi(V))-\Hh(Y\mid U,V)$ destroyed by replacing identities with colors. This is why the multiplicity of edges per pair is irrelevant to the argument.
+
+\emph{Corollary~\ref{cor:endpoint}.} Fix a source $u$ and a target color $b$. All edges from $u$ to color-$b$ targets share the color pair $(\chi(u),b)$ and receive one prediction, so by \eqref{eq:invfano} applied to this single color pair, with no averaging and hence no Jensen step, their error is at least $\Hh_b^{-1}\big(\Hh(Y\mid \text{source}{=}u,\text{target color}{=}b)\big)$. If $u$'s out-edges carry mixed labels not separated by target color, this entropy is close to $\Hh_\outdeg(u)$, recovering the single-endpoint reading. $\square$
+
+\paragraph{Proposition~\ref{prop:capacity}.}
+Let each embedding take at most $N$ distinguishable values under the read-out. A variable supported on $\le N$ values has entropy $\le \log N$, so $\MI(Y;h_U,h_V)\le \Hh(h_U,h_V)\le \Hh(h_U)+\Hh(h_V)\le 2\log N$. Substituting into $\Hh(Y\mid h_U,h_V)=\Hh(Y)-\MI(Y;h_U,h_V)$ gives $\Hh(Y\mid h_U,h_V)\ge \Hh(Y)-2\log N$. Applying \eqref{eq:invfano} and using that $\Hh_b^{-1}$ is increasing, $P_e\ge \Hh_b^{-1}\big(\Hh(Y)-2\log N\big)$; with the convention $\Hh_b^{-1}(x):=0$ for $x\le0$ this is unconditionally true, but informative only when $\Hh(Y)>2\log N$. For the per-vertex statement, $h_U$ alone satisfies $\MI(\{Y_e\}_{e\ni U}; h_U)\le \Hh(h_U)\le \log N$, while $D$ near-independent out-edge labels of entropy $\Hh_\outdeg(U)$ each carry $D\,\Hh_\outdeg(U)$ bits; once this exceeds $\log N$ the excess cannot pass through the shared embedding. $\square$
+
+\paragraph{General $c$.} For $c>2$ the exact binary specialization does not apply directly. Weakening \eqref{eq:fano} using $\Hh_b(P_e)\le 1$ and $\log(c-1)\le\log c$ gives the linear corollary
+\[
+P_e\ \ge\ \frac{\Hh(Y\mid Z)-1}{\log c},
+\]
+valid and non-vacuous for $c>2$, unlike at $c=2$. Proposition~\ref{prop:bottleneck}, Corollary~\ref{cor:endpoint} and Proposition~\ref{prop:capacity} all hold in this form by the same arguments, replacing every $\Hh_b^{-1}(\cdot)$ with $(\cdot-1)/\log c$; the averaging step in Proposition~\ref{prop:bottleneck} needs no Jensen argument here, since an affine function is both convex and concave.
+
+\label{app:extra}
+
+\begin{table}[h!]
+\centering
+\scriptsize
+\caption{Ablation B: test AUC for Pewter (local attention) under 11 aggregator weight functions $w(q)$, each depending only on the walk's predicted probability $q$. Bold marks the best per dataset, italic the second best. The full spread across all functions and datasets is under $0.0022$ AUC.}
+\label{tab:ablationB}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lcccccc}
+\toprule
+Weight $w(q)$ & bitcoin-alpha & bitcoin-otc & epinions & wiki-elec & wiki-rfa & slashdot090221 \\
+\midrule
+Uniform (mean) & $0.9185$ & $\mathbf{0.9360}$ & $0.9527$ & $\mathit{0.9075}$ & $\mathit{0.8975}$ & $0.8980$ \\
+$q^b$ & $0.9199$ & $\mathit{0.9359}$ & $0.9530$ & $\mathit{0.9075}$ & $\mathbf{0.8976}$ & $0.8980$ \\
+$\exp(bq)$ & $\mathbf{0.9206}$ & $\mathit{0.9359}$ & $0.9527$ & $\mathbf{0.9076}$ & $\mathit{0.8975}$ & $0.8980$ \\
+$|q-0.5|^b$ & $0.9189$ & $\mathit{0.9359}$ & $0.9532$ & $\mathit{0.9075}$ & $\mathbf{0.8976}$ & $0.8981$ \\
+$\mathrm{sig}(b(q-0.5))$ & $0.9191$ & $\mathbf{0.9360}$ & $0.9527$ & $\mathit{0.9075}$ & $\mathit{0.8975}$ & $0.8980$ \\
+$(-\log q)^b$ & $\mathit{0.9200}$ & $0.9357$ & $0.9530$ & $\mathit{0.9075}$ & $\mathbf{0.8976}$ & $0.8981$ \\
+$|\mathrm{logit}(q)|^b$ (default) & $0.9188$ & $0.9358$ & $\mathit{0.9535}$ & $\mathit{0.9075}$ & $\mathbf{0.8976}$ & $0.8981$ \\
+$(\ln2-H(q))^b$ & $0.9189$ & $\mathit{0.9359}$ & $0.9532$ & $\mathit{0.9075}$ & $\mathbf{0.8976}$ & $0.8981$ \\
+$\exp(-aH(q))$ & $0.9186$ & $0.9358$ & $\mathit{0.9535}$ & $0.9074$ & $\mathbf{0.8976}$ & $\mathit{0.8982}$ \\
+$(q(1-q))^{-b}$ (Fisher-info) & $0.9193$ & $0.9357$ & $\mathbf{0.9537}$ & $\mathit{0.9075}$ & $\mathbf{0.8976}$ & $\mathbf{0.8983}$ \\
+$\max(q,1-q)^b$ & $0.9188$ & $\mathbf{0.9360}$ & $0.9533$ & $\mathit{0.9075}$ & $\mathbf{0.8976}$ & $0.8981$ \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\end{document}

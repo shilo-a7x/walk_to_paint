@@ -6,6 +6,23 @@ action needed), BLOCKED-CITATIONS (needs your bibkeys, nothing else to do), NEED
 is drafted, the actual plot/table graphic doesn't exist yet), NEEDS-DATA (the analysis itself
 hasn't been run), OPEN-QUESTION (needs a decision/discussion before it can be written at all).
 
+**2026-08-06 update — paper moved to WSDM format.** Active source is now
+`aaai2027/WSDM_format_revised.tex` (the AAAI source `pewter_aaai.tex` is kept for reference/history
+only — every row below that cites a location in "the tex" now means the WSDM file unless noted).
+Two changes to how this checklist tracks citations going forward:
+- **Citation placeholders are gone from the WSDM draft and should not be reintroduced.** Any
+  `\citep{PLACEHOLDER: ...}` you see below is a description of what the *old AAAI file* had at
+  that spot, kept only so a future pass knows which works were the candidates — it is not
+  something to paste back into the WSDM tex. New/rewritten prose in the WSDM file should read as
+  clean text with no citation markup at all; you're adding the real `\cite`s yourself.
+  BLOCKED-CITATIONS rows below are therefore mostly informational now (what to eventually cite),
+  not action items for me.
+- **Multi-seed statistics campaign started 2026-08-06** (see row #17): replaces the single-split
+  Hanley–McNeil SE with real mean±std AUC across 10 splits (seed 42 + 9 new seeds 43–51), for
+  \method\ (both attention variants, all 6 datasets) and, lowest priority, GINEConv. Driver:
+  `scripts/run_multiseed_pewter.py`, logs in `logs/multiseed/`. In progress as of this update —
+  see row #17 for current status.
+
 **2026-07-21 update:** in-text `\ref`s for tables/figures now enforced as a house style rule
 (see the file's top-of-file style-note block); bibliography position fixed (was before
 `\appendix`, now correctly after it, per `AuthorKit27/AnonymousSubmission2027.tex`'s required
@@ -26,6 +43,7 @@ another silent rewrite.
 | 3 | Abstract — "gain is largest where entropy is high" | simplified to one direction-agnostic line | DONE (2026-07-20) | `LEAD4C_DIRECTIONALITY_ANSWERS.md` |
 | 4 | Abstract — "attention recovers direction of information flow" | left as an explicit open placeholder | STILL a stub as of 2026-08-04 — #22 now has real findings to draw on, but the abstract sentence itself was not rewritten (flagged, not silently rewritten, per the standing rule) | — |
 | 5 | Introduction — "put refs all along" | citations throughout | BLOCKED-CITATIONS | see #35 for the full inventory |
+| 5b | Introduction — no-external-features framing (WSDM tex, right before the "classical recipe" paragraph) | placeholder asked for a few sentences on why \method\ doesn't use external vertex/edge features (text, timestamps, account metadata) when some prior work does | **DONE (2026-08-06)** | states we restrict every model in the comparison (ours and baselines) to topology + observed signs only, for two reasons: side features aren't comparably available across the six datasets, and the paper's question is specifically how much label information graph structure alone carries — no citations added (WSDM draft convention, see top-of-file note) |
 | 6 | Contributions bullet 2 — forward-ref | `\ref` to Empirical Confirmation figure | NEEDS-FIGURE | blocked on #12 existing with a `\label` |
 | 7 | Contributions — "anything interesting on the averaging" | confirm the drafted answer is what was meant | DRAFTED, needs your confirm | — |
 | 8 | Related Work — 4 `\citep{}` blocks (balance theory, status theory, SGCN/SiGAT/SNEA/SDGNN, DeepWalk/node2vec, Graphormer/GPS) | real bibkeys — **you're sourcing these yourself now**; see chat for a concrete search-term guide per paragraph, kept independent of the Baselines list (#15) on purpose | BLOCKED-CITATIONS | see #35; **all 4 paragraphs rewritten 2026-07-21** to remove every comparison-to-\method / forward-reference sentence — now pure prior-work description, organized around information flow per the professor's original note (see chat for what that means) |
@@ -48,7 +66,7 @@ another silent rewrite.
 | 14 | Complexity — why $\kappa$ varies 1–5$\times$ by dataset | characterize the scaling law | NEEDS-DATA, genuine future work, not blocking | — |
 | 15 | Baselines — final list + citations | list settled (2026-07-21): GINEConv + SiGAT, SNEA, CSG/CSG-GSGNN, GSGNN+SGA, CopulaLSP. **SE-SGformer fully dropped, not even mentioned** (corrected 2026-07-21 — an earlier pass mentioned-and-excluded it with a caveat, which was wrong; you said ignore it, so it's just not there) | DONE (list), BLOCKED-CITATIONS (bibkeys) | see #34; Related Work paragraph rewritten (see #8) |
 | 16 | Setup — bitcoin-alpha/otc plateau caveat | honest caveat already written | DONE | `CLAUDE.md` Walk sampler table |
-| 17 | Statistical evaluation — AUC + standard error | method chosen (Hanley–McNeil/DeLong SE, single split, no multi-seed/CV per advisor) | DONE (2026-07-26) — SE now computed and used everywhere an AUC is reported (Result 1 table, Ablations A/C) | `scripts/paper_figures/hanley_mcneil.py` (closed form) + `aaai2027/figure_data/test_set_counts.csv` (real per-dataset test n_pos/n_neg, verified 2026-07-26 directly against the walk model's own `dataset_cache.pt` splits, not just the baseline-side file) |
+| 17 | Statistical evaluation — AUC + standard error | **SUPERSEDED 2026-08-06**: single-split Hanley–McNeil SE being replaced with real mean±std across 10 splits | **IN PROGRESS** — bitcoin-alpha done (both attention variants, all 11 aggregator functions); wiki-elec running; bitcoin-otc/wiki-rfa/epinions/slashdot090221 queued; GINEConv (lowest priority) queued last | Driver `scripts/run_multiseed_pewter.py`, 10 seeds (42 reused + 43–51 new) per (dataset, attention variant), all 11 `run_posthoc.py` aggregator functions computed per seed so Ablation B doesn't need a second pass. GINEConv needed its own fix: its `--seed` flag only touches model init, not the data split, and its canonical split (`baselines/splits_canonical/`) only existed for seed 42 — `baselines/prepare_splits.py::save_canonical_split_for_seed()` now builds a genuine per-seed canonical split from that seed's own walk cache before each GINEConv run. Old single-split numbers (this row's previous "DONE 2026-07-26" state, `scripts/paper_figures/hanley_mcneil.py` + `test_set_counts.csv`) still stand until this campaign finishes and Table 1 / Ablation A / Ablation B are rebuilt off it. |
 | 18 | Algorithm boxes | one box only: Algorithm~1 (`alg:pewter`, inference for edge $(u,v)$, scope stated up front) | DONE (2026-07-22) | a second box for corpus construction was drafted 2026-07-21 then removed 2026-07-22 (user call) -- the two-phase sampling loop is generic enough that the Walk sampler paragraph's prose already says everything the pseudocode did; `alg:pewter`'s Input line updated to point at that paragraph instead of the removed box |
 | 19 | Walk sampler paragraph | rewritten to describe the real two-phase mechanism (anchor pass guaranteeing coverage + dedup-filtered fill pass), re-verified against `src/data/coverage_aware_sampler.py::edge_cover_walks` | DONE (2026-07-21) | root cause of prior badness: earlier drafts described the corpus as if uniformly sampled throughout, which is only true of the fill phase — the anchor phase is what actually provides the coverage guarantee, and that distinction was missing from the prose every prior pass |
 
