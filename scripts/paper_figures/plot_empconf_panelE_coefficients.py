@@ -56,9 +56,10 @@ def main():
 
     ax.axhline(0, color="black", linewidth=0.9, zorder=2)
     ax.set_xticks(x)
-    ax.set_xticklabels(TERM_ORDER)
-    ax.set_ylabel("coefficient (z-scored, raw $\\beta$)\n negative = higher entropy $\\to$ lower P(correct)")
-    ax.set_title("Which entropy term hurts SiGAT\n(pooled, node4 spec; hatched = not significant, FDR-$q$<0.05)")
+    ax.set_xticklabels(TERM_ORDER, fontsize=10)
+    ax.tick_params(axis="y", labelsize=9)
+    ax.set_ylabel("coefficient (z-scored, raw $\\beta$)\nneg. = higher entropy $\\to$ lower P(correct)", fontsize=9.5)
+    ax.set_title("Which entropy term hurts SiGAT", fontsize=11)
     if len(MODELS) > 1:
         ax.legend()
     fig.tight_layout()

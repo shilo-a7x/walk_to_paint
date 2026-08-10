@@ -34,20 +34,20 @@ def main():
     x = np.arange(len(DATASET_ORDER))
     width = 0.35
     fig, ax = plt.subplots(figsize=(7.2, 4.2))
-    bars_n = ax.bar(x - width / 2, node, width, color=NODE_COLOR, label="node", zorder=3)
+    bars_n = ax.bar(x - width / 2, node, width, color=NODE_COLOR, label="vertex", zorder=3)
     bars_e = ax.bar(x + width / 2, edge, width, color=EDGE_COLOR, label="edge", zorder=3)
 
     for bar in list(bars_n) + list(bars_e):
         ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.008,
-                 f"{bar.get_height():.3f}", ha="center", va="bottom", fontsize=7.5)
+                 f"{bar.get_height():.3f}", ha="center", va="bottom", fontsize=9)
 
     ax.set_ylim(0, max(node + edge) * 1.2)
     ax.set_xticks(x)
-    ax.set_xticklabels([DISPLAY_LABEL.get(d, d) for d in DATASET_ORDER], fontsize=9)
-    ax.set_ylabel("attention mass", fontsize=9)
-    ax.set_title(f"PEWTER, layer {layer}: node- vs. edge-token attention mass by dataset\n"
-                 "(mean over heads; self-attention excluded by construction)", fontsize=10)
-    ax.legend(loc="upper right", fontsize=8)
+    ax.set_xticklabels([DISPLAY_LABEL.get(d, d) for d in DATASET_ORDER], fontsize=10)
+    ax.tick_params(axis="y", labelsize=9)
+    ax.set_ylabel("attention mass", fontsize=10)
+    ax.set_title("Vertex- vs. edge-token attention mass", fontsize=11)
+    ax.legend(loc="upper right", fontsize=9)
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)

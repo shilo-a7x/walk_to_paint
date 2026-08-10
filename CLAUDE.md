@@ -269,6 +269,178 @@ Token layout: N_u0, E_s1, N_u1, E_s2, ... (alternating node/edge).
 
 ## Current SOTA (func_logit_power, test AUC)
 
+**Superseded 2026-08-10: the table below is single-split (E25/E26/E31/E32), kept for
+history — the WSDM paper's Table 1 (`aaai2027/WSDM_format_revised.tex`) no longer uses
+it.** A 10-seed multi-seed campaign (seed 42 reused + 43–51 new, driver
+`scripts/run_multiseed_pewter.py`) now provides real mean±std AUC for both PEWTER
+attention variants and GINEConv on all 6 datasets, replacing the single-split
+Hanley–McNeil numbers in the paper table. New canonical PEWTER numbers (mean±std
+across 10 splits, `func_logit_power`):
+
+| dataset | full attention | local attention | GINEConv (10-split) |
+|---|---|---|---|
+| bitcoin-alpha | 0.9146 ± 0.0102 | 0.9134 ± 0.0173 | 0.8497 ± 0.0189 |
+| bitcoin-otc | 0.9315 ± 0.0073 | 0.9317 ± 0.0065 | 0.8877 ± 0.0089 |
+| epinions | 0.9523 ± 0.0012 | 0.9536 ± 0.0015 | 0.8612 ± 0.0043 |
+| wiki-elec | 0.9008 ± 0.0030 | 0.9023 ± 0.0031 | 0.8730 ± 0.0073 |
+| wiki-rfa | 0.8923 ± 0.0025 | 0.8914 ± 0.0046 | 0.8606 ± 0.0055 |
+| slashdot090221 | 0.8989 ± 0.0015 | 0.8968 ± 0.0016 | 0.7864 ± 0.0082 |
+
+All 11 aggregator functions were computed per seed (not just `func_logit_power`), so
+Ablation B can be rebuilt to the same 10-split standard without a second training
+pass — not yet done. Real split-to-split std (0.001–0.017 depending on
+dataset/variant) is consistently wider than the old analytic Hanley–McNeil SE
+(~0.001–0.007), confirming the old SE was understating true uncertainty (expected —
+it only captures within-split sampling noise, not split-to-split variance). Bitcoin-alpha
+local attention shows one low outlier (seed 50, AUC 0.8718 across every aggregator
+function) not yet root-caused — check `logs/multiseed/bitcoin-alpha_local_s50.train.log`
+before citing this as a stable number.
+
+**WSDM Table 1 baseline rows, same 2026-08-10 update:** added GCN, GAT, SGCN, GSGNN, SGA,
+and **SiGAT** using numbers the user supplied from external publications (not reproduced
+locally for GCN/GAT — no local run exists at all; SGCN/GSGNN are distinct from this
+repo's curriculum-augmented CSG/CSG-GSGNN reproductions, not treated as equivalent per
+explicit user call, "for now we dont include the curriculum"). **SiGAT correction
+(2026-08-10, same day):** Table 1's SiGAT row initially showed our own single-split
+canonical reproduction (0.882/0.876/0.915/0.893/0.883/0.859) instead of the published
+numbers the user had already supplied in the same message as GCN/GAT/SGCN/GSGNN/SGA —
+caught by the user ("why do you need SiGAT? i already gave the nums from published"),
+fixed by switching the row to the published values (0.855/0.883/0.891/0.880/0.871/0.846,
+±SE as given). **Our own local SiGAT reproduction is still used elsewhere and stays on
+disk** — it's the per-edge-prediction source for the entropy-vs-AUC analyses (Empirical
+Confirmation panels, Attention Directionality) in the WSDM paper, which need real
+per-edge predictions a published aggregate AUC can't provide; it's just no longer what
+Table 1 itself reports for SiGAT, matching the other published-only rows. CSG and
+CSG-GSGNN **removed from the table** (not deleted from the repo — `baselines/CSG/
+results_our_splits_canonical/` still has the single-split numbers) pending their own
+10-split rerun, for consistency with the same standard now applied to PEWTER/GINEConv.
+SNEA/CopulaLSP remain single-split for now; a 10-split campaign for both was launched the
+same day (`scripts/run_multiseed_snea_copulalsp.py`, reuses `baselines/prepare_splits.py`'s
+new `save_canonical_split_for_seed()` — same per-seed canonical-split fix built for
+GINEConv's multiseed run). Both SNEA and CopulaLSP are undirected/pair-level models in
+this codebase's implementation (`run_with_our_splits.py` builds `uni_edge_index` for
+both), confirmed **not** a leakage/apples-to-apples problem: `prepare_splits.py`'s
+`uni_tst_mask` only marks a canonical pair "clean test" if every real direction of it is
+in the walk model's own test split, asserted in `_assert_canonical`.
+
+**Sanity check against published numbers (2026-08-10):** the one clean same-model match
+available, raw SiGAT (our canonical reproduction vs. the user's supplied published
+SiGAT), came back within 0.7–3.7pp on all 6 datasets — no red flags. No such comparison
+was attempted for SGCN/GSGNN vs. CSG/CSG-GSGNN (different models, curriculum added) or
+for GCN/GAT (no local run exists).
+
+**SiGAT 10-split campaign (launched 2026-08-10, DONE same day, 54/54 jobs, 0 failed).**
+Motivation: the entropy-vs-AUC binned heatmaps (`scripts/paper_figures/
+extract_empconf_panelC_gnn_entropy_heatmap.py`, `extract_attndir_panelD_pewter_entropy_
+heatmap.py`) need real 10-split SiGAT predictions, not just a 10-split aggregate AUC, so
+the SiGAT reproduction had to be re-run regardless of what Table 1 showed. Driver:
+`scripts/run_multiseed_sigat.py` (54 new jobs: 6 datasets × 9 new seeds, seed 42 reuses
+the existing canonical reproduction), same `save_canonical_split_for_seed()` infra as
+SNEA/CopulaLSP, `baselines/SGA/run_with_our_splits.py` (env `sga_env`). **Table 1's SiGAT
+row now shows our own 10-split mean±std** (same standard as PEWTER/GINEConv), replacing
+the published number used earlier the same day: bitcoin-alpha 0.869±.016, bitcoin-otc
+0.878±.008, epinions 0.909±.005, wiki-elec 0.888±.005, wiki-rfa 0.878±.004, slashdot090221
+0.859±.005 (`baselines/SGA/results_our_splits_canonical/<ds>/SiGAT/seed{42,43..51}/
+score.csv`, `tst_auc` column). Notably higher than the published numbers on 5/6 datasets
+(epinions +1.8pp) — not flagged as a red flag, just a real split/hyperparameter difference
+between our canonical-split reproduction and the original paper's own split.
+
+**Entropy-heatmap multi-split methodology — decided 2026-08-10: Option 2 (mean±std of
+per-split cell AUCs), not pooled test-edge predictions.** Two ways to combine the 10
+SiGAT/PEWTER splits into one binned heatmap were discussed: (1) pool all 10 splits' test
+predictions per cell then compute one AUC (uses ~10x the edges per cell, the only option
+that can de-noise the naturally-thin high-entropy "hard node" corner cells, but mixes
+predictions from 10 different trained model instances); (2) compute each split's cell AUC
+independently on its own ~10% slice, then average — matches the mean±std convention
+already used everywhere else in this paper (Table 1, GINEConv), but doesn't fix small-N
+noise in rare cells (a cell below `MIN_CELL_N` in one split stays below it in every
+split). **User picked (2) explicitly, "much simpler and reliable."** Confirmed: the fixed
+4×4 entropy bins (`empconf_panelC`) are already bin-edges-on-entropy-value, not
+percentile-based, and the per-node entropy values themselves (`src_ent`/`tgt_ent` in
+`lead4_entropy_heterogeneity.py`) are computed once from the fixed real dense edge set,
+independent of split — so averaging the per-cell AUC across the 10 splits is a
+straightforward loop-and-average over the existing binning code, no re-derivation of bin
+edges needed. **Both heatmaps built same day.** Extract:
+`scripts/paper_figures/extract_multiseed_entropy_heatmaps.py` — pulls fresh per-seed
+predictions for both models (SiGAT: `sigat_raw_seed()`, fits a fresh LogisticRegression
+per seed on that seed's own `best_epoch_artifacts.pkl` + `splits_canonical[_seed{N}]`;
+PEWTER local: `walk_raw_seed()`, mean-prob aggregation over each edge's walk occurrences
+from `MULTISEED_s{seed}_local_*`'s `test_predictions.pkl`, mapped to raw (u,v) via that
+seed's own keyed cache). **Bug caught and fixed before the numbers were trusted:** seed
+42 predates the `MULTISEED_*` naming (it's the pre-existing, already-adopted
+`E32_PY314_LOCALATTN4` checkpoint per `run_multiseed_pewter.py`'s own docstring, "seed 42
+already trained, reused/backfilled") — the first pass silently found 0 matches for it and
+every dataset's PEWTER average was only over 9/10 splits; fixed by special-casing seed 42
+to pull from `scripts/attention_directionality.py`'s `LOCAL_RUN_INFO` pins instead of
+globbing for a directory that doesn't exist. Output CSVs:
+`aaai2027/figure_data/empconf_panelC_sigat_10split.csv`,
+`aaai2027/figure_data/pewter_sigat_delta_heatmap.csv`. Plot:
+`scripts/paper_figures/plot_multiseed_entropy_heatmaps.py` →
+`aaai2027/figures/empconf_panelC_sigat_10split.png`,
+`aaai2027/figures/pewter_sigat_delta_heatmap.png` (diverging `RdBu`, **blue = PEWTER
+higher, red = SiGAT higher** — per the user's explicit color choice; the first render used
+`RdBu_r` which put PEWTER-higher on red, caught and flipped). Also restyled to match the
+original single-split Panel C exactly: `RdYlGn`/grey-`n/a` for the SiGAT-alone heatmap,
+white gridlines, same text-color threshold logic — not a different look just because the
+data source changed. **Finding:** PEWTER (local) beats SiGAT in nearly every cell on 5/6
+datasets (bitcoin-otc's high-entropy corner is the single largest gap, +0.26 AUC);
+bitcoin-alpha is the one dataset with a real mixed picture — PEWTER wins the low-entropy
+corner (+0.16) but loses the (low-src, mid-tgt) region (-0.12), a genuine reversal worth a
+closer look before citing as a clean "PEWTER wins everywhere" story. Kept as a standalone
+pair of figures, **not yet placed in the paper** — an earlier attempt to insert them as two
+new `\begin{figure}` blocks was explicitly reverted by the user ("i only asked you to make
+the existing sigat heatmap to be updated with the 10 split ones so just fig1 update").
+
+**Figure 1 (`fig:empconf-panels`, the 5-panel Empirical Confirmation figure) — Panel C
+updated in place with the 10-split SiGAT data, 2026-08-10, no new figures, no tex changes.**
+`scripts/paper_figures/extract_empconf_panelC_gnn_entropy_heatmap.py` was edited so SiGAT's
+cells now come from the same 10-split mean computation as the standalone heatmap above
+(reusing `sigat_raw_seed()`/`per_seed_grids()`); GINEConv's cells are untouched (still
+single-split from `computed_data.pkl` — GINEConv was already dropped from this panel's
+*plot* back on 2026-07-27, kept only in the CSV/appendix table, so the panel itself stays
+SiGAT-only, 1 row, exactly as before). Rerun order: extract → `plot_empconf_panelC_gnn_
+entropy_heatmap.py` (unchanged) → `combine_empconf_panels_abcde.py` (unchanged) —
+`aaai2027/figures/empconf_panels_abcde_combined.png` is the only file that changed;
+`fig:empconf-panels`'s tex reference was already correct and needed no edit.
+
+**Readability pass, same day, across both combined figures (`empconf_panels_abcde_
+combined.png` and `attndir_panels_abc_combined.png`):** several panel scripts had long
+in-image titles that just repeated content already spelled out in the external LaTeX
+caption (e.g. Panel D's old title: "SiGAT AUC by target-edge / neighbor-edge sign
+agreement (pooled, 6 datasets; in = v's other in-edges, out = u's other out-edges)" — every
+word of the parenthetical is already in `fig:empconf-panels`'s caption) — eating vertical
+space that forced every other font in the panel to stay small once the panel got
+compressed into the combined grid. Shortened titles and raised font sizes in
+`plot_empconf_panelC_gnn_entropy_heatmap.py`, `plot_empconf_panelD_signagreement_auc.py`,
+`plot_empconf_panelE_coefficients.py`, `plot_attndir_panelA_headgrid.py`,
+`plot_attndir_panelB_direction.py`, `plot_attndir_panelC_nodeedge.py`. Panel C needed a
+noticeably larger bump than the others (title 12→17pt, cell text 9.5→13pt) since it's a
+6-column-wide panel that gets compressed harder than the narrower panels when the combine
+script scales everything to the same figure width — same absolute font size reads smaller
+there than in a 2-column panel. Panels A/B of the empconf figure were left alone (no
+suptitle to begin with, already fine).
+
+**New figure built the same day, independent of the above: SHAP edge directionality
+(`scripts/shap_edge_directionality.py`, `scripts/paper_figures/{extract,plot}_shap_edge_
+directionality.py`, `aaai2027/figures/shap_edge_directionality.png`).** Companion to the
+Attention Directionality figure — measures actual causal contribution (exact Shapley, not
+raw attention weight) of each context edge to a masked target edge's predicted
+P(positive), on the LocalAttn4 checkpoint, restricted to the local attention window.
+`local_attention_window=4` is a token-distance threshold and 1 hop = 2 token positions, so
+the window covers **two hops each side** (4 context-edge features: fwd/bwd × hop1/hop2),
+not one — exact Shapley over ≤16 subsets per instance, no sampling approximation needed.
+Masking reuses the model's own `<MASK>` token (same one used for the target edge itself),
+keeping every constructed input in-distribution. Efficiency-property check
+(`sum(shap) == value(full) − value(empty)`) passed to float precision (~1e-16) on all 6
+datasets — the computation is verified correct, not just plausible. **Finding: mean |SHAP|
+decays from hop 1 to hop 2 on all 6/6 datasets, both directions, well outside cluster-robust
+SEs** — a real, robust distance-decay result. Direction asymmetry splits into two groups:
+bitcoin-alpha/bitcoin-otc/epinions show forward≈backward; slashdot090221/wiki-elec/wiki-rfa
+show forward > backward at hop 1. Raw per-dataset results:
+`outputs/shap_edge_directionality/shap_directionality_<ds>_result.pkl`; summary table:
+`aaai2027/figure_data/shap_edge_directionality.csv`. Placement in the paper not yet
+decided (candidate: near the existing Attention Directionality figure).
+
 **Table below reflects the current, adopted `edge_cover` sampler** at each dataset's
 production `num_walks` budget (see "Walk sampler" above) — confirmed reproducible via
 a plain `dataset.name=<ds>` run, since `edge_cover` and its adopted budget are already

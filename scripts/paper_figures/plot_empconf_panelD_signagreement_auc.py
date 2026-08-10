@@ -58,15 +58,15 @@ def main():
                        color=MODEL_COLOR[model], label=model, zorder=3)
         for bar, auc, n in zip(bars, aucs, ns):
             ax.text(bar.get_x() + bar.get_width() / 2, auc + 0.012, f"{auc:.3f}",
-                     ha="center", va="bottom", fontsize=8)
+                     ha="center", va="bottom", fontsize=10)
             ax.text(bar.get_x() + bar.get_width() / 2, YMIN + 0.012, fmt_n(n),
-                     ha="center", va="bottom", fontsize=6.5, rotation=90, color="white")
+                     ha="center", va="bottom", fontsize=8, rotation=90, color="white")
 
     ax.set_xticks(x)
-    ax.set_xticklabels([BUCKET_LABEL[b] for b in BUCKET_ORDER])
-    ax.set_ylabel("Test AUC")
-    ax.set_title("SiGAT AUC by target-edge / neighbor-edge sign agreement\n"
-                  "(pooled, 6 datasets; in = v's other in-edges, out = u's other out-edges)")
+    ax.set_xticklabels([BUCKET_LABEL[b] for b in BUCKET_ORDER], fontsize=10)
+    ax.tick_params(axis="y", labelsize=9)
+    ax.set_ylabel("Test AUC", fontsize=10)
+    ax.set_title("SiGAT AUC by sign agreement", fontsize=11)
     if len(MODELS) > 1:
         ax.legend(loc="lower right")
     fig.tight_layout()

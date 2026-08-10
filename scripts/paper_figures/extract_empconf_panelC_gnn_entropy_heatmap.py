@@ -3,13 +3,18 @@ entropy, DISCRETE 4x4 binned heatmap. GNN-only (2026-07-27 call: Panel C
 stays the original 2-row GNN comparison; the walk-vs-GNN comparison lives in
 its own separate figure for Result 2 -- see extract_result2_entropy_heatmap.py).
 
-Source: outputs/lead4_entropy_heterogeneity/computed_data.pkl, variant
-"out_in" (src_ent = H(out-signs of u), tgt_ent = H(in-signs of v)) -- the two
-atomic entropy axes Lead4c's regression found to actually matter (src_out,
-tgt_in; the other two, tgt_out/src_in, were near-null). No new predictions --
-this reuses the already-computed per-edge (src_ent, tgt_ent, y, p) records.
-
-Models: SiGAT (raw, not SGA-augmented) and GINEConv only -- no walk column.
+**SiGAT updated 2026-08-10 to mean AUC over 10 splits** (seeds 42--51, Option 2
+method: each split's cell AUC computed independently then averaged -- see
+extract_multiseed_entropy_heatmaps.py / CLAUDE.md "Entropy-heatmap multi-split
+methodology"), reusing that script's sigat_raw_seed()/per_seed_grids() so this
+is the SAME computation as aaai2027/figure_data/empconf_panelC_sigat_10split.csv,
+just written back into this panel's own canonical CSV path/schema so the existing
+plot script and combine_empconf_panels_abcde.py need no changes at all.
+GINEConv is UNCHANGED -- still single-split, from
+outputs/lead4_entropy_heterogeneity/computed_data.pkl, variant "out_in"
+(src_ent = H(out-signs of u), tgt_ent = H(in-signs of v)) -- the two atomic
+entropy axes Lead4c's regression found to actually matter (src_out, tgt_in;
+the other two, tgt_out/src_in, were near-null).
 
 Binning (reverted 2026-07-28 from the Gaussian-kernel-smoothed 25x25 grid):
 plain 4x4 equal-width bins over [0,1]x[0,1] (edges at 0, .25, .5, .75, 1.0),
@@ -24,9 +29,21 @@ smoothing) -- 4x4 is coarse enough to sidestep that problem directly.
 import csv
 import os
 import pickle
+import sys
 
 import numpy as np
 from sklearn.metrics import roc_auc_score
+
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, ROOT)
+sys.path.insert(0, os.path.join(ROOT, "baselines"))
+sys.path.insert(0, os.path.join(ROOT, "scripts"))
+
+from scripts.paper_figures.extract_multiseed_entropy_heatmaps import (  # noqa: E402
+    sigat_raw_seed, per_seed_grids,
+)
+from scripts.lead4_entropy_heterogeneity import build_sign_dicts  # noqa: E402
+from scripts.node_mi_structural_embedding import DATASET_CONFIGS, load_edges_canonical  # noqa: E402
 
 DATA_PATH = "outputs/lead4_entropy_heterogeneity/computed_data.pkl"
 OUT_CSV = "aaai2027/figure_data/empconf_panelC_gnn_entropy_heatmap.csv"
@@ -36,6 +53,10 @@ MODELS = ["SiGAT", "GINEConv"]
 
 N_BINS = 4            # N_BINS x N_BINS discrete bins over [0,1]^2
 MIN_CELL_N = 30        # mask cells below this many real edges
+
+
+def _ds_key(ds_name):
+    return "slashdot" if ds_name == "slashdot090221" else ds_name
 
 
 def binned_auc_grid(src_ent, tgt_ent, y, p, n_bins):
@@ -64,23 +85,43 @@ def main():
 
     rows = []
     for ds in DATASETS:
-        for model in MODELS:
-            rec = data[ds][VARIANT][model]
-            src_ent = np.asarray(rec["src_ent"])
-            tgt_ent = np.asarray(rec["tgt_ent"])
-            p = np.asarray(rec["p"])
-            auc_grid, n_grid, edges = binned_auc_grid(src_ent, tgt_ent, rec["y"], p, N_BINS)
-            print(f"{ds} / {model}: n={len(rec['y'])}, "
-                  f"valid cells={np.isfinite(auc_grid).sum()}/{N_BINS*N_BINS}, "
-                  f"cell n range=[{n_grid.min()},{n_grid.max()}]")
+        # SiGAT: mean over 10 splits (Option 2), independent of computed_data.pkl.
+        edges_list = load_edges_canonical(DATASET_CONFIGS[_ds_key(ds)]["ds_name"])
+        sign_dicts = build_sign_dicts(edges_list)
+        sigat_stack, edges = per_seed_grids(ds, sign_dicts, sigat_raw_seed, "SiGAT")
+        if sigat_stack is not None:
+            sigat_mean = np.nanmean(sigat_stack, axis=0)
+            sigat_n = np.sum(np.isfinite(sigat_stack), axis=0)
+            print(f"{ds} / SiGAT (10-split mean): "
+                  f"valid cells={np.isfinite(sigat_mean).sum()}/{N_BINS*N_BINS}")
             for i in range(N_BINS):
                 for j in range(N_BINS):
                     rows.append({
-                        "dataset": ds, "model": model,
+                        "dataset": ds, "model": "SiGAT",
                         "src_bin_lo": edges[i], "src_bin_hi": edges[i + 1],
                         "tgt_bin_lo": edges[j], "tgt_bin_hi": edges[j + 1],
-                        "auc": auc_grid[i, j], "n": n_grid[i, j],
+                        "auc": sigat_mean[i, j], "n": int(sigat_n[i, j]),
                     })
+        else:
+            print(f"{ds} / SiGAT: ✗ no usable 10-split data")
+
+        # GINEConv: unchanged, single split.
+        rec = data[ds][VARIANT]["GINEConv"]
+        src_ent = np.asarray(rec["src_ent"])
+        tgt_ent = np.asarray(rec["tgt_ent"])
+        p = np.asarray(rec["p"])
+        auc_grid, n_grid, edges = binned_auc_grid(src_ent, tgt_ent, rec["y"], p, N_BINS)
+        print(f"{ds} / GINEConv: n={len(rec['y'])}, "
+              f"valid cells={np.isfinite(auc_grid).sum()}/{N_BINS*N_BINS}, "
+              f"cell n range=[{n_grid.min()},{n_grid.max()}]")
+        for i in range(N_BINS):
+            for j in range(N_BINS):
+                rows.append({
+                    "dataset": ds, "model": "GINEConv",
+                    "src_bin_lo": edges[i], "src_bin_hi": edges[i + 1],
+                    "tgt_bin_lo": edges[j], "tgt_bin_hi": edges[j + 1],
+                    "auc": auc_grid[i, j], "n": n_grid[i, j],
+                })
 
     os.makedirs(os.path.dirname(OUT_CSV), exist_ok=True)
     with open(OUT_CSV, "w", newline="") as f:

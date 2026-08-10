@@ -79,28 +79,26 @@ def main():
                     y0, y1 = edges[j], edges[j + 1]
                     xc, yc = (x0 + x1) / 2, (y0 + y1) / 2
                     if np.isnan(val):
-                        ax.text(xc, yc, "n/a", ha="center", va="center", fontsize=7, color="#777")
+                        ax.text(xc, yc, "n/a", ha="center", va="center", fontsize=11, color="#777")
                     else:
                         txt_color = "black" if 0.62 < val < 0.92 else "white"
-                        ax.text(xc, yc, f"{val:.2f}", ha="center", va="center", fontsize=8.5,
+                        ax.text(xc, yc, f"{val:.2f}", ha="center", va="center", fontsize=13,
                                  color=txt_color, fontweight="medium")
             for e in edges:
                 ax.axvline(e, color="white", linewidth=0.6)
                 ax.axhline(e, color="white", linewidth=0.6)
             if r == 0:
-                ax.set_title(DISPLAY_LABEL.get(ds, ds), fontsize=10)
+                ax.set_title(DISPLAY_LABEL.get(ds, ds), fontsize=15)
             if c == 0:
-                ax.set_ylabel(DISPLAY_LABEL.get(model, model), fontsize=11)
+                ax.set_ylabel(DISPLAY_LABEL.get(model, model), fontsize=15)
             ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0])
             ax.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
-            ax.tick_params(labelsize=7)
+            ax.tick_params(labelsize=11)
             if r == n_rows - 1:
-                ax.set_xlabel("src out-ent.", fontsize=8)
+                ax.set_xlabel("src out-ent.", fontsize=13)
 
-    fig.suptitle("SiGAT test AUC vs. source out-entropy (rater consistency) and target in-entropy "
-                  "(reputation contestedness), 4×4 bins",
-                  fontsize=11)
-    fig.text(0.005, 0.5, "target in-ent.", va="center", rotation="vertical", fontsize=9)
+    fig.suptitle("SiGAT: AUC vs. source/target entropy", fontsize=17)
+    fig.text(0.005, 0.5, "target in-ent.", va="center", rotation="vertical", fontsize=14)
     fig.tight_layout(rect=(0.02, 0, 0.93, 0.95))
     cbar_ax = fig.add_axes((0.945, 0.15, 0.013, 0.7))
     fig.colorbar(im, cax=cbar_ax, label="AUC")

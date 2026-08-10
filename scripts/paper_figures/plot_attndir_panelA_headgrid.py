@@ -54,16 +54,13 @@ def main():
         ax.axvline(0, color="k", linewidth=0.8, alpha=0.6, zorder=2)
         ax.set_xlim(-window - 0.5, window + 0.5)
         ax.set_xticks(d_range)
-        ax.set_title(f"head {h}", fontsize=10)
-        ax.set_xlabel("d = j − i", fontsize=8)
-        ax.tick_params(labelsize=7)
-    axes[0].set_ylabel("attention mass", fontsize=9)
+        ax.set_title(f"head {h}", fontsize=11)
+        ax.set_xlabel("d = j − i", fontsize=9)
+        ax.tick_params(labelsize=8)
+    axes[0].set_ylabel("attention mass", fontsize=10)
 
-    fig.suptitle(f"{dataset} [PEWTER, window=±{window}], layer {layer}: "
-                 "signed attention mass per head\n"
-                 "orange bg = edge-token offsets, blue bg = node-token offsets "
-                 "(x-axis is the full allowed window -- mass is 0 outside it, by construction)",
-                 fontsize=9.5)
+    fig.suptitle(f"{dataset}: attention mass per head (orange=edge, blue=vertex offsets)",
+                 fontsize=11)
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)

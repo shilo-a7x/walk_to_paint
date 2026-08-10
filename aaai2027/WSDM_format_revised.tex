@@ -42,16 +42,7 @@
 \email{anon@email.com}
 
 \begin{abstract}
-Signed networks on the web, such as trust ratings on marketplaces, reviewer endorsements, and adminship votes, carry their label on edges rather than on vertices. The dominant approach for predicting such labels is vertex-centric: a graph neural network (GNN) embeds the two endpoints and maps the pair of embeddings to an edge label.
-
-We show that this design has an inherent limit. Because a message-passing GNN can only distinguish vertices up to their Weisfeiler-Leman colors, every edge sharing a color pair receives the same prediction, and the error is bounded below by the label entropy that survives that coarsening (Proposition~\ref{prop:bottleneck}, with a capacity form in Proposition~\ref{prop:capacity}).  Empirically, baseline GNN accuracy on six public signed networks falls toward chance as this entropy rises. Edge sign is correlated over a short range - the mutual information between an edge sign and a neighboring edge sign drops by two to nearly five orders of magnitude between one and two hops in the line graph, so the usable signal is concentrated in a small labeled neighborhood. Interestingly, the signal is not symmetric and depends on the graph family. 
-
-We thus propose to condition on both the labeled edges and the neighboring vertices near the target edge, instead of on only the two vertex summaries. We propose Pewter, which samples short walks that pass through the target edge, classifies the masked target sign with a transformer that reads each walk as a token sequence of both vertices and edges, and combines the walks containing an edge by a confidence-weighted vote. Pewter significantly improves test AUC over the best of six signed and message-passing baselines on all six datasets XXXXX PLEASE GIVE VALUES XXXXXX, with the largest gains on edges whose endpoints carry high label entropy, which is where the bound predicts vertex-centric models are weakest XXXXX AGAIN GIVE GAIN XXXX. 
-
-XXXXX THE LAST PART HERE SHOULD BE THE RELATION BETWEEN ATTENTION ON EITHER VERTICES OR EDGES AND THE DIRECTION, BUT i AM NOT SURE I UNDERSTAND THE RESULTS XXXXXX
-
-
-The code of Pewter and the test data are availble are XXXXXX GITHUB XXXXX
+Signed networks on the web, such as trust ratings on marketplaces, reviewer endorsements, and adminship votes, carry their label on edges rather than on vertices. The dominant approach for predicting such labels is vertex-centric: a graph neural network (GNN) embeds the two endpoints and maps the pair of embeddings to an edge label. We show that this design has an inherent limit. Because a message-passing GNN can only distinguish vertices up to their Weisfeiler-Leman colors, every edge sharing a color pair receives the same prediction, and the error is bounded below by the label entropy that survives that coarsening (Proposition~\ref{prop:bottleneck}, with a capacity form in Proposition~\ref{prop:capacity}).  Empirically, baseline GNN accuracy on six public signed networks falls toward chance as this entropy rises. Edge sign is correlated over a short range - the mutual information between an edge sign and a neighboring edge sign drops by two to nearly five orders of magnitude between one and two hops in the line graph, so the usable signal is concentrated in a small labeled neighborhood. Interestingly, the signal is not symmetric and depends on the graph family. We thus propose to condition on both the labeled edges and the neighboring vertices near the target edge, instead of on only the two vertex summaries. We propose Pewter, which samples short walks that pass through the target edge, classifies the masked target sign with a transformer that reads each walk as a token sequence of both vertices and edges, and combines the walks containing an edge by a confidence-weighted vote. Pewter significantly improves test AUC over the best of six signed and message-passing baselines on all six datasets XXXXX PLEASE GIVE VALUES XXXXXX, with the largest gains on edges whose endpoints carry high label entropy, which is where the bound predicts vertex-centric models are weakest XXXXX AGAIN GIVE GAIN XXXX. XXXXX THE LAST PART HERE SHOULD BE THE RELATION BETWEEN ATTENTION ON EITHER VERTICES OR EDGES AND THE DIRECTION, BUT i AM NOT SURE I UNDERSTAND THE RESULTS XXXXXX The code of Pewter and the test data are availble are XXXXXX GITHUB XXXXX
 \end{abstract}
 
 %% ACM Computing Classification System (CCS) Concepts
@@ -188,7 +179,7 @@ Pewter has three parts: a random-walk sampler over the signed graph, a per-walk 
 \begin{figure*}[t!]
 \centering
 \includegraphics[width=\linewidth]{figures/pipeline_schematic.png}
-\caption{\method\ is two separately trained models, shown for one target edge $(u,v)$. \textbf{Stage 1} (left): walks through $(u,v)$ are sampled from the graph, sign masked (`?'), tokenized, and read by a frozen Transformer; each walk's $\pm2$-hop window around $u,v$ is highlighted. The three example walks disagree, giving one prediction $q_k$ per walk ($q_1,q_2$ positive, $q_3$ negative). \textbf{Stage 2} (right, purple): an aggregator combines the $k$ predictions into one score, $p_{uv}=\sum_k w_k q_k/\sum_k w_k$. Legend: N = node, `+'/`-' = edge sign, `?' = the masked target edge.}
+\caption{\method\ is two separately trained models, shown for one target edge $(u,v)$. \textbf{Stage 1} (left): walks through $(u,v)$ are sampled from the graph, sign masked (`?'), tokenized, and read by a frozen Transformer; each walk's $\pm2$-hop window around $u,v$ is highlighted. The three example walks disagree, giving one prediction $q_k$ per walk ($q_1,q_2$ positive, $q_3$ negative). \textbf{Stage 2} (right, purple): an aggregator combines the $k$ predictions into one score, $p_{uv}=\sum_k w_k q_k/\sum_k w_k$. Legend: N = vertex, `+'/`-' = edge sign, `?' = the masked target edge.}
 \label{fig:pipeline-schematic}
 \end{figure*}
 
@@ -254,24 +245,26 @@ Pewter has a higher test AUC that all best baseline on all six datasets, under b
 \begin{table*}[t!]
 \centering
 \scriptsize
-\caption{Test AUC $\pm$ Hanley--McNeil SE on the held-out test split, for every baseline vs.\ Pewter under both attention variants. Bold marks the best result per dataset, italic the second best. Dashes mark runs that did not complete (Baselines).}
+\caption{Test AUC $\pm$ std on the held-out test split, for every baseline vs.\ \method\ under both attention variants. Bold marks the best result per dataset; italic marks the second-best. \ph{TODO: \method\ (both attention variants), GINEConv, and SiGAT are mean$\pm$std over 10 splits (seeds 42--51); SNEA and CopulaLSP are a single re-run on our own split ($\pm$Hanley--McNeil SE), pending the same 10-split upgrade; GCN, GAT, SGCN, and GSGNN are taken from their original publications (their own split, reported SE), not reproduced by us; SGA is also taken from its original publication (SGA numbers there are reported per augmented base model, GSGNN or SiGAT depending on dataset -- see CLAUDE.md); CSG/CSG-GSGNN dropped from this table until they get a real 10-split rerun -- see CLAUDE.md.}}
 \label{tab:result1}
 \begin{tabular}{lcccccc}
 \toprule
 Model & bitcoin-alpha & bitcoin-otc & epinions & wiki-elec & wiki-rfa & slashdot090221 \\
 \midrule
-CSG & $0.845_{\pm.012}$ & $0.831_{\pm.009}$ & $0.803_{\pm.002}$ & $0.775_{\pm.005}$ & $0.765_{\pm.004}$ & $0.675_{\pm.003}$ \\
-CSG-GSGNN & $0.814_{\pm.014}$ & $0.886_{\pm.007}$ & $0.897_{\pm.001}$ & $0.874_{\pm.003}$ & $0.876_{\pm.003}$ & $0.800_{\pm.002}$ \\
-GSGNN+SGA & $0.905_{\pm.008}$ & $0.885_{\pm.007}$ & -- & $0.877_{\pm.003}$ & -- & -- \\
-SNEA & $0.881_{\pm.010}$ & $\mathit{0.897_{\pm.006}}$ & $0.822_{\pm.002}$ & $0.864_{\pm.004}$ & $0.867_{\pm.003}$ & $0.794_{\pm.002}$ \\
+GCN & $0.609_{\pm.008}$ & $0.692_{\pm.008}$ & $0.685_{\pm.002}$ & $0.642_{\pm.009}$ & $0.605_{\pm.006}$ & $0.519_{\pm.005}$ \\
+GAT & $0.603_{\pm.022}$ & $0.682_{\pm.012}$ & $0.531_{\pm.017}$ & $0.547_{\pm.021}$ & $0.518_{\pm.011}$ & $0.512_{\pm.018}$ \\
+SGCN & $0.753_{\pm.002}$ & $0.794_{\pm.015}$ & $0.686_{\pm.044}$ & $0.702_{\pm.031}$ & $0.658_{\pm.028}$ & $0.610_{\pm.016}$ \\
+GSGNN & $0.856_{\pm.014}$ & $0.883_{\pm.011}$ & $0.888_{\pm.004}$ & $0.882_{\pm.002}$ & $0.868_{\pm.002}$ & $0.779_{\pm.007}$ \\
+SGA & $0.900_{\pm.001}$ & $0.907_{\pm.012}$ & $0.911_{\pm.002}$ & $0.893_{\pm.002}$ & $0.880_{\pm.001}$ & $0.855_{\pm.002}$ \\
+SNEA & $0.881_{\pm.010}$ & $0.897_{\pm.006}$ & $0.822_{\pm.002}$ & $0.864_{\pm.004}$ & $0.867_{\pm.003}$ & $0.794_{\pm.002}$ \\
 CopulaLSP & $0.882_{\pm.010}$ & $0.879_{\pm.007}$ & $0.860_{\pm.001}$ & $0.874_{\pm.003}$ & $0.857_{\pm.003}$ & $0.800_{\pm.002}$ \\
-GINEConv & $0.861_{\pm.011}$ & $0.885_{\pm.007}$ & $0.861_{\pm.001}$ & $0.875_{\pm.003}$ & $0.870_{\pm.003}$ & $0.786_{\pm.002}$ \\
-SiGAT & $0.882_{\pm.010}$ & $0.876_{\pm.007}$ & $\mathit{0.915_{\pm.001}}$ & $\mathit{0.893_{\pm.003}}$ & $\mathit{0.883_{\pm.003}}$ & $\mathit{0.859_{\pm.002}}$ \\
+GINEConv & $0.850_{\pm.019}$ & $0.888_{\pm.009}$ & $0.861_{\pm.004}$ & $0.873_{\pm.007}$ & $0.861_{\pm.005}$ & $0.786_{\pm.008}$ \\
+SiGAT & $0.869_{\pm.016}$ & $0.878_{\pm.008}$ & $0.909_{\pm.005}$ & $0.888_{\pm.005}$ & $0.878_{\pm.004}$ & $0.859_{\pm.005}$ \\
 \ph{TODO: add a line-graph GNN row} & -- & -- & -- & -- & -- & -- \\
 \ph{TODO: add a local-majority heuristic row} & -- & -- & -- & -- & -- & -- \\
 \midrule
-Pewter (full attention) & $\mathbf{0.922_{\pm.007}}$ & $\mathbf{0.936_{\pm.004}}$ & $0.953_{\pm.001}$ & $0.905_{\pm.003}$ & $0.894_{\pm.002}$ & $\mathbf{0.900_{\pm.001}}$ \\
-Pewter (local attention) & $\mathit{0.919_{\pm.007}}$ & $\mathbf{0.936_{\pm.004}}$ & $\mathbf{0.954_{\pm.001}}$ & $\mathbf{0.908_{\pm.003}}$ & $\mathbf{0.898_{\pm.002}}$ & $\mathit{0.898_{\pm.001}}$ \\
+Pewter (full attention) & $\mathbf{0.915_{\pm.010}}$ & $\mathit{0.931_{\pm.007}}$ & $\mathit{0.952_{\pm.001}}$ & $\mathit{0.901_{\pm.003}}$ & $\mathbf{0.892_{\pm.003}}$ & $\mathbf{0.899_{\pm.002}}$ \\
+Pewter (local attention) & $\mathit{0.913_{\pm.017}}$ & $\mathbf{0.932_{\pm.007}}$ & $\mathbf{0.954_{\pm.002}}$ & $\mathbf{0.902_{\pm.003}}$ & $\mathit{0.891_{\pm.005}}$ & $\mathit{0.897_{\pm.002}}$ \\
 \bottomrule
 \end{tabular}
 \end{table*}

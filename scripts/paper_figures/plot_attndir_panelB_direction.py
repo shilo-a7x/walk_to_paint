@@ -40,15 +40,15 @@ def main():
 
     for bar in list(bars_f) + list(bars_b):
         ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.008,
-                 f"{bar.get_height():.3f}", ha="center", va="bottom", fontsize=7.5)
+                 f"{bar.get_height():.3f}", ha="center", va="bottom", fontsize=9)
 
     ax.set_ylim(0, max(fwd + bwd) * 1.2)
     ax.set_xticks(x)
-    ax.set_xticklabels([DISPLAY_LABEL.get(d, d) for d in DATASET_ORDER], fontsize=9)
-    ax.set_ylabel("attention mass", fontsize=9)
-    ax.set_title(f"PEWTER, layer {layer}: forward vs. backward attention mass by dataset\n"
-                 "(mean over heads; self-attention excluded by construction)", fontsize=10)
-    ax.legend(loc="upper right", fontsize=8)
+    ax.set_xticklabels([DISPLAY_LABEL.get(d, d) for d in DATASET_ORDER], fontsize=10)
+    ax.tick_params(axis="y", labelsize=9)
+    ax.set_ylabel("attention mass", fontsize=10)
+    ax.set_title("Forward vs. backward attention mass", fontsize=11)
+    ax.legend(loc="upper right", fontsize=9)
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)

@@ -296,7 +296,7 @@
     <mxCell id="n91" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=12;" value="N" vertex="1">
       <mxGeometry height="22" width="22" x="710" y="434" as="geometry" />
     </mxCell>
-    <mxCell id="n92" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontStyle=0;align=left;" value="node" vertex="1">
+    <mxCell id="n92" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontStyle=0;align=left;" value="vertex" vertex="1">
       <mxGeometry height="22" width="100" x="736" y="434" as="geometry" />
     </mxCell>
     <mxCell id="n93" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#1F6FB2;strokeWidth=2;fontColor=#1F6FB2;fontSize=12;" value="+" vertex="1">
