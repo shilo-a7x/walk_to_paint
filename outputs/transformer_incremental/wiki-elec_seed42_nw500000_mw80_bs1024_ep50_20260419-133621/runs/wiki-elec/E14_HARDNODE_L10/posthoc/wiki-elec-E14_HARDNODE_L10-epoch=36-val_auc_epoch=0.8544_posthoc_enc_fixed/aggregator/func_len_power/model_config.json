@@ -1,0 +1,10 @@
+{
+  "model_name": "func_len_power",
+  "description": "len^{-a}",
+  "theta_star": [
+    -0.7373046875000011
+  ],
+  "n_iters": 19,
+  "n_params": 1,
+  "seed": 42
+}

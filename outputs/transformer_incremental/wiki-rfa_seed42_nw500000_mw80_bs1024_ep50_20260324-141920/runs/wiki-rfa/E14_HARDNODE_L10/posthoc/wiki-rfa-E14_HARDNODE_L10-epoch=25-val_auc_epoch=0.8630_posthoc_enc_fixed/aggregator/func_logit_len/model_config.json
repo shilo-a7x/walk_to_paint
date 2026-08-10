@@ -1,0 +1,11 @@
+{
+  "model_name": "func_logit_len",
+  "description": "len^{-a}*|logit(q)|^b",
+  "theta_star": [
+    0.6643273080292129,
+    -0.6375089498655189
+  ],
+  "n_iters": 42,
+  "n_params": 2,
+  "seed": 42
+}

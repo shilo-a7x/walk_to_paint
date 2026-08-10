@@ -1,0 +1,18 @@
+{
+  "model_name": "lgbm_func_len_logq",
+  "func_key": "func_len_logq",
+  "description": "lgbm\u2192q_j then len^{-a}*(-log(q))^b",
+  "theta_star": [
+    2.553099983860757,
+    -0.7505942950025309
+  ],
+  "n_iters": 44,
+  "n_params": 2,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

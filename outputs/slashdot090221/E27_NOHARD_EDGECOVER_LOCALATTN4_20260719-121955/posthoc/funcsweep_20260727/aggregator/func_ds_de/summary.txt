@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 34
+Run ID: funcsweep_20260727
+Model: func_ds_de  ((ds+1)^{-a}*(de+1)^{-b})
+theta* = [0.6600985406897961, 0.32745113112032365]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8980 (54920 edges)
+  Test  AUC: 0.8983 (54921 edges)

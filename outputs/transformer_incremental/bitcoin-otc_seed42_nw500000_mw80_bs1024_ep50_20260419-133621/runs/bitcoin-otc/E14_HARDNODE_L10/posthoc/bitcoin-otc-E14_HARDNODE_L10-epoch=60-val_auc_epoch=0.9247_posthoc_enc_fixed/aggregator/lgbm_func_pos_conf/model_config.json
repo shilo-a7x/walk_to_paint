@@ -1,0 +1,18 @@
+{
+  "model_name": "lgbm_func_pos_conf",
+  "func_key": "func_pos_conf",
+  "description": "lgbm\u2192q_j then exp(-a*rp)*q^b",
+  "theta_star": [
+    8.911570151272514,
+    0.5350270216120271
+  ],
+  "n_iters": 47,
+  "n_params": 2,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

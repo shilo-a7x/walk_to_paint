@@ -1,0 +1,9 @@
+/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/networkx/utils/backends.py:135: RuntimeWarning: networkx backend defined more than once: nx-loopback
+  backends.update(_get_backends("networkx.backends"))
+graph: 82,140 nodes, 500,481 edges, self-loops=0
+
+[Part 1] our shell computation vs networkx ground truth: 1,232,099 node-shells checked across 15 anchors, mismatches=0
+
+[Part 2] her label vs min(shell)+1: 41,068,944 recorded edges across 500 anchors (0 self-loop anchors)
+  mismatches: 0
+  of those, edges whose discovered node had >1 tied possible parent: 17,956,325 (checks the proof holds regardless of which parent BFS happened to pick)

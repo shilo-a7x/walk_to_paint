@@ -1,0 +1,107 @@
+cfg:
+  reproducibility:
+    seed: 42
+  preprocess:
+    save: true
+    use_cache: true
+    use_mmap: true
+    num_workers: 8
+  dataset:
+    name: wiki-elec
+    data_dir: data/wiki-Elec
+    edge_list_file: wikiElec.ElecBs3.txt.gz
+    train_ratio: 0.48
+    mask_ratio: 0.32
+    val_ratio: 0.1
+    test_ratio: 0.1
+    binary: true
+    remove_self_loops: true
+    multiedge_handling: most_recent
+    walk_strategy: k_cover
+    walk_neg_emphasis_fraction: 0.5
+    walk_set_cover_multiplier: 4
+    walk_p: 1.0
+    walk_q: 1.0
+    walk_k_min: 5
+    num_walks: 1000000
+    max_walk_length: 80
+  model:
+    embedding_dim: 64
+    hidden_dim: 64
+    dropout: 0.14736239940786994
+    nhead: 2
+    nlayers: 5
+    dynamic_train_masking: true
+    dynamic_train_mask_seed_offset: 0
+    node_context_mode: replace
+    node_replace_prob: 0.2
+    node_replace_unk_ratio: 0.7
+    local_attention_window: 4
+    hardness_lambda: 1.0
+    hardness_map_path: outputs/transformer_incremental/wiki-elec_seed42_nw500000_mw80_bs1024_ep50_20260419-133621/artifacts/E14_HARDNODE_L10/hardness_map.pt
+    occurrence_weight_path: null
+    occurrence_weight_fn: sqrt
+    occurrence_weight_ceiling: 5.0
+    vocab_size: 7120
+    num_classes: 2
+    pad_id: 0
+    ignore_index: -1
+    unk_id: 2
+    mask_id: 1
+    class_weights:
+    - 1.5904253450230321
+    - 0.40957465497696766
+  miner:
+    epochs: 5
+    embedding_dim: 16
+    hidden_dim: 16
+    nhead: 2
+    nlayers: 2
+    lr: 0.001
+    batch_size: 1024
+  training:
+    batch_size: 1024
+    epochs: 50
+    lr: 0.0016135042002810406
+    weight_decay: 2.9866739870000337e-05
+    early_stopping_patience: 15
+    gradient_clip_val: 0.5394002549968298
+    log_dir: outputs/wiki-elec/E15_SWEEP_k5_nw1000000_local/logs
+    exp_name: E15_SWEEP_k5_nw1000000_local
+    checkpoint_dir: outputs/wiki-elec/E15_SWEEP_k5_nw1000000_local/checkpoints
+    resume_from_checkpoint: null
+    eval_only: false
+    use_cuda: true
+    num_workers: 16
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+    bucket_batching: true
+    bucket_width: 4
+    callbacks:
+      enable_prediction_saver: false
+      enable_per_epoch_test_runner: false
+      save_every: 0
+  paths:
+    base_outputs_dir: outputs
+    use_dataset_outputs: true
+    append_timestamp: false
+  float32_precision: medium
+  optuna:
+    initial_params:
+      dataset:
+        max_walk_length: 80
+        num_walks: 5000000
+      training:
+        lr: 0.0016135042002810406
+        weight_decay: 2.9866739870000337e-05
+        batch_size: 1024
+        gradient_clip_val: 0.5394002549968298
+        early_stopping_patience: 15
+        epochs: 50
+      model:
+        embedding_dim: 64
+        hidden_dim: 64
+        nhead: 2
+        nlayers: 5
+        dropout: 0.14736239940786994

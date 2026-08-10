@@ -1,0 +1,16 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/wiki-elec.pt
+[INFO] wiki-elec: 7115 nodes, 82950 train, 10369 val, 10370 test edges
+[INFO] Training GSGNN+CSG on wiki-elec for 3000 epochs ...
+  Epoch 0000 | val_auc=0.6943 val_f1=0.4407 | tst_auc=0.7040 tst_f1mac=0.4407
+  Epoch 0500 | val_auc=0.8600 val_f1=0.7405 | tst_auc=0.8552 tst_f1mac=0.7336
+  Epoch 1000 | val_auc=0.8482 val_f1=0.7388 | tst_auc=0.8490 tst_f1mac=0.7355
+  Epoch 1500 | val_auc=0.8398 val_f1=0.7281 | tst_auc=0.8426 tst_f1mac=0.7290
+  Epoch 2000 | val_auc=0.8466 val_f1=0.7321 | tst_auc=0.8469 tst_f1mac=0.7289
+  Epoch 2500 | val_auc=0.8741 val_f1=0.7381 | tst_auc=0.8688 tst_f1mac=0.7411
+
+=== RESULTS: CSG-GSGNN on wiki-elec (seed=42) ===
+  Val  AUC      : 0.8826
+  Val  F1 macro : 0.7510
+  Test AUC      : 0.8743
+  Test Macro F1 : 0.7484
+  Saved → results_our_splits_canonical/wiki-elec/CSG-GSGNN/seed42/score.csv

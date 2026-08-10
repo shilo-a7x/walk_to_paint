@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-alpha
+Epoch: 27
+Run ID: funcsweep_20260727
+Model: func_log6  (exp(b1..b6 with pairwise q/rp/log_len interactions))
+theta* = [-9.404054260021338e-05, 5.719402530102119e-05, -0.48112711476909, 0.000136412132296906, 0.0001500152415790276, 0.0001967687852461515]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9185 (2419 edges)
+  Test  AUC: 0.9127 (2419 edges)

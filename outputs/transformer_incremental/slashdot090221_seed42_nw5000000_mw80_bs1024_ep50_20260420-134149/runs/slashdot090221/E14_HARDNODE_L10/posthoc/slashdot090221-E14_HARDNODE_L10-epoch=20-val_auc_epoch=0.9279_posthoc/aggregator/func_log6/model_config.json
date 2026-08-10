@@ -1,0 +1,15 @@
+{
+  "model_name": "func_log6",
+  "description": "exp(b1..b6 with pairwise q/rp/log_len interactions)",
+  "theta_star": [
+    0.0009165207175134337,
+    0.00038594212882269384,
+    -0.056957710290143196,
+    -2.8755659970018953e-07,
+    0.0007616488705825315,
+    0.001953079732570191
+  ],
+  "n_iters": 63,
+  "n_params": 6,
+  "seed": 42
+}

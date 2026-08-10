@@ -1,0 +1,14 @@
+{
+  "model_name": "lgbm_self_attention",
+  "architecture": "lgbm(3 feats)\u2192q_j, SelfAttention(d=32,h=4) mean pool",
+  "n_epochs": 150,
+  "lr": 0.001,
+  "weight_decay": 0.0001,
+  "pos_weight": 0.111145800811739,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "lr": 0.05
+  }
+}

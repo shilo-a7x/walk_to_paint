@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 30
+Run ID: funcsweep_20260727
+Model: func_conf_cert  (|q-0.5|^b)
+theta* = [2.7428710937500034]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9529 (84080 edges)
+  Test  AUC: 0.9530 (84080 edges)

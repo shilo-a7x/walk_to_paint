@@ -1,0 +1,10 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/wiki-rfa.pt
+[INFO] wiki-rfa: 11256 nodes, 141768 train, 17721 val, 17722 test edges
+
+=== RESULTS: CSG on wiki-rfa (seed=42) ===
+  Val  AUC      : 0.7612
+  Val  F1       : 0.8358
+  Test AUC      : 0.7653
+  Test Macro F1 : 0.8400
+  Saved → results_our_splits_canonical/wiki-rfa/CSG/seed42/score.csv
+  Saved → results_our_splits_canonical/wiki-rfa/CSG/seed42/best_epoch_artifacts.pkl

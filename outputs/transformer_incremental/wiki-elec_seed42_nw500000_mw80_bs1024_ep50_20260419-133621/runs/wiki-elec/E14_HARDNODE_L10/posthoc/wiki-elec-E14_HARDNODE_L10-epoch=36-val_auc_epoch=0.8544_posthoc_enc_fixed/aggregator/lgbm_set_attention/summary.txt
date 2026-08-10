@@ -1,0 +1,9 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 36
+Run ID: wiki-elec-E14_HARDNODE_L10-epoch=36-val_auc_epoch=0.8544_posthoc_enc_fixed
+Model: lgbm_set_attention (lgbm(3 feats)→q_j, PMA(d=32,h=4) seed pool)
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8938 (8862 edges)
+  Test  AUC: 0.8849 (8857 edges)

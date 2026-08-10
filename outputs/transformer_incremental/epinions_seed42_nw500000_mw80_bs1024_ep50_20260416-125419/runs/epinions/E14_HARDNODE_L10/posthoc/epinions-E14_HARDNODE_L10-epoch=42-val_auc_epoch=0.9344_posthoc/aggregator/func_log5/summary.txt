@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 42
+Run ID: epinions-E14_HARDNODE_L10-epoch=42-val_auc_epoch=0.9344_posthoc
+Model: func_log5  (exp(b1*q + b2*log_ds + b3*log_de + b4*log_len + b5*q*log_len))
+theta* = [0.000710431943095736, 0.0006338181678047487, 0.0011288103692420888, -0.2067323862452798, 0.0005852251311831342]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9304 (73965 edges)
+  Test  AUC: 0.9306 (73783 edges)

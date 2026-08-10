@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 36
+Run ID: funcsweep_20260727
+Model: func_log4  (exp(b0 + b1*q + b2*rp + b3*log_len))
+theta* = [0.0005051959847466686, -0.005853751255849461, 0.001673134146384707, -1.459699999821125]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8997 (10369 edges)
+  Test  AUC: 0.9067 (10370 edges)

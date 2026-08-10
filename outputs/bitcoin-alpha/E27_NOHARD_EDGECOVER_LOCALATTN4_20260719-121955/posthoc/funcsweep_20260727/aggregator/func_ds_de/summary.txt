@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-alpha
+Epoch: 27
+Run ID: funcsweep_20260727
+Model: func_ds_de  ((ds+1)^{-a}*(de+1)^{-b})
+theta* = [1.301833534240725, -0.6182899475097686]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9197 (2419 edges)
+  Test  AUC: 0.9135 (2419 edges)

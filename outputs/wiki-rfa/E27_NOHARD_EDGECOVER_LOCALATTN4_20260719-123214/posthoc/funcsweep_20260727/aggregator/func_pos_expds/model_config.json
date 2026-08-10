@@ -1,0 +1,10 @@
+{
+  "model_name": "func_pos_expds",
+  "description": "exp(-a*ds_raw)",
+  "theta_star": [
+    0.5118750000000016
+  ],
+  "n_iters": 20,
+  "n_params": 1,
+  "seed": 42
+}

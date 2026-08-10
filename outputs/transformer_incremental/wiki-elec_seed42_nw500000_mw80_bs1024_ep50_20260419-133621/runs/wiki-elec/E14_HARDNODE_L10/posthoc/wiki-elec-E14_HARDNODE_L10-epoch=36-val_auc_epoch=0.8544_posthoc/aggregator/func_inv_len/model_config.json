@@ -1,0 +1,8 @@
+{
+  "model_name": "func_inv_len",
+  "description": "1/len (fixed)",
+  "theta_star": [],
+  "n_iters": 0,
+  "n_params": 0,
+  "seed": 42
+}

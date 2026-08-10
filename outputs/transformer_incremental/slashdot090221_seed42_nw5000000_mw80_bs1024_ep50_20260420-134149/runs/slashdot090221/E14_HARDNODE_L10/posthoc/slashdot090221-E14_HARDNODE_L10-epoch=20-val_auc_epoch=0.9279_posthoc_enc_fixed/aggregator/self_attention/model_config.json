@@ -1,0 +1,9 @@
+{
+  "model_name": "self_attention",
+  "architecture": "SelfAttention(3\u219232, 1L MHSA, mean pool)",
+  "n_epochs": 150,
+  "lr": 0.001,
+  "weight_decay": 0.0001,
+  "pos_weight": 0.2879503698401336,
+  "seed": 42
+}

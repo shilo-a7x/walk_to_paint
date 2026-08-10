@@ -1,0 +1,11 @@
+{
+  "model_name": "func_len_cert",
+  "description": "len^{-a}*|q-0.5|^b",
+  "theta_star": [
+    -2.6026199340820404,
+    6.205002593994145
+  ],
+  "n_iters": 31,
+  "n_params": 2,
+  "seed": 42
+}

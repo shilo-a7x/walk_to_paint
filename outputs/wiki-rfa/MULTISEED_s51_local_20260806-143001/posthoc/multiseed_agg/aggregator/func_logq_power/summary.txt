@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 25
+Run ID: multiseed_agg
+Model: func_logq_power  ((-log(q))^b)
+theta* = [0.2116210937499993]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8903 (17721 edges)
+  Test  AUC: 0.8910 (17722 edges)

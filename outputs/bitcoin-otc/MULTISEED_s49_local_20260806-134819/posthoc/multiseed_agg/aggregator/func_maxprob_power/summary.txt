@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-otc
+Epoch: 38
+Run ID: multiseed_agg
+Model: func_maxprob_power  (max(q,1-q)^b  confidence in predicted class)
+theta* = [0.9625000000000001]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9298 (3559 edges)
+  Test  AUC: 0.9306 (3560 edges)

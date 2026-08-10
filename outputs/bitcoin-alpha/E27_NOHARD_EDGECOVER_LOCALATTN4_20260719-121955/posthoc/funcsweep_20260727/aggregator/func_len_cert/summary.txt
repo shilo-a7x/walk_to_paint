@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-alpha
+Epoch: 27
+Run ID: funcsweep_20260727
+Model: func_len_cert  (len^{-a}*|q-0.5|^b)
+theta* = [-1.3014080047607468, 7.35748291015622]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9204 (2419 edges)
+  Test  AUC: 0.9119 (2419 edges)

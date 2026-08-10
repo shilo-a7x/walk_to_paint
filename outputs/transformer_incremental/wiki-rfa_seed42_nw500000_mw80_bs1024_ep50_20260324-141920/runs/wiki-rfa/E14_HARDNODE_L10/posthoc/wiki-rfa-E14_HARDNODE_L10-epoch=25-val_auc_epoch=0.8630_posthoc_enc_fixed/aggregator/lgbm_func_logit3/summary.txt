@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 25
+Run ID: wiki-rfa-E14_HARDNODE_L10-epoch=25-val_auc_epoch=0.8630_posthoc_enc_fixed
+Model: lgbm_func_logit3  (lgbm→q_j then exp(b1*logit(q) + b2*rp + b3*log_len)  signed confidence)
+theta* = [0.0016001800411522631, 0.0031989615483539106, 0.024366640946503235]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8837 (15239 edges)
+  Test  AUC: 0.8820 (15280 edges)

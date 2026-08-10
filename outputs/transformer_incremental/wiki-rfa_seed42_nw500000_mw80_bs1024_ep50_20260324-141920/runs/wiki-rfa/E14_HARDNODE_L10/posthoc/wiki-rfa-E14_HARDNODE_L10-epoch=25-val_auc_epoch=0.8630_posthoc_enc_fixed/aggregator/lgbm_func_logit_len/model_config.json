@@ -1,0 +1,18 @@
+{
+  "model_name": "lgbm_func_logit_len",
+  "func_key": "func_logit_len",
+  "description": "lgbm\u2192q_j then len^{-a}*|logit(q)|^b",
+  "theta_star": [
+    0.008183724340044213,
+    -0.36463260855525886
+  ],
+  "n_iters": 43,
+  "n_params": 2,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

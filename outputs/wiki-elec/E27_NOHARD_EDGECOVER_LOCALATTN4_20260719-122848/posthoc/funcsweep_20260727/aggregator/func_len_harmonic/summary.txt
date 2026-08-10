@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 36
+Run ID: funcsweep_20260727
+Model: func_len_harmonic  (1/(1+a*len))
+theta* = [18.21900000000002]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8996 (10369 edges)
+  Test  AUC: 0.9067 (10370 edges)

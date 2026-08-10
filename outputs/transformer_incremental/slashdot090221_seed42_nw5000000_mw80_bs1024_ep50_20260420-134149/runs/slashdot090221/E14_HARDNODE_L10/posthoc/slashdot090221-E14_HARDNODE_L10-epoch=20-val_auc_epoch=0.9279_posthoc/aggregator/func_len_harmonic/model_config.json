@@ -1,0 +1,10 @@
+{
+  "model_name": "func_len_harmonic",
+  "description": "1/(1+a*len)",
+  "theta_star": [
+    0.021375
+  ],
+  "n_iters": 7,
+  "n_params": 1,
+  "seed": 42
+}

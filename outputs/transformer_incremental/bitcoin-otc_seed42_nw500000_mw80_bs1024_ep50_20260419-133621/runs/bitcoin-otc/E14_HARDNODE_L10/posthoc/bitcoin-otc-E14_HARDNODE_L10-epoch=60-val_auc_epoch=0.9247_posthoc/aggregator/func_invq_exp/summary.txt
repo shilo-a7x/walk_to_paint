@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-otc
+Epoch: 60
+Run ID: bitcoin-otc-E14_HARDNODE_L10-epoch=60-val_auc_epoch=0.9247_posthoc
+Model: func_invq_exp  (exp(b*(1-q)))
+theta* = [1.1609374999999993]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9358 (3559 edges)
+  Test  AUC: 0.9423 (3560 edges)

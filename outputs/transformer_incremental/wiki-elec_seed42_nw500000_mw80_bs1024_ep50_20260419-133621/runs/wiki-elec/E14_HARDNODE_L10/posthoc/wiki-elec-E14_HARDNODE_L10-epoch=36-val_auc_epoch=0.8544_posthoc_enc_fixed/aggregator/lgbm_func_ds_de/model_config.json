@@ -1,0 +1,18 @@
+{
+  "model_name": "lgbm_func_ds_de",
+  "func_key": "func_ds_de",
+  "description": "lgbm\u2192q_j then (ds+1)^{-a}*(de+1)^{-b}",
+  "theta_star": [
+    -1.208786147691367,
+    -0.9773299080704414
+  ],
+  "n_iters": 45,
+  "n_params": 2,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

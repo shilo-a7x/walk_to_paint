@@ -1,0 +1,17 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 0
+Run ID: last_posthoc
+Model: lgbm
+
+Walk-level metrics:
+  Train AUC: 0.8747
+  Test  AUC: 0.8469
+  Train ACC: 0.7585
+  Test  ACC: 0.7451
+  Train F1: 0.5916
+  Test  F1: 0.5662
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8869 (15239 edges)
+  Test  AUC: 0.8830 (15280 edges)

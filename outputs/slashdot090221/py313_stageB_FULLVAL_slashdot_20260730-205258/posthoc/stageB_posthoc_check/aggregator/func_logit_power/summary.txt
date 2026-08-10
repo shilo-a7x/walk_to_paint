@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 39
+Run ID: stageB_posthoc_check
+Model: func_logit_power  (|logit(q)|^b)
+theta* = [0.5481445312499996]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8989 (54920 edges)
+  Test  AUC: 0.8994 (54921 edges)

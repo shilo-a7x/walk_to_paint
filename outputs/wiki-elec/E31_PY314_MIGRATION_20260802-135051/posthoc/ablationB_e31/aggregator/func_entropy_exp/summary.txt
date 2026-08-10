@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 37
+Run ID: ablationB_e31
+Model: func_entropy_exp  (exp(-a*H(q)))
+theta* = [2.5359375000000015]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8989 (10369 edges)
+  Test  AUC: 0.9048 (10370 edges)

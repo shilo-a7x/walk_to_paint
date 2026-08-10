@@ -1,0 +1,10 @@
+{
+  "model_name": "func_pos_middle",
+  "description": "exp(-a*|rp-0.5|)",
+  "theta_star": [
+    -6.024902343750005
+  ],
+  "n_iters": 22,
+  "n_params": 1,
+  "seed": 42
+}

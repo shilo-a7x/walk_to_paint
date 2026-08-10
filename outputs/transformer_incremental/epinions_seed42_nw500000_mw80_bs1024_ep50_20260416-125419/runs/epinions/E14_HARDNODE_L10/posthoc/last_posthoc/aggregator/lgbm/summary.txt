@@ -1,0 +1,17 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 0
+Run ID: last_posthoc
+Model: lgbm
+
+Walk-level metrics:
+  Train AUC: 0.9442
+  Test  AUC: 0.9399
+  Train ACC: 0.8874
+  Test  ACC: 0.8862
+  Train F1: 0.6903
+  Test  F1: 0.6865
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9473 (73965 edges)
+  Test  AUC: 0.9448 (73783 edges)

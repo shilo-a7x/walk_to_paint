@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-otc
+Epoch: 46
+Run ID: funcsweep_20260727
+Model: func_log5  (exp(b1*q + b2*log_ds + b3*log_de + b4*log_len + b5*q*log_len))
+theta* = [-0.003895156008057633, -0.004503729690709602, -0.007855919440916874, -2.361323779893124, 0.006635544099283267]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9310 (3559 edges)
+  Test  AUC: 0.9392 (3560 edges)

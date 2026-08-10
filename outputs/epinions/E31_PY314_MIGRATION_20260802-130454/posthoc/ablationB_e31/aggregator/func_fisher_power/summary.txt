@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 41
+Run ID: ablationB_e31
+Model: func_fisher_power  ((q(1-q))^{-b}  Fisher-information / inverse-variance weighting)
+theta* = [1.0591796875]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9527 (84080 edges)
+  Test  AUC: 0.9533 (84080 edges)

@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 36
+Run ID: funcsweep_20260727
+Model: func_rp_sym  ((rp*(1-rp))^a  mid-peak)
+theta* = [-0.13476562500000058]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9004 (10369 edges)
+  Test  AUC: 0.9074 (10370 edges)

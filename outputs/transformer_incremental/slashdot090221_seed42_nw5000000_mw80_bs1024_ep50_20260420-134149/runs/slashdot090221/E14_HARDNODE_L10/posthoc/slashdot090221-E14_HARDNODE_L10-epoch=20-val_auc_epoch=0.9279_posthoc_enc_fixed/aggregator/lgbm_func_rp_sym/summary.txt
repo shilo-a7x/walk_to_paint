@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 20
+Run ID: slashdot090221-E14_HARDNODE_L10-epoch=20-val_auc_epoch=0.9279_posthoc_enc_fixed
+Model: lgbm_func_rp_sym  (lgbm→q_j then (rp*(1-rp))^a  mid-peak)
+theta* = [0.0008789062499995567]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8972 (53978 edges)
+  Test  AUC: 0.8954 (53962 edges)

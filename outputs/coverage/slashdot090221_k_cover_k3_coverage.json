@@ -1,0 +1,117 @@
+{
+  "num_walks": 500000,
+  "num_edges": 549202,
+  "coverage_overall": {
+    "n": 549202,
+    "covered": 549202,
+    "pct": 100.0
+  },
+  "coverage_by_split": {
+    "mask": {
+      "n": 175745,
+      "covered": 175745,
+      "pct": 100.0
+    },
+    "train": {
+      "n": 263616,
+      "covered": 263616,
+      "pct": 100.0
+    },
+    "test": {
+      "n": 54921,
+      "covered": 54921,
+      "pct": 100.0
+    },
+    "val": {
+      "n": 54920,
+      "covered": 54920,
+      "pct": 100.0
+    }
+  },
+  "coverage_by_sign": {
+    "pos": {
+      "n": 425072,
+      "covered": 425072,
+      "pct": 100.0
+    },
+    "neg": {
+      "n": 124130,
+      "covered": 124130,
+      "pct": 100.0
+    }
+  },
+  "coverage_by_split_sign": {
+    "mask_pos": {
+      "n": 136023,
+      "covered": 136023,
+      "pct": 100.0
+    },
+    "train_pos": {
+      "n": 204034,
+      "covered": 204034,
+      "pct": 100.0
+    },
+    "test_pos": {
+      "n": 42508,
+      "covered": 42508,
+      "pct": 100.0
+    },
+    "val_pos": {
+      "n": 42507,
+      "covered": 42507,
+      "pct": 100.0
+    },
+    "train_neg": {
+      "n": 59582,
+      "covered": 59582,
+      "pct": 100.0
+    },
+    "mask_neg": {
+      "n": 39722,
+      "covered": 39722,
+      "pct": 100.0
+    },
+    "val_neg": {
+      "n": 12413,
+      "covered": 12413,
+      "pct": 100.0
+    },
+    "test_neg": {
+      "n": 12413,
+      "covered": 12413,
+      "pct": 100.0
+    }
+  },
+  "occurrence_stats": {
+    "mean": 4.547965957880707,
+    "median": 2.0,
+    "p10": 1.0,
+    "pct_zero": 0.0,
+    "pct_lt5": 83.43906249430992,
+    "max": 25831
+  },
+  "redundancy_ratio": 4.547965957880707,
+  "sign_coverage_gap": 0.0,
+  "degree_coverage": {
+    "deg_1": {
+      "n": 26192,
+      "covered": 26192,
+      "pct": 100.0
+    },
+    "deg_2_5": {
+      "n": 77619,
+      "covered": 77619,
+      "pct": 100.0
+    },
+    "deg_6_20": {
+      "n": 141560,
+      "covered": 141560,
+      "pct": 100.0
+    },
+    "deg_21+": {
+      "n": 303831,
+      "covered": 303831,
+      "pct": 100.0
+    }
+  }
+}

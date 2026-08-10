@@ -1,0 +1,8 @@
+{
+  "model_name": "func_uniform",
+  "description": "uniform mean",
+  "theta_star": [],
+  "n_iters": 0,
+  "n_params": 0,
+  "seed": 51
+}

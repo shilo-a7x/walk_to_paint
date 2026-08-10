@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 25
+Run ID: multiseed_agg
+Model: func_maxprob_power  (max(q,1-q)^b  confidence in predicted class)
+theta* = [1.5515625000000015]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8896 (17721 edges)
+  Test  AUC: 0.8949 (17722 edges)

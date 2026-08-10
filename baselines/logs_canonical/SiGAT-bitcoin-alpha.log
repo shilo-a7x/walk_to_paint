@@ -1,0 +1,39 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/bitcoin-alpha.pt
+[INFO] bitcoin-alpha: 3783 nodes, 19348 train, 2419 val, 2419 test edges
+  [epoch 50/1500] loss=4043.0850 val_auc=0.6622 (best=0.6622)
+  [epoch 100/1500] loss=758.7557 val_auc=0.7434 (best=0.7434)
+  [epoch 150/1500] loss=367.9730 val_auc=0.7505 (best=0.7505)
+  [epoch 200/1500] loss=292.6557 val_auc=0.7603 (best=0.7603)
+  [epoch 250/1500] loss=215.2537 val_auc=0.7740 (best=0.7740)
+  [epoch 300/1500] loss=194.3336 val_auc=0.7690 (best=0.7740)
+  [epoch 350/1500] loss=171.7667 val_auc=0.7735 (best=0.7740)
+  [epoch 400/1500] loss=169.8638 val_auc=0.7887 (best=0.7887)
+  [epoch 450/1500] loss=139.9902 val_auc=0.7879 (best=0.7887)
+  [epoch 500/1500] loss=131.4003 val_auc=0.7835 (best=0.7887)
+  [epoch 550/1500] loss=125.4713 val_auc=0.7973 (best=0.7973)
+  [epoch 600/1500] loss=135.3443 val_auc=0.8070 (best=0.8070)
+  [epoch 650/1500] loss=169.9260 val_auc=0.8135 (best=0.8135)
+  [epoch 700/1500] loss=133.7290 val_auc=0.8307 (best=0.8307)
+  [epoch 750/1500] loss=145.9680 val_auc=0.8319 (best=0.8319)
+  [epoch 800/1500] loss=146.9908 val_auc=0.8339 (best=0.8339)
+  [epoch 850/1500] loss=136.2900 val_auc=0.8394 (best=0.8394)
+  [epoch 900/1500] loss=163.8195 val_auc=0.8424 (best=0.8424)
+  [epoch 950/1500] loss=160.4057 val_auc=0.8523 (best=0.8523)
+  [epoch 1000/1500] loss=152.7322 val_auc=0.8466 (best=0.8523)
+  [epoch 1050/1500] loss=151.6361 val_auc=0.8461 (best=0.8523)
+  [epoch 1100/1500] loss=179.4335 val_auc=0.8421 (best=0.8523)
+  [epoch 1150/1500] loss=160.1440 val_auc=0.8399 (best=0.8523)
+  [epoch 1200/1500] loss=150.8638 val_auc=0.8313 (best=0.8523)
+  [epoch 1250/1500] loss=189.3820 val_auc=0.8328 (best=0.8523)
+  [epoch 1300/1500] loss=182.1458 val_auc=0.8425 (best=0.8523)
+  [epoch 1350/1500] loss=194.2851 val_auc=0.8463 (best=0.8523)
+  [epoch 1400/1500] loss=675.2147 val_auc=0.8505 (best=0.8523)
+  [epoch 1450/1500] loss=3363.8103 val_auc=0.8740 (best=0.8740)
+  [epoch 1500/1500] loss=5282.8999 val_auc=0.8954 (best=0.8954)
+
+=== RESULTS: SiGAT on bitcoin-alpha (seed=42) ===
+  Val  AUC : 0.8954
+  Test AUC : 0.8821
+  Test F1  : 0.9702
+  Saved -> results_our_splits_canonical/bitcoin-alpha/SiGAT/seed42/score.csv
+  Saved -> results_our_splits_canonical/bitcoin-alpha/SiGAT/seed42/best_epoch_artifacts.pkl

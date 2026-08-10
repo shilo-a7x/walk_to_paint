@@ -1,0 +1,12 @@
+{
+  "model_name": "func_logit3",
+  "description": "exp(b1*logit(q) + b2*rp + b3*log_len)  signed confidence",
+  "theta_star": [
+    0.0002569444444444445,
+    0.0003680555555555556,
+    -0.4277777777777777
+  ],
+  "n_iters": 20,
+  "n_params": 3,
+  "seed": 42
+}

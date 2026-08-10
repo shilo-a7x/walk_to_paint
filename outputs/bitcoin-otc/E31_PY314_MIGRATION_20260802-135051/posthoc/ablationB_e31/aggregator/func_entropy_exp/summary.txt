@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-otc
+Epoch: 46
+Run ID: ablationB_e31
+Model: func_entropy_exp  (exp(-a*H(q)))
+theta* = [2.4265625000000015]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9240 (3559 edges)
+  Test  AUC: 0.9353 (3560 edges)

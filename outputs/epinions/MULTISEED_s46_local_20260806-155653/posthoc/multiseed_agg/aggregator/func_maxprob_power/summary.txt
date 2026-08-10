@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 9
+Run ID: multiseed_agg
+Model: func_maxprob_power  (max(q,1-q)^b  confidence in predicted class)
+theta* = [8.872656250000016]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9497 (84080 edges)
+  Test  AUC: 0.9523 (84080 edges)

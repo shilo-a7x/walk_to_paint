@@ -1,0 +1,10 @@
+{
+  "model_name": "func_conf_power",
+  "description": "q^b",
+  "theta_star": [
+    -0.2333007812500011
+  ],
+  "n_iters": 19,
+  "n_params": 1,
+  "seed": 48
+}

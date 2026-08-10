@@ -1,0 +1,28 @@
+{
+  "model_name": "lgbm_stats",
+  "architecture": "lgbm1(3 occ-feats)\u2192q_j, edge-stats(11 feats)\u2192lgbm2",
+  "seed": 42,
+  "lgbm1": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "lr": 0.05
+  },
+  "lgbm2": {
+    "n_estimators": 300,
+    "num_leaves": 31,
+    "lr": 0.03
+  },
+  "edge_features": [
+    "q_max",
+    "q_mean",
+    "q_std",
+    "q_median",
+    "q_min",
+    "q_top5_mean",
+    "q_top10_mean",
+    "frac_pos",
+    "q_wtd_relpos",
+    "min_relpos",
+    "log_count"
+  ]
+}

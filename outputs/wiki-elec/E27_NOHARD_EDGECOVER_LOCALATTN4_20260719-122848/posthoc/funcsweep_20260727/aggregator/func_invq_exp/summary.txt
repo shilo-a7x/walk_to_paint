@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 36
+Run ID: funcsweep_20260727
+Model: func_invq_exp  (exp(b*(1-q)))
+theta* = [0.8320312499999989]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8991 (10369 edges)
+  Test  AUC: 0.9060 (10370 edges)

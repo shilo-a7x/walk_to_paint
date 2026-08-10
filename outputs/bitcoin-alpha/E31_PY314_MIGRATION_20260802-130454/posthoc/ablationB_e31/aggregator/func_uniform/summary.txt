@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-alpha
+Epoch: 35
+Run ID: ablationB_e31
+Model: func_uniform  (uniform mean)
+theta* = []
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9219 (2419 edges)
+  Test  AUC: 0.9228 (2419 edges)

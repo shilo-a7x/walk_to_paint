@@ -1,0 +1,39 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/epinions.pt
+[INFO] epinions: 131580 nodes, 672639 train, 84080 val, 84080 test edges
+  [epoch 50/1500] loss=153658.3125 val_auc=0.6414 (best=0.6414)
+  [epoch 100/1500] loss=53808.2344 val_auc=0.7470 (best=0.7470)
+  [epoch 150/1500] loss=27838.5059 val_auc=0.7620 (best=0.7620)
+  [epoch 200/1500] loss=19291.1582 val_auc=0.7651 (best=0.7651)
+  [epoch 250/1500] loss=15545.8301 val_auc=0.7656 (best=0.7656)
+  [epoch 300/1500] loss=13083.3789 val_auc=0.7754 (best=0.7754)
+  [epoch 350/1500] loss=11600.0869 val_auc=0.7902 (best=0.7902)
+  [epoch 400/1500] loss=10876.5029 val_auc=0.7916 (best=0.7916)
+  [epoch 450/1500] loss=11592.5371 val_auc=0.8091 (best=0.8091)
+  [epoch 500/1500] loss=11629.5996 val_auc=0.8213 (best=0.8213)
+  [epoch 550/1500] loss=10896.5488 val_auc=0.8252 (best=0.8252)
+  [epoch 600/1500] loss=10130.5645 val_auc=0.8356 (best=0.8356)
+  [epoch 650/1500] loss=10122.9277 val_auc=0.8459 (best=0.8459)
+  [epoch 700/1500] loss=9108.6162 val_auc=0.8557 (best=0.8557)
+  [epoch 750/1500] loss=8064.7725 val_auc=0.8565 (best=0.8565)
+  [epoch 800/1500] loss=7759.8125 val_auc=0.8629 (best=0.8629)
+  [epoch 850/1500] loss=7551.1709 val_auc=0.8661 (best=0.8661)
+  [epoch 900/1500] loss=6715.0137 val_auc=0.8659 (best=0.8661)
+  [epoch 950/1500] loss=5237.4272 val_auc=0.8673 (best=0.8673)
+  [epoch 1000/1500] loss=4334.0391 val_auc=0.8677 (best=0.8677)
+  [epoch 1050/1500] loss=3922.0605 val_auc=0.8696 (best=0.8696)
+  [epoch 1100/1500] loss=3765.8579 val_auc=0.8732 (best=0.8732)
+  [epoch 1150/1500] loss=3956.0859 val_auc=0.8728 (best=0.8732)
+  [epoch 1200/1500] loss=4346.7227 val_auc=0.8742 (best=0.8742)
+  [epoch 1250/1500] loss=5543.6782 val_auc=0.8785 (best=0.8785)
+  [epoch 1300/1500] loss=8163.9087 val_auc=0.8826 (best=0.8826)
+  [epoch 1350/1500] loss=87313.1094 val_auc=0.8978 (best=0.8978)
+  [epoch 1400/1500] loss=64521.4609 val_auc=0.9108 (best=0.9108)
+  [epoch 1450/1500] loss=102379.2969 val_auc=0.9116 (best=0.9116)
+  [epoch 1500/1500] loss=168308.6562 val_auc=0.9139 (best=0.9139)
+
+=== RESULTS: SiGAT on epinions (seed=42) ===
+  Val  AUC : 0.9139
+  Test AUC : 0.9146
+  Test F1  : 0.9555
+  Saved -> results_our_splits_canonical/epinions/SiGAT/seed42/score.csv
+  Saved -> results_our_splits_canonical/epinions/SiGAT/seed42/best_epoch_artifacts.pkl

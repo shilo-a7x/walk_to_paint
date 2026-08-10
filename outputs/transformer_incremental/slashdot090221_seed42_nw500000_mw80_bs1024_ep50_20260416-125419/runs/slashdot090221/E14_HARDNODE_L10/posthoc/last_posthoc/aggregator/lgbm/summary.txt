@@ -1,0 +1,17 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 0
+Run ID: last_posthoc
+Model: lgbm
+
+Walk-level metrics:
+  Train AUC: 0.9253
+  Test  AUC: 0.8737
+  Train ACC: 0.8161
+  Test  ACC: 0.7903
+  Train F1: 0.5422
+  Test  F1: 0.4681
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8502 (37467 edges)
+  Test  AUC: 0.8483 (37322 edges)

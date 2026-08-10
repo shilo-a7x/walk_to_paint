@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 39
+Run ID: multiseed_agg
+Model: func_entropy_exp  (exp(-a*H(q)))
+theta* = [2.3703125000000007]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8931 (17721 edges)
+  Test  AUC: 0.8904 (17722 edges)

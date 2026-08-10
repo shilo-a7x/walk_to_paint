@@ -1,0 +1,10 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/bitcoin-otc.pt
+[INFO] bitcoin-otc: 5881 nodes, 28473 train, 3559 val, 3560 test edges
+
+=== RESULTS: CSG on bitcoin-otc (seed=42) ===
+  Val  AUC      : 0.8361
+  Val  F1       : 0.9376
+  Test AUC      : 0.8310
+  Test Macro F1 : 0.9330
+  Saved → results_our_splits_canonical/bitcoin-otc/CSG/seed42/score.csv
+  Saved → results_our_splits_canonical/bitcoin-otc/CSG/seed42/best_epoch_artifacts.pkl

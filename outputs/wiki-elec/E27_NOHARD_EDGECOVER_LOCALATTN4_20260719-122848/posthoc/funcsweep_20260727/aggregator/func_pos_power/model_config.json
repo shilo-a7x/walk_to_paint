@@ -1,0 +1,10 @@
+{
+  "model_name": "func_pos_power",
+  "description": "(1-rel_pos)^a",
+  "theta_star": [
+    6.526953125000011
+  ],
+  "n_iters": 23,
+  "n_params": 1,
+  "seed": 42
+}

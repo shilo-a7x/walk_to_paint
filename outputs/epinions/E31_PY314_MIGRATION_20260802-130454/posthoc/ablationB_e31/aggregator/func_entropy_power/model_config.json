@@ -1,0 +1,10 @@
+{
+  "model_name": "func_entropy_power",
+  "description": "(ln2-H(q))^b",
+  "theta_star": [
+    2.5698242187500036
+  ],
+  "n_iters": 18,
+  "n_params": 1,
+  "seed": 42
+}

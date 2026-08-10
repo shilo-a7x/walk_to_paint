@@ -1,0 +1,14 @@
+{
+  "model_name": "lgbm_set_attention",
+  "architecture": "lgbm(3 feats)\u2192q_j, PMA(d=32,h=4) seed pool",
+  "n_epochs": 150,
+  "lr": 0.001,
+  "weight_decay": 0.0001,
+  "pos_weight": 0.2879503698401336,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "lr": 0.05
+  }
+}

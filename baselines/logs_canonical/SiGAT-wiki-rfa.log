@@ -1,0 +1,39 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/wiki-rfa.pt
+[INFO] wiki-rfa: 11256 nodes, 141768 train, 17721 val, 17722 test edges
+  [epoch 50/1500] loss=38532.3867 val_auc=0.5671 (best=0.5671)
+  [epoch 100/1500] loss=18015.8867 val_auc=0.7587 (best=0.7587)
+  [epoch 150/1500] loss=10205.5215 val_auc=0.7881 (best=0.7881)
+  [epoch 200/1500] loss=7236.7686 val_auc=0.7923 (best=0.7923)
+  [epoch 250/1500] loss=5298.7930 val_auc=0.7935 (best=0.7935)
+  [epoch 300/1500] loss=4105.0913 val_auc=0.7917 (best=0.7935)
+  [epoch 350/1500] loss=3286.1968 val_auc=0.7906 (best=0.7935)
+  [epoch 400/1500] loss=2800.4304 val_auc=0.7905 (best=0.7935)
+  [epoch 450/1500] loss=2466.3770 val_auc=0.7917 (best=0.7935)
+  [epoch 500/1500] loss=2229.9609 val_auc=0.7933 (best=0.7935)
+  [epoch 550/1500] loss=2381.4409 val_auc=0.7978 (best=0.7978)
+  [epoch 600/1500] loss=2066.4961 val_auc=0.7966 (best=0.7978)
+  [epoch 650/1500] loss=2397.5376 val_auc=0.8005 (best=0.8005)
+  [epoch 700/1500] loss=2440.1016 val_auc=0.8014 (best=0.8014)
+  [epoch 750/1500] loss=2806.5259 val_auc=0.8018 (best=0.8018)
+  [epoch 800/1500] loss=3926.0186 val_auc=0.8069 (best=0.8069)
+  [epoch 850/1500] loss=4053.5955 val_auc=0.8078 (best=0.8078)
+  [epoch 900/1500] loss=4904.7568 val_auc=0.8126 (best=0.8126)
+  [epoch 950/1500] loss=19609.2344 val_auc=0.8107 (best=0.8126)
+  [epoch 1000/1500] loss=16301.0957 val_auc=0.8168 (best=0.8168)
+  [epoch 1050/1500] loss=14889.0059 val_auc=0.8302 (best=0.8302)
+  [epoch 1100/1500] loss=14896.8672 val_auc=0.8408 (best=0.8408)
+  [epoch 1150/1500] loss=16198.0586 val_auc=0.8498 (best=0.8498)
+  [epoch 1200/1500] loss=16276.1855 val_auc=0.8544 (best=0.8544)
+  [epoch 1250/1500] loss=22276.6348 val_auc=0.8621 (best=0.8621)
+  [epoch 1300/1500] loss=29062.8477 val_auc=0.8675 (best=0.8675)
+  [epoch 1350/1500] loss=34825.0781 val_auc=0.8711 (best=0.8711)
+  [epoch 1400/1500] loss=43464.1953 val_auc=0.8754 (best=0.8754)
+  [epoch 1450/1500] loss=51179.4883 val_auc=0.8774 (best=0.8774)
+  [epoch 1500/1500] loss=52067.2891 val_auc=0.8823 (best=0.8823)
+
+=== RESULTS: SiGAT on wiki-rfa (seed=42) ===
+  Val  AUC : 0.8823
+  Test AUC : 0.8831
+  Test F1  : 0.9079
+  Saved -> results_our_splits_canonical/wiki-rfa/SiGAT/seed42/score.csv
+  Saved -> results_our_splits_canonical/wiki-rfa/SiGAT/seed42/best_epoch_artifacts.pkl

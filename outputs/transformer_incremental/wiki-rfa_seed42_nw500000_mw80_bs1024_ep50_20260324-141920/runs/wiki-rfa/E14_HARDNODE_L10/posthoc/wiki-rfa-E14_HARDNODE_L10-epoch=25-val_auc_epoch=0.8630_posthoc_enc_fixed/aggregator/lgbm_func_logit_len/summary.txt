@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 25
+Run ID: wiki-rfa-E14_HARDNODE_L10-epoch=25-val_auc_epoch=0.8630_posthoc_enc_fixed
+Model: lgbm_func_logit_len  (lgbm→q_j then len^{-a}*|logit(q)|^b)
+theta* = [0.008183724340044213, -0.36463260855525886]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8840 (15239 edges)
+  Test  AUC: 0.8819 (15280 edges)

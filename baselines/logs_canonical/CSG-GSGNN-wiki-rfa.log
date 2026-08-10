@@ -1,0 +1,16 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/wiki-rfa.pt
+[INFO] wiki-rfa: 11256 nodes, 141768 train, 17721 val, 17722 test edges
+[INFO] Training GSGNN+CSG on wiki-rfa for 3000 epochs ...
+  Epoch 0000 | val_auc=0.6958 val_f1=0.5176 | tst_auc=0.7059 tst_f1mac=0.5138
+  Epoch 0500 | val_auc=0.8508 val_f1=0.7129 | tst_auc=0.8540 tst_f1mac=0.7173
+  Epoch 1000 | val_auc=0.8427 val_f1=0.7159 | tst_auc=0.8477 tst_f1mac=0.7129
+  Epoch 1500 | val_auc=0.8276 val_f1=0.7150 | tst_auc=0.8328 tst_f1mac=0.7145
+  Epoch 2000 | val_auc=0.8460 val_f1=0.7046 | tst_auc=0.8493 tst_f1mac=0.7049
+  Epoch 2500 | val_auc=0.8692 val_f1=0.7310 | tst_auc=0.8707 tst_f1mac=0.7301
+
+=== RESULTS: CSG-GSGNN on wiki-rfa (seed=42) ===
+  Val  AUC      : 0.8755
+  Val  F1 macro : 0.7362
+  Test AUC      : 0.8759
+  Test Macro F1 : 0.7353
+  Saved → results_our_splits_canonical/wiki-rfa/CSG-GSGNN/seed42/score.csv

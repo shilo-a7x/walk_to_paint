@@ -1,0 +1,39 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/wiki-elec.pt
+[INFO] wiki-elec: 7115 nodes, 82950 train, 10369 val, 10370 test edges
+  [epoch 50/1500] loss=22861.8965 val_auc=0.5374 (best=0.5374)
+  [epoch 100/1500] loss=13427.0410 val_auc=0.7472 (best=0.7472)
+  [epoch 150/1500] loss=8045.1636 val_auc=0.7927 (best=0.7927)
+  [epoch 200/1500] loss=6215.1035 val_auc=0.8122 (best=0.8122)
+  [epoch 250/1500] loss=5242.4453 val_auc=0.8148 (best=0.8148)
+  [epoch 300/1500] loss=4351.6626 val_auc=0.8150 (best=0.8150)
+  [epoch 350/1500] loss=3837.0908 val_auc=0.8128 (best=0.8150)
+  [epoch 400/1500] loss=3474.4131 val_auc=0.8142 (best=0.8150)
+  [epoch 450/1500] loss=2936.2383 val_auc=0.8149 (best=0.8150)
+  [epoch 500/1500] loss=2135.8838 val_auc=0.8114 (best=0.8150)
+  [epoch 550/1500] loss=1803.6567 val_auc=0.8133 (best=0.8150)
+  [epoch 600/1500] loss=1583.2622 val_auc=0.8120 (best=0.8150)
+  [epoch 650/1500] loss=1993.0712 val_auc=0.8152 (best=0.8152)
+  [epoch 700/1500] loss=1790.9951 val_auc=0.8193 (best=0.8193)
+  [epoch 750/1500] loss=1533.1345 val_auc=0.8193 (best=0.8193)
+  [epoch 800/1500] loss=1850.1552 val_auc=0.8197 (best=0.8197)
+  [epoch 850/1500] loss=1577.2339 val_auc=0.8183 (best=0.8197)
+  [epoch 900/1500] loss=2299.3560 val_auc=0.8223 (best=0.8223)
+  [epoch 950/1500] loss=2382.0312 val_auc=0.8258 (best=0.8258)
+  [epoch 1000/1500] loss=2744.1292 val_auc=0.8307 (best=0.8307)
+  [epoch 1050/1500] loss=6601.9429 val_auc=0.8340 (best=0.8340)
+  [epoch 1100/1500] loss=6707.3691 val_auc=0.8417 (best=0.8417)
+  [epoch 1150/1500] loss=8836.8340 val_auc=0.8537 (best=0.8537)
+  [epoch 1200/1500] loss=11050.1514 val_auc=0.8616 (best=0.8616)
+  [epoch 1250/1500] loss=12135.7324 val_auc=0.8657 (best=0.8657)
+  [epoch 1300/1500] loss=15689.3672 val_auc=0.8719 (best=0.8719)
+  [epoch 1350/1500] loss=19041.6934 val_auc=0.8786 (best=0.8786)
+  [epoch 1400/1500] loss=24775.1094 val_auc=0.8837 (best=0.8837)
+  [epoch 1450/1500] loss=27012.1367 val_auc=0.8859 (best=0.8859)
+  [epoch 1500/1500] loss=25956.8281 val_auc=0.8867 (best=0.8867)
+
+=== RESULTS: SiGAT on wiki-elec (seed=42) ===
+  Val  AUC : 0.8867
+  Test AUC : 0.8930
+  Test F1  : 0.9129
+  Saved -> results_our_splits_canonical/wiki-elec/SiGAT/seed42/score.csv
+  Saved -> results_our_splits_canonical/wiki-elec/SiGAT/seed42/best_epoch_artifacts.pkl

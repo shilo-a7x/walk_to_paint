@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 20
+Run ID: slashdot090221-E14_HARDNODE_L10-epoch=20-val_auc_epoch=0.9279_posthoc
+Model: func_dist_min  ((min(ds,de)+1)^{-a})
+theta* = [0.0509765624999996]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8953 (53978 edges)
+  Test  AUC: 0.8948 (53962 edges)

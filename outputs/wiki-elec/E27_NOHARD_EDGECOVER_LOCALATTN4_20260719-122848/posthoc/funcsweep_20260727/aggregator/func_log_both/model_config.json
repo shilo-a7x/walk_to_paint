@@ -1,0 +1,12 @@
+{
+  "model_name": "func_log_both",
+  "description": "exp(b1*log(q)+b2*log(1-q)+b3*log_len)  =q^b1*(1-q)^b2*len^b3",
+  "theta_star": [
+    -0.005161021383410576,
+    0.0006890804096744516,
+    -1.4572192774387784
+  ],
+  "n_iters": 45,
+  "n_params": 3,
+  "seed": 42
+}

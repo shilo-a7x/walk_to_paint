@@ -1,0 +1,22 @@
+{
+  "model_name": "lgbm_func_log6",
+  "func_key": "func_log6",
+  "description": "lgbm\u2192q_j then exp(b1..b6 with pairwise q/rp/log_len interactions)",
+  "theta_star": [
+    0.0009133108584315728,
+    0.0030820932490898145,
+    0.9743470392468515,
+    0.004269887976476828,
+    0.0029595857839660976,
+    0.0019431401477716672
+  ],
+  "n_iters": 83,
+  "n_params": 6,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

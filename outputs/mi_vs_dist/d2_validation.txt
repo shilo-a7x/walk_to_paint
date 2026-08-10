@@ -1,0 +1,28 @@
+nohup: ignoring input
+
+══════════════════════════════════════════════════════════════
+  bitcoin-alpha
+══════════════════════════════════════════════════════════════
+  Computing exact d=2 ...
+  Exact   d=2 : n_pairs=  261,042,821  MI=0.00000687  NMI=0.000018
+  Computing approx d=2 (production BFS) ...
+  Approx  d=2 : n_pairs=   11,901,332  MI=0.00000000  NMI=0.000000
+  MI  abs err : 6.867e-06   rel err : 100.0%
+  NMI abs err : 1.795e-05
+  Coverage    : approx/exact pairs = 0.0456x
+
+══════════════════════════════════════════════════════════════
+  bitcoin-otc
+══════════════════════════════════════════════════════════════
+  Computing exact d=2 ...
+  Exact   d=2 : n_pairs=  550,460,630  MI=0.00000059  NMI=0.000001
+  Computing approx d=2 (production BFS) ...
+  Approx  d=2 : n_pairs=   17,497,604  MI=0.00009881  NMI=0.000209
+  MI  abs err : 9.821e-05   rel err : 16544.7%
+  NMI abs err : 2.075e-04
+  Coverage    : approx/exact pairs = 0.0318x
+
+══════════════════════════════════════════════════════════════
+  epinions
+══════════════════════════════════════════════════════════════
+  Computing exact d=2 ...

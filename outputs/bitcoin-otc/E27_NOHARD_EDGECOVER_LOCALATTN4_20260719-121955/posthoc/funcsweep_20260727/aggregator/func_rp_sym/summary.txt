@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-otc
+Epoch: 46
+Run ID: funcsweep_20260727
+Model: func_rp_sym  ((rp*(1-rp))^a  mid-peak)
+theta* = [0.4859375]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9296 (3559 edges)
+  Test  AUC: 0.9388 (3560 edges)

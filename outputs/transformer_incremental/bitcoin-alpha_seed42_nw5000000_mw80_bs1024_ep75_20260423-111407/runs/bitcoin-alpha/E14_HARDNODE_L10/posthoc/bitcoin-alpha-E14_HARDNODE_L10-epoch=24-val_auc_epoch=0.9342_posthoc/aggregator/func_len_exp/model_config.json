@@ -1,0 +1,10 @@
+{
+  "model_name": "func_len_exp",
+  "description": "exp(-a*len)",
+  "theta_star": [
+    0.009874999999999998
+  ],
+  "n_iters": 4,
+  "n_params": 1,
+  "seed": 42
+}

@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-otc
+Epoch: 35
+Run ID: multiseed_agg
+Model: func_fisher_power  ((q(1-q))^{-b}  Fisher-information / inverse-variance weighting)
+theta* = [1.2066406250000008]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9342 (3559 edges)
+  Test  AUC: 0.9192 (3560 edges)

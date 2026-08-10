@@ -1,0 +1,9 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-alpha
+Epoch: 24
+Run ID: bitcoin-alpha-E14_HARDNODE_L10-epoch=24-val_auc_epoch=0.9342_posthoc
+Model: set_attention (SetTransformerPMA(3→32, cross-attn seed))
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9291 (2419 edges)
+  Test  AUC: 0.8903 (2419 edges)

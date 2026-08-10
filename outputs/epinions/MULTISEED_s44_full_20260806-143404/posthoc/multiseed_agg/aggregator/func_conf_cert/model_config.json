@@ -1,0 +1,10 @@
+{
+  "model_name": "func_conf_cert",
+  "description": "|q-0.5|^b",
+  "theta_star": [
+    4.1167968750000075
+  ],
+  "n_iters": 23,
+  "n_params": 1,
+  "seed": 44
+}

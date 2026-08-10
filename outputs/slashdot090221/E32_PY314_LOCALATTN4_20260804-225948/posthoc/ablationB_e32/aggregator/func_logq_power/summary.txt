@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 34
+Run ID: ablationC_e32
+Model: func_logq_power  ((-log(q))^b)
+theta* = [-0.11835937500000099]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8976 (54920 edges)
+  Test  AUC: 0.8981 (54921 edges)

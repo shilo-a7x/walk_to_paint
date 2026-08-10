@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 33
+Run ID: funcsweep_20260727
+Model: func_pos_invq  (exp(-a*rp)*(1-q)^b)
+theta* = [3.4229805648326734, -0.227341914176946]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8940 (17721 edges)
+  Test  AUC: 0.8966 (17722 edges)

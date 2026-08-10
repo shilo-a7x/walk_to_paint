@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 42
+Run ID: multiseed_agg
+Model: func_maxprob_power  (max(q,1-q)^b  confidence in predicted class)
+theta* = [1.1050781250000004]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8985 (10369 edges)
+  Test  AUC: 0.8982 (10370 edges)

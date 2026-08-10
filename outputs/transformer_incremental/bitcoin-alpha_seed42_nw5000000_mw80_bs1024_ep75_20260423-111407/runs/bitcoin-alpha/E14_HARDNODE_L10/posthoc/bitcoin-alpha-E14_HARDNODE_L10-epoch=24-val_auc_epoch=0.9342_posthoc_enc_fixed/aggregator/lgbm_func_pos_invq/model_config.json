@@ -1,0 +1,18 @@
+{
+  "model_name": "lgbm_func_pos_invq",
+  "func_key": "func_pos_invq",
+  "description": "lgbm\u2192q_j then exp(-a*rp)*(1-q)^b",
+  "theta_star": [
+    -8.34616241455073,
+    -2.0412658691407355
+  ],
+  "n_iters": 54,
+  "n_params": 2,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

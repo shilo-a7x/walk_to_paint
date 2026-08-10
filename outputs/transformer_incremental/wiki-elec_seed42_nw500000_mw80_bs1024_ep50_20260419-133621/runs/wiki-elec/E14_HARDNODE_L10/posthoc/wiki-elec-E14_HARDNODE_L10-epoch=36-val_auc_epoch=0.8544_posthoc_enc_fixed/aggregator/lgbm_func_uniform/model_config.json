@@ -1,0 +1,15 @@
+{
+  "model_name": "lgbm_func_uniform",
+  "func_key": "func_uniform",
+  "description": "lgbm\u2192q_j then uniform mean",
+  "theta_star": [],
+  "n_iters": 0,
+  "n_params": 0,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

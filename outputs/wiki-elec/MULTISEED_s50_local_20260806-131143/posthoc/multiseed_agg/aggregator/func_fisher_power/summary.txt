@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 44
+Run ID: multiseed_agg
+Model: func_fisher_power  ((q(1-q))^{-b}  Fisher-information / inverse-variance weighting)
+theta* = [0.5724609374999996]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9066 (10369 edges)
+  Test  AUC: 0.8995 (10370 edges)

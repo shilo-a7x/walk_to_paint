@@ -1,0 +1,21 @@
+========================================================================================
+  LEAD 3 STEP 3 -- attention-mass-beyond-1-hop vs. 1-hop ambiguity, epinions
+========================================================================================
+
+ambiguity_score(v) = agreement rate among v's training-graph out-edge signs
+(1.0 = all same sign / unambiguous, 0.5 = perfectly mixed / maximally ambiguous).
+Rising mean_frac_beyond_1hop as ambiguity_score DECREASES (i.e. as ambiguity
+increases) = evidence attention adaptively compensates for weak 1-hop evidence.
+Flat trend = generic far-reach, unconditional on local ambiguity.
+
+n_targets_used=18,940, n_dropped=8,674
+verify: re-agg eff_dist=14.0676 vs published=14.0676
+
+ bin       ambig_range       n  mean_ambiguity   mean_frac_beyond_1hop
+   0     [0.500,0.672]    3797          0.5863                  0.5712
+   1     [0.673,0.868]    3803          0.7816                  0.5766
+   2     [0.868,0.984]    3781          0.9317                  0.5918
+   3     [0.984,1.000]    7559          0.9996                  0.6095
+
+Pearson corr(ambiguity_score, frac_beyond_1hop) = 0.1132  (negative = attention reaches further when ambiguity is HIGHER, consistent with adaptive compensation)
+Spearman corr = 0.1017

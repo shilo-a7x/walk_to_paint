@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 33
+Run ID: ablationC_e32
+Model: func_maxprob_power  (max(q,1-q)^b  confidence in predicted class)
+theta* = [1.8516601562500017]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8938 (17721 edges)
+  Test  AUC: 0.8976 (17722 edges)

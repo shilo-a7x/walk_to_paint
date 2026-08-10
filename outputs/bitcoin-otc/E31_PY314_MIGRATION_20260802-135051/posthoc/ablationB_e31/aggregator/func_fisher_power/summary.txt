@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-otc
+Epoch: 46
+Run ID: ablationB_e31
+Model: func_fisher_power  ((q(1-q))^{-b}  Fisher-information / inverse-variance weighting)
+theta* = [1.1761718750000005]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9247 (3559 edges)
+  Test  AUC: 0.9356 (3560 edges)

@@ -1,0 +1,41 @@
+========================================================================
+  STRUCTURAL HOP-MI REPORT
+========================================================================
+
+MI (bits) between target edge sign and structural features
+at TRUE BFS graph-hop distance d from the target edge endpoints.
+
+This is DIFFERENT from C(k) in graph_signal_analysis.py:
+  C(k) = sign correlation at WALK step k (confounded by cycling)
+  This   = MI at GRAPH hop d (unconfounded by walk sampling)
+
+Key: if MI at d≥3 is significant → long-range graph structure
+     predicts target sign → deep GNN / far-walking model can help.
+     If MI drops to 0 at d=2 → local model is sufficient.
+
+Features:
+  B1 sign: mean_sign_out, frac_pos_out
+  B2 struct: mean_out_deg, frac_dead, sign_entropy,
+             signed_cc (fraction balanced triangles)
+  B2+: overlap (fraction of u-side and v-side d-hop sets that coincide)
+
+────────────────────────────────────────────────────────────────────────
+  DATASET: bitcoin-alpha
+────────────────────────────────────────────────────────────────────────
+  feature               d=1  d=2  d=3  d=4  d=5  (MI in bits)
+  mean_sign_out         0.0177  0.0040  0.0062  0.0033  0.0022
+  frac_pos_out          0.0177  0.0040  0.0062  0.0033  0.0022
+  mean_out_deg          0.0059  0.0064  0.0034  0.0005  0.0043
+  frac_dead             0.0189  0.0027  0.0023  0.0001  0.0013
+  sign_entropy          0.0184  0.0044  0.0062  0.0033  0.0024
+  signed_cc             0.0111  0.0023  0.0034  0.0005  0.0017
+  overlap               0.0023  0.0026  0.0008  0.0012  0.0013
+
+  Pearson r:
+  mean_sign_out         +0.115  -0.039  -0.085  -0.047  -0.035
+  frac_pos_out          +0.115  -0.039  -0.085  -0.047  -0.035
+  mean_out_deg          +0.050  +0.077  +0.058  +0.023  +0.067
+  frac_dead             -0.209  -0.033  -0.028  +0.007  -0.012
+  sign_entropy          -0.130  +0.034  +0.085  +0.049  +0.038
+  signed_cc             +0.098  -0.042  -0.042  -0.012  -0.033
+  overlap               -0.006  +0.008  -0.022  +0.019  +0.033

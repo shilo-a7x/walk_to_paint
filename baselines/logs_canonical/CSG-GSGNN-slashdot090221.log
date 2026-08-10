@@ -1,0 +1,16 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/slashdot090221.pt
+[INFO] slashdot090221: 82140 nodes, 439361 train, 54920 val, 54921 test edges
+[INFO] Training GSGNN+CSG on slashdot090221 for 3000 epochs ...
+  Epoch 0000 | val_auc=0.6658 val_f1=0.5652 | tst_auc=0.6660 tst_f1mac=0.5620
+  Epoch 0500 | val_auc=0.7843 val_f1=0.6898 | tst_auc=0.7812 tst_f1mac=0.6881
+  Epoch 1000 | val_auc=0.7584 val_f1=0.6866 | tst_auc=0.7572 tst_f1mac=0.6880
+  Epoch 1500 | val_auc=0.7806 val_f1=0.4368 | tst_auc=0.7797 tst_f1mac=0.4366
+  Epoch 2000 | val_auc=0.7920 val_f1=0.5864 | tst_auc=0.7910 tst_f1mac=0.5852
+  Epoch 2500 | val_auc=0.7990 val_f1=0.6173 | tst_auc=0.7962 tst_f1mac=0.6209
+
+=== RESULTS: CSG-GSGNN on slashdot090221 (seed=42) ===
+  Val  AUC      : 0.8039
+  Val  F1 macro : 0.6970
+  Test AUC      : 0.8004
+  Test Macro F1 : 0.6947
+  Saved → results_our_splits_canonical/slashdot090221/CSG-GSGNN/seed42/score.csv

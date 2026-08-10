@@ -1,0 +1,17 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 25
+Run ID: wiki-rfa-E14_HARDNODE_L10-epoch=25-val_auc_epoch=0.8630_posthoc_enc_fixed
+Model: logistic
+
+Walk-level metrics:
+  Train AUC: 0.8627
+  Test  AUC: 0.8419
+  Train ACC: 0.7891
+  Test  ACC: 0.7782
+  Train F1: 0.8567
+  Test  F1: 0.8490
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8789 (15239 edges)
+  Test  AUC: 0.8819 (15280 edges)

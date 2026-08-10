@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 30
+Run ID: multiseed_agg
+Model: func_conf_exp  (exp(b*q))
+theta* = [-0.5470703125000023]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8976 (54920 edges)
+  Test  AUC: 0.8971 (54921 edges)

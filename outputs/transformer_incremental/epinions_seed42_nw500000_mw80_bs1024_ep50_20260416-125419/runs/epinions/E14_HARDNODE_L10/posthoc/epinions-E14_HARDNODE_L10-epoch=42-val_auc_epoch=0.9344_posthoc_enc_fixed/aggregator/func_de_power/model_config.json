@@ -1,0 +1,10 @@
+{
+  "model_name": "func_de_power",
+  "description": "(de+1)^{-a}",
+  "theta_star": [
+    -0.04960937500000049
+  ],
+  "n_iters": 16,
+  "n_params": 1,
+  "seed": 42
+}

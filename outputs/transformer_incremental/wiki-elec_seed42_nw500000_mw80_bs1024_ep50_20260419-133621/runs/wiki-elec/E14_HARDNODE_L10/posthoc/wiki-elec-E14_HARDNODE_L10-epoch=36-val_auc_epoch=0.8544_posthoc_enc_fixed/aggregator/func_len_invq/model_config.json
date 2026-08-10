@@ -1,0 +1,11 @@
+{
+  "model_name": "func_len_invq",
+  "description": "len^{-a}*(1-q)^b",
+  "theta_star": [
+    -0.962349755485592,
+    0.061872892985403556
+  ],
+  "n_iters": 48,
+  "n_params": 2,
+  "seed": 42
+}

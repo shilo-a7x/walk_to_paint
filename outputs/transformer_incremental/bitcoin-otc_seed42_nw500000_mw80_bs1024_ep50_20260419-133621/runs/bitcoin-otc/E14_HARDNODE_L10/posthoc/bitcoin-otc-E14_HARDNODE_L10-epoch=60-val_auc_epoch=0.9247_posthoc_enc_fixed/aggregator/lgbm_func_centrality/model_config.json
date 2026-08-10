@@ -1,0 +1,17 @@
+{
+  "model_name": "lgbm_func_centrality",
+  "func_key": "func_centrality",
+  "description": "lgbm\u2192q_j then Gaussian exp(-a*(rp-0.5)^2)",
+  "theta_star": [
+    -21.203125000000018
+  ],
+  "n_iters": 26,
+  "n_params": 1,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

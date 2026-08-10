@@ -1,0 +1,273 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/bitcoin-otc.pt
+[INFO] Graph: 5881 nodes, 42984 directed edges
+[INFO] Unique edges — train=19724 val=880 test=888
+[INFO] Training SNEA on bitcoin-otc (seed=42, device=cuda)
+Epoch    0 | Loss   4.5954 | Auc   0.7245 | Macro F1   0.5341 ----> New Best
+Epoch    3 | Loss   2.1806 | Auc   0.7372 | Macro F1   0.5746 ----> New Best
+Epoch    6 | Loss   1.7363 | Auc   0.7492 | Macro F1   0.5944 ----> New Best
+Epoch    9 | Loss   1.5557 | Auc   0.7584 | Macro F1   0.5980 ----> New Best
+Epoch   12 | Loss   1.4479 | Auc   0.7634 | Macro F1   0.6004 ----> New Best
+Epoch   15 | Loss   1.3789 | Auc   0.7692 | Macro F1   0.6100 ----> New Best
+Epoch   18 | Loss   1.3293 | Auc   0.7732 | Macro F1   0.6116 ----> New Best
+Epoch   21 | Loss   1.2984 | Auc   0.7798 | Macro F1   0.6157 ----> New Best
+Epoch   24 | Loss   1.2724 | Auc   0.7842 | Macro F1   0.6208 ----> New Best
+Epoch   27 | Loss   1.2538 | Auc   0.7876 | Macro F1   0.6287 ----> New Best
+Epoch   30 | Loss   1.2427 | Auc   0.7912 | Macro F1   0.6379 ----> New Best
+Epoch   33 | Loss   1.2264 | Auc   0.7953 | Macro F1   0.6418 ----> New Best
+Epoch   36 | Loss   1.2152 | Auc   0.7985 | Macro F1   0.6469 ----> New Best
+Epoch   39 | Loss   1.2011 | Auc   0.8016 | Macro F1   0.6501 ----> New Best
+Epoch   42 | Loss   1.1930 | Auc   0.8052 | Macro F1   0.6515 ----> New Best
+Epoch   45 | Loss   1.1837 | Auc   0.8090 | Macro F1   0.6569 ----> New Best
+Epoch   48 | Loss   1.1735 | Auc   0.8131 | Macro F1   0.6613 ----> New Best
+Epoch   51 | Loss   1.1718 | Auc   0.8166 | Macro F1   0.6648 ----> New Best
+Epoch   54 | Loss   1.1654 | Auc   0.8204 | Macro F1   0.6712 ----> New Best
+Epoch   57 | Loss   1.1562 | Auc   0.8212 | Macro F1   0.6742 ----> New Best
+Epoch   60 | Loss   1.1512 | Auc   0.8253 | Macro F1   0.6749 ----> New Best
+Epoch   63 | Loss   1.1506 | Auc   0.8286 | Macro F1   0.6757 ----> New Best
+Epoch   66 | Loss   1.1387 | Auc   0.8301 | Macro F1   0.6757 ----> New Best
+Epoch   69 | Loss   1.1370 | Auc   0.8322 | Macro F1   0.6773 ----> New Best
+Epoch   72 | Loss   1.1333 | Auc   0.8338 | Macro F1   0.6785 ----> New Best
+Epoch   75 | Loss   1.1310 | Auc   0.8366 | Macro F1   0.6879 ----> New Best
+Epoch   78 | Loss   1.1269 | Auc   0.8395 | Macro F1   0.6895 ----> New Best
+Epoch   81 | Loss   1.1281 | Auc   0.8415 | Macro F1   0.6858
+Epoch   84 | Loss   1.1216 | Auc   0.8445 | Macro F1   0.6874
+Epoch   87 | Loss   1.1137 | Auc   0.8436 | Macro F1   0.6911 ----> New Best
+Epoch   90 | Loss   1.1072 | Auc   0.8466 | Macro F1   0.6949 ----> New Best
+Epoch   93 | Loss   1.1076 | Auc   0.8471 | Macro F1   0.6965 ----> New Best
+Epoch   96 | Loss   1.1029 | Auc   0.8502 | Macro F1   0.6960
+Epoch   99 | Loss   1.0993 | Auc   0.8494 | Macro F1   0.6960
+Epoch  102 | Loss   1.0989 | Auc   0.8540 | Macro F1   0.6966 ----> New Best
+Epoch  105 | Loss   1.0946 | Auc   0.8540 | Macro F1   0.6934
+Epoch  108 | Loss   1.0934 | Auc   0.8545 | Macro F1   0.6982 ----> New Best
+Epoch  111 | Loss   1.0889 | Auc   0.8552 | Macro F1   0.7008 ----> New Best
+Epoch  114 | Loss   1.0898 | Auc   0.8549 | Macro F1   0.7013
+Epoch  117 | Loss   1.0851 | Auc   0.8598 | Macro F1   0.6992
+Epoch  120 | Loss   1.0828 | Auc   0.8588 | Macro F1   0.7039 ----> New Best
+Epoch  123 | Loss   1.0799 | Auc   0.8605 | Macro F1   0.7054 ----> New Best
+Epoch  126 | Loss   1.0748 | Auc   0.8591 | Macro F1   0.7039
+Epoch  129 | Loss   1.0765 | Auc   0.8608 | Macro F1   0.7054 ----> New Best
+Epoch  132 | Loss   1.0723 | Auc   0.8610 | Macro F1   0.7034
+Epoch  135 | Loss   1.0687 | Auc   0.8605 | Macro F1   0.7064
+Epoch  138 | Loss   1.0701 | Auc   0.8620 | Macro F1   0.7090 ----> New Best
+Epoch  141 | Loss   1.0681 | Auc   0.8617 | Macro F1   0.7090
+Epoch  144 | Loss   1.0639 | Auc   0.8631 | Macro F1   0.7100 ----> New Best
+Epoch  147 | Loss   1.0612 | Auc   0.8651 | Macro F1   0.7075
+Epoch  150 | Loss   1.0615 | Auc   0.8649 | Macro F1   0.7095
+Epoch  153 | Loss   1.0621 | Auc   0.8654 | Macro F1   0.7140 ----> New Best
+Epoch  156 | Loss   1.0568 | Auc   0.8657 | Macro F1   0.7150 ----> New Best
+Epoch  159 | Loss   1.0554 | Auc   0.8677 | Macro F1   0.7095
+Epoch  162 | Loss   1.0541 | Auc   0.8680 | Macro F1   0.7140
+Epoch  165 | Loss   1.0538 | Auc   0.8677 | Macro F1   0.7150 ----> New Best
+Epoch  168 | Loss   1.0474 | Auc   0.8679 | Macro F1   0.7154 ----> New Best
+Epoch  171 | Loss   1.0494 | Auc   0.8687 | Macro F1   0.7160 ----> New Best
+Epoch  174 | Loss   1.0448 | Auc   0.8696 | Macro F1   0.7130
+Epoch  177 | Loss   1.0420 | Auc   0.8701 | Macro F1   0.7208 ----> New Best
+Epoch  180 | Loss   1.0388 | Auc   0.8701 | Macro F1   0.7184
+Epoch  183 | Loss   1.0406 | Auc   0.8702 | Macro F1   0.7223 ----> New Best
+Epoch  186 | Loss   1.0407 | Auc   0.8708 | Macro F1   0.7228 ----> New Best
+Epoch  189 | Loss   1.0367 | Auc   0.8716 | Macro F1   0.7228 ----> New Best
+Epoch  192 | Loss   1.0354 | Auc   0.8731 | Macro F1   0.7272 ----> New Best
+Epoch  195 | Loss   1.0352 | Auc   0.8727 | Macro F1   0.7272
+Epoch  198 | Loss   1.0310 | Auc   0.8725 | Macro F1   0.7243
+Epoch  201 | Loss   1.0317 | Auc   0.8729 | Macro F1   0.7286
+Epoch  204 | Loss   1.0335 | Auc   0.8740 | Macro F1   0.7263
+Epoch  207 | Loss   1.0320 | Auc   0.8743 | Macro F1   0.7252
+Epoch  210 | Loss   1.0266 | Auc   0.8722 | Macro F1   0.7256
+Epoch  213 | Loss   1.0273 | Auc   0.8741 | Macro F1   0.7275 ----> New Best
+Epoch  216 | Loss   1.0257 | Auc   0.8755 | Macro F1   0.7272
+Epoch  219 | Loss   1.0251 | Auc   0.8736 | Macro F1   0.7272
+Epoch  222 | Loss   1.0279 | Auc   0.8761 | Macro F1   0.7257
+Epoch  225 | Loss   1.0187 | Auc   0.8770 | Macro F1   0.7281 ----> New Best
+Epoch  228 | Loss   1.0219 | Auc   0.8764 | Macro F1   0.7301
+Epoch  231 | Loss   1.0212 | Auc   0.8770 | Macro F1   0.7301 ----> New Best
+Epoch  234 | Loss   1.0157 | Auc   0.8748 | Macro F1   0.7281
+Epoch  237 | Loss   1.0195 | Auc   0.8771 | Macro F1   0.7301 ----> New Best
+Epoch  240 | Loss   1.0138 | Auc   0.8785 | Macro F1   0.7320 ----> New Best
+Epoch  243 | Loss   1.0154 | Auc   0.8782 | Macro F1   0.7301
+Epoch  246 | Loss   1.0122 | Auc   0.8783 | Macro F1   0.7315
+Epoch  249 | Loss   1.0152 | Auc   0.8803 | Macro F1   0.7286
+Epoch  252 | Loss   1.0092 | Auc   0.8801 | Macro F1   0.7295
+Epoch  255 | Loss   1.0064 | Auc   0.8798 | Macro F1   0.7281
+Epoch  258 | Loss   1.0048 | Auc   0.8772 | Macro F1   0.7301
+Epoch  261 | Loss   1.0060 | Auc   0.8777 | Macro F1   0.7320
+Epoch  264 | Loss   1.0048 | Auc   0.8796 | Macro F1   0.7315
+Epoch  267 | Loss   1.0036 | Auc   0.8801 | Macro F1   0.7326 ----> New Best
+Epoch  270 | Loss   1.0011 | Auc   0.8810 | Macro F1   0.7309
+Epoch  273 | Loss   1.0001 | Auc   0.8819 | Macro F1   0.7315
+Epoch  276 | Loss   1.0000 | Auc   0.8819 | Macro F1   0.7309
+Epoch  279 | Loss   0.9994 | Auc   0.8807 | Macro F1   0.7315
+Epoch  282 | Loss   1.0011 | Auc   0.8817 | Macro F1   0.7309
+Epoch  285 | Loss   1.0001 | Auc   0.8827 | Macro F1   0.7281
+Epoch  288 | Loss   1.0005 | Auc   0.8825 | Macro F1   0.7309
+Epoch  291 | Loss   0.9963 | Auc   0.8822 | Macro F1   0.7309
+Epoch  294 | Loss   0.9949 | Auc   0.8836 | Macro F1   0.7315
+Epoch  297 | Loss   0.9980 | Auc   0.8837 | Macro F1   0.7301
+Epoch  300 | Loss   0.9939 | Auc   0.8831 | Macro F1   0.7324
+Epoch  303 | Loss   0.9931 | Auc   0.8839 | Macro F1   0.7286
+Epoch  306 | Loss   0.9938 | Auc   0.8845 | Macro F1   0.7301
+Epoch  309 | Loss   0.9875 | Auc   0.8836 | Macro F1   0.7286
+Epoch  312 | Loss   0.9928 | Auc   0.8821 | Macro F1   0.7318
+Epoch  315 | Loss   0.9893 | Auc   0.8844 | Macro F1   0.7329 ----> New Best
+Epoch  318 | Loss   0.9925 | Auc   0.8827 | Macro F1   0.7318
+Epoch  321 | Loss   0.9896 | Auc   0.8838 | Macro F1   0.7304
+Epoch  324 | Loss   0.9847 | Auc   0.8826 | Macro F1   0.7347
+Epoch  327 | Loss   0.9843 | Auc   0.8835 | Macro F1   0.7338
+Epoch  330 | Loss   0.9830 | Auc   0.8845 | Macro F1   0.7309
+Epoch  333 | Loss   0.9840 | Auc   0.8816 | Macro F1   0.7318
+Epoch  336 | Loss   0.9844 | Auc   0.8820 | Macro F1   0.7318
+Epoch  339 | Loss   0.9842 | Auc   0.8853 | Macro F1   0.7304
+Epoch  342 | Loss   0.9822 | Auc   0.8860 | Macro F1   0.7304
+Epoch  345 | Loss   0.9778 | Auc   0.8845 | Macro F1   0.7309
+Epoch  348 | Loss   0.9771 | Auc   0.8845 | Macro F1   0.7299
+Epoch  351 | Loss   0.9806 | Auc   0.8852 | Macro F1   0.7333 ----> New Best
+Epoch  354 | Loss   0.9719 | Auc   0.8869 | Macro F1   0.7299
+Epoch  357 | Loss   0.9749 | Auc   0.8853 | Macro F1   0.7324
+Epoch  360 | Loss   0.9757 | Auc   0.8860 | Macro F1   0.7304
+Epoch  363 | Loss   0.9707 | Auc   0.8854 | Macro F1   0.7304
+Epoch  366 | Loss   0.9805 | Auc   0.8866 | Macro F1   0.7313
+Epoch  369 | Loss   0.9759 | Auc   0.8871 | Macro F1   0.7333 ----> New Best
+Epoch  372 | Loss   0.9707 | Auc   0.8867 | Macro F1   0.7333
+Epoch  375 | Loss   0.9743 | Auc   0.8871 | Macro F1   0.7338 ----> New Best
+Epoch  378 | Loss   0.9770 | Auc   0.8868 | Macro F1   0.7318
+Epoch  381 | Loss   0.9738 | Auc   0.8871 | Macro F1   0.7313
+Epoch  384 | Loss   0.9658 | Auc   0.8874 | Macro F1   0.7324
+Epoch  387 | Loss   0.9725 | Auc   0.8874 | Macro F1   0.7333
+Epoch  390 | Loss   0.9722 | Auc   0.8875 | Macro F1   0.7304
+Epoch  393 | Loss   0.9669 | Auc   0.8876 | Macro F1   0.7304
+Epoch  396 | Loss   0.9684 | Auc   0.8883 | Macro F1   0.7299
+Epoch  399 | Loss   0.9683 | Auc   0.8883 | Macro F1   0.7304
+Epoch  402 | Loss   0.9640 | Auc   0.8872 | Macro F1   0.7347 ----> New Best
+Epoch  405 | Loss   0.9658 | Auc   0.8872 | Macro F1   0.7327
+Epoch  408 | Loss   0.9653 | Auc   0.8864 | Macro F1   0.7327
+Epoch  411 | Loss   0.9641 | Auc   0.8886 | Macro F1   0.7322
+Epoch  414 | Loss   0.9639 | Auc   0.8893 | Macro F1   0.7313
+Epoch  417 | Loss   0.9645 | Auc   0.8888 | Macro F1   0.7313
+Epoch  420 | Loss   0.9594 | Auc   0.8881 | Macro F1   0.7313
+Epoch  423 | Loss   0.9633 | Auc   0.8895 | Macro F1   0.7318
+Epoch  426 | Loss   0.9600 | Auc   0.8869 | Macro F1   0.7341
+Epoch  429 | Loss   0.9589 | Auc   0.8886 | Macro F1   0.7318
+Epoch  432 | Loss   0.9591 | Auc   0.8879 | Macro F1   0.7333
+Epoch  435 | Loss   0.9608 | Auc   0.8867 | Macro F1   0.7341
+Epoch  438 | Loss   0.9550 | Auc   0.8893 | Macro F1   0.7318
+Epoch  441 | Loss   0.9560 | Auc   0.8878 | Macro F1   0.7355 ----> New Best
+Epoch  444 | Loss   0.9565 | Auc   0.8892 | Macro F1   0.7318
+Epoch  447 | Loss   0.9548 | Auc   0.8897 | Macro F1   0.7318
+Epoch  450 | Loss   0.9561 | Auc   0.8870 | Macro F1   0.7347
+Epoch  453 | Loss   0.9582 | Auc   0.8906 | Macro F1   0.7313
+Epoch  456 | Loss   0.9597 | Auc   0.8899 | Macro F1   0.7318
+Epoch  459 | Loss   0.9554 | Auc   0.8878 | Macro F1   0.7341
+Epoch  462 | Loss   0.9571 | Auc   0.8893 | Macro F1   0.7333
+Epoch  465 | Loss   0.9542 | Auc   0.8897 | Macro F1   0.7313
+Epoch  468 | Loss   0.9529 | Auc   0.8872 | Macro F1   0.7361
+Epoch  471 | Loss   0.9459 | Auc   0.8890 | Macro F1   0.7327
+Epoch  474 | Loss   0.9526 | Auc   0.8874 | Macro F1   0.7361
+Epoch  477 | Loss   0.9510 | Auc   0.8882 | Macro F1   0.7347
+Epoch  480 | Loss   0.9535 | Auc   0.8892 | Macro F1   0.7347
+Epoch  483 | Loss   0.9557 | Auc   0.8898 | Macro F1   0.7341
+Epoch  486 | Loss   0.9465 | Auc   0.8895 | Macro F1   0.7347
+Epoch  489 | Loss   0.9529 | Auc   0.8891 | Macro F1   0.7355 ----> New Best
+Epoch  492 | Loss   0.9547 | Auc   0.8895 | Macro F1   0.7355 ----> New Best
+Epoch  495 | Loss   0.9529 | Auc   0.8910 | Macro F1   0.7347
+Epoch  498 | Loss   0.9470 | Auc   0.8900 | Macro F1   0.7361 ----> New Best
+Epoch  501 | Loss   0.9493 | Auc   0.8901 | Macro F1   0.7361 ----> New Best
+Epoch  504 | Loss   0.9413 | Auc   0.8905 | Macro F1   0.7318
+Epoch  507 | Loss   0.9453 | Auc   0.8908 | Macro F1   0.7318
+Epoch  510 | Loss   0.9460 | Auc   0.8908 | Macro F1   0.7341
+Epoch  513 | Loss   0.9429 | Auc   0.8910 | Macro F1   0.7352
+Epoch  516 | Loss   0.9478 | Auc   0.8908 | Macro F1   0.7338
+Epoch  519 | Loss   0.9369 | Auc   0.8906 | Macro F1   0.7347
+Epoch  522 | Loss   0.9444 | Auc   0.8910 | Macro F1   0.7355
+Epoch  525 | Loss   0.9413 | Auc   0.8903 | Macro F1   0.7347
+Epoch  528 | Loss   0.9437 | Auc   0.8906 | Macro F1   0.7355
+Epoch  531 | Loss   0.9430 | Auc   0.8911 | Macro F1   0.7352
+Epoch  534 | Loss   0.9393 | Auc   0.8919 | Macro F1   0.7347
+Epoch  537 | Loss   0.9419 | Auc   0.8911 | Macro F1   0.7361 ----> New Best
+Epoch  540 | Loss   0.9420 | Auc   0.8910 | Macro F1   0.7347
+Epoch  543 | Loss   0.9386 | Auc   0.8910 | Macro F1   0.7361
+Epoch  546 | Loss   0.9382 | Auc   0.8912 | Macro F1   0.7361 ----> New Best
+Epoch  549 | Loss   0.9367 | Auc   0.8918 | Macro F1   0.7347
+Epoch  552 | Loss   0.9399 | Auc   0.8926 | Macro F1   0.7347
+Epoch  555 | Loss   0.9344 | Auc   0.8927 | Macro F1   0.7352
+Epoch  558 | Loss   0.9407 | Auc   0.8917 | Macro F1   0.7347
+Epoch  561 | Loss   0.9356 | Auc   0.8924 | Macro F1   0.7341
+Epoch  564 | Loss   0.9347 | Auc   0.8914 | Macro F1   0.7347
+Epoch  567 | Loss   0.9326 | Auc   0.8920 | Macro F1   0.7361 ----> New Best
+Epoch  570 | Loss   0.9381 | Auc   0.8910 | Macro F1   0.7347
+Epoch  573 | Loss   0.9335 | Auc   0.8902 | Macro F1   0.7361
+Epoch  576 | Loss   0.9326 | Auc   0.8906 | Macro F1   0.7341
+Epoch  579 | Loss   0.9400 | Auc   0.8897 | Macro F1   0.7341
+Epoch  582 | Loss   0.9299 | Auc   0.8905 | Macro F1   0.7341
+Epoch  585 | Loss   0.9312 | Auc   0.8909 | Macro F1   0.7341
+Epoch  588 | Loss   0.9323 | Auc   0.8909 | Macro F1   0.7347
+Epoch  591 | Loss   0.9337 | Auc   0.8913 | Macro F1   0.7341
+Epoch  594 | Loss   0.9300 | Auc   0.8919 | Macro F1   0.7341
+Epoch  597 | Loss   0.9323 | Auc   0.8911 | Macro F1   0.7347
+Epoch  600 | Loss   0.9341 | Auc   0.8905 | Macro F1   0.7361
+Epoch  603 | Loss   0.9274 | Auc   0.8914 | Macro F1   0.7341
+Epoch  606 | Loss   0.9289 | Auc   0.8905 | Macro F1   0.7341
+Epoch  609 | Loss   0.9332 | Auc   0.8911 | Macro F1   0.7347
+Epoch  612 | Loss   0.9273 | Auc   0.8915 | Macro F1   0.7341
+Epoch  615 | Loss   0.9251 | Auc   0.8906 | Macro F1   0.7383
+Epoch  618 | Loss   0.9239 | Auc   0.8916 | Macro F1   0.7341
+Epoch  621 | Loss   0.9251 | Auc   0.8921 | Macro F1   0.7341
+Epoch  624 | Loss   0.9262 | Auc   0.8924 | Macro F1   0.7341
+Epoch  627 | Loss   0.9268 | Auc   0.8917 | Macro F1   0.7341
+Epoch  630 | Loss   0.9263 | Auc   0.8923 | Macro F1   0.7341
+Epoch  633 | Loss   0.9233 | Auc   0.8924 | Macro F1   0.7355
+Epoch  636 | Loss   0.9295 | Auc   0.8924 | Macro F1   0.7355
+Epoch  639 | Loss   0.9293 | Auc   0.8922 | Macro F1   0.7355
+Epoch  642 | Loss   0.9233 | Auc   0.8925 | Macro F1   0.7355
+Epoch  645 | Loss   0.9251 | Auc   0.8934 | Macro F1   0.7355
+Epoch  648 | Loss   0.9219 | Auc   0.8934 | Macro F1   0.7355
+Epoch  651 | Loss   0.9229 | Auc   0.8938 | Macro F1   0.7375 ----> New Best
+Epoch  654 | Loss   0.9217 | Auc   0.8940 | Macro F1   0.7355
+Epoch  657 | Loss   0.9204 | Auc   0.8923 | Macro F1   0.7369
+Epoch  660 | Loss   0.9252 | Auc   0.8922 | Macro F1   0.7364
+Epoch  663 | Loss   0.9258 | Auc   0.8926 | Macro F1   0.7355
+Epoch  666 | Loss   0.9179 | Auc   0.8926 | Macro F1   0.7355
+Epoch  669 | Loss   0.9217 | Auc   0.8932 | Macro F1   0.7355
+Epoch  672 | Loss   0.9199 | Auc   0.8929 | Macro F1   0.7347
+Epoch  675 | Loss   0.9242 | Auc   0.8931 | Macro F1   0.7355
+Epoch  678 | Loss   0.9208 | Auc   0.8933 | Macro F1   0.7355
+Epoch  681 | Loss   0.9210 | Auc   0.8944 | Macro F1   0.7355
+Epoch  684 | Loss   0.9188 | Auc   0.8938 | Macro F1   0.7355
+Epoch  687 | Loss   0.9220 | Auc   0.8937 | Macro F1   0.7336
+Epoch  690 | Loss   0.9177 | Auc   0.8933 | Macro F1   0.7369
+Epoch  693 | Loss   0.9131 | Auc   0.8938 | Macro F1   0.7361
+Epoch  696 | Loss   0.9209 | Auc   0.8939 | Macro F1   0.7355
+Epoch  699 | Loss   0.9178 | Auc   0.8931 | Macro F1   0.7355
+Epoch  702 | Loss   0.9207 | Auc   0.8925 | Macro F1   0.7355
+Epoch  705 | Loss   0.9141 | Auc   0.8925 | Macro F1   0.7361
+Epoch  708 | Loss   0.9174 | Auc   0.8933 | Macro F1   0.7355
+Epoch  711 | Loss   0.9150 | Auc   0.8944 | Macro F1   0.7350
+Epoch  714 | Loss   0.9156 | Auc   0.8936 | Macro F1   0.7341
+Epoch  717 | Loss   0.9165 | Auc   0.8930 | Macro F1   0.7355
+Epoch  720 | Loss   0.9178 | Auc   0.8937 | Macro F1   0.7355
+Epoch  723 | Loss   0.9140 | Auc   0.8942 | Macro F1   0.7355
+Epoch  726 | Loss   0.9157 | Auc   0.8931 | Macro F1   0.7355
+Epoch  729 | Loss   0.9146 | Auc   0.8929 | Macro F1   0.7345
+Epoch  732 | Loss   0.9117 | Auc   0.8943 | Macro F1   0.7341
+Epoch  735 | Loss   0.9145 | Auc   0.8948 | Macro F1   0.7355
+Epoch  738 | Loss   0.9102 | Auc   0.8941 | Macro F1   0.7355
+Epoch  741 | Loss   0.9166 | Auc   0.8948 | Macro F1   0.7341
+
+┌─────────────┬───────────────────────────┐
+│ Conf Matrix │          Predict          │
+├─────────────┼─────────────┬─────────────┤
+│    Label    │     NEG     │     POS     │
+├─────────────┼─────────────┼─────────────┤
+│     NEG     │ TN:     156 │ FP:     201 │
+├─────────────┼─────────────┼─────────────┤
+│     POS     │ FN:      72 │ TP:    3131 │
+└─────────────┴─────────────┴─────────────┘
+
+F1 Pos  : 0.9582
+F1 Neg  : 0.5333
+Macro F1: 0.7458
+
+=== RESULTS: SNEA on bitcoin-otc (seed=42) ===
+  Best epoch : 651
+  Val AUC    : 0.8938
+  Test AUC   : 0.8972
+  Test macro_f1: 0.7458
+  Saved → results_our_splits_canonical/bitcoin-otc/SNEA/seed42/score.csv

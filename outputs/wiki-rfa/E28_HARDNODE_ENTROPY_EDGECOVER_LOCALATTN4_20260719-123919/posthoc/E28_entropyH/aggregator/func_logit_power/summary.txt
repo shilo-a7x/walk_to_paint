@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 26
+Run ID: E28_entropyH
+Model: func_logit_power  (|logit(q)|^b)
+theta* = [0.23749999999999932]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8913 (17721 edges)
+  Test  AUC: 0.8966 (17722 edges)

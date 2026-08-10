@@ -1,0 +1,76 @@
+cfg:
+  reproducibility:
+    seed: 42
+  preprocess:
+    save: true
+    use_cache: true
+    num_workers: 8
+  dataset:
+    name: wiki-rfa
+    data_dir: /home/eng/shilo_avital/yolo_lab/walk_to_paint/tmp/transformer_incremental/wiki-rfa_seed42_nw500000_mw80_bs1024_ep50_20260223-200026/tmp_data
+    edge_list_file: wiki-RfA.txt.gz
+    train_ratio: 0.48
+    mask_ratio: 0.32
+    val_ratio: 0.1
+    test_ratio: 0.1
+    binary: true
+    remove_self_loops: true
+    multiedge_handling: most_recent
+    num_walks: 500000
+    max_walk_length: 80
+  model:
+    embedding_dim: 64
+    hidden_dim: 64
+    dropout: 0.14736239940786994
+    nhead: 2
+    nlayers: 5
+    vocab_size: 11261
+    num_classes: 2
+    pad_id: 0
+    ignore_index: -1
+    class_weights:
+    - 0.3594437651115596
+    - 1.6405562348884404
+  training:
+    batch_size: 1024
+    epochs: 50
+    lr: 0.0016135042002810406
+    weight_decay: 2.9866739870000337e-05
+    early_stopping_patience: 15
+    gradient_clip_val: 0.5394002549968298
+    log_dir: /home/eng/shilo_avital/yolo_lab/walk_to_paint/outputs/transformer_incremental/wiki-rfa_seed42_nw500000_mw80_bs1024_ep50_20260223-200026/runs/wiki-rfa/E0_BASELINE/logs
+    exp_name: E0_BASELINE
+    checkpoint_dir: /home/eng/shilo_avital/yolo_lab/walk_to_paint/outputs/transformer_incremental/wiki-rfa_seed42_nw500000_mw80_bs1024_ep50_20260223-200026/runs/wiki-rfa/E0_BASELINE/checkpoints
+    resume_from_checkpoint: null
+    eval_only: false
+    use_cuda: true
+    num_workers: 16
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+    callbacks:
+      enable_prediction_saver: false
+      enable_per_epoch_test_runner: false
+  paths:
+    base_outputs_dir: /home/eng/shilo_avital/yolo_lab/walk_to_paint/outputs/transformer_incremental/wiki-rfa_seed42_nw500000_mw80_bs1024_ep50_20260223-200026/runs
+    use_dataset_outputs: true
+    append_timestamp: false
+  float32_precision: medium
+  optuna:
+    initial_params:
+      dataset:
+        max_walk_length: 80
+        num_walks: 5000000
+      training:
+        lr: 0.0016135042002810406
+        weight_decay: 2.9866739870000337e-05
+        batch_size: 1024
+        gradient_clip_val: 0.5394002549968298
+        early_stopping_patience: 15
+        epochs: 50
+      model:
+        embedding_dim: 64
+        hidden_dim: 64
+        nhead: 2
+        nlayers: 5
+        dropout: 0.14736239940786994

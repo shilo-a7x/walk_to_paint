@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-alpha
+Epoch: 19
+Run ID: multiseed_agg
+Model: func_uniform  (uniform mean)
+theta* = []
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9100 (2419 edges)
+  Test  AUC: 0.9130 (2419 edges)

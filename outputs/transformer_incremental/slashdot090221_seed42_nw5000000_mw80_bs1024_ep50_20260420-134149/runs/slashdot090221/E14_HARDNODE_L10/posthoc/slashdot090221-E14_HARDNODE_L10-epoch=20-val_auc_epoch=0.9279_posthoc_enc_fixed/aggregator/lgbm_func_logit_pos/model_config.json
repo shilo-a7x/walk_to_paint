@@ -1,0 +1,18 @@
+{
+  "model_name": "lgbm_func_logit_pos",
+  "func_key": "func_logit_pos",
+  "description": "lgbm\u2192q_j then exp(-a*rp)*|logit(q)|^b",
+  "theta_star": [
+    -0.014259308460165876,
+    0.20716962078585743
+  ],
+  "n_iters": 47,
+  "n_params": 2,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

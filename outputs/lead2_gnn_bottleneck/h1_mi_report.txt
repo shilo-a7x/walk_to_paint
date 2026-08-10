@@ -1,0 +1,39 @@
+============================================================================================
+  LEAD 2 STEP 1 -- MI(h_v^(1), sign of v's own out-edges)
+============================================================================================
+
+Ceiling: H(sign) ~= 1.0 bit (max possible if every neighbor's sign were
+retained losslessly by h_v^(1)). 'nmi' = mi_pca_bins' own MI/H(context),
+i.e. already normalized against this ceiling -- read nmi close to 1.0 as
+near-lossless retention, nmi close to 0 as near-total loss (bottleneck).
+'null_mi'/'null_nmi': permutation-null floor (same edge multiplicities,
+shuffled v<->h_v^(1) correspondence) -- should be ~0; a real mi well above
+this confirms h_v^(1) carries genuine, non-spurious signal.
+
+  dataset         model       n_nodes  n_train_e   mi(bits)      nmi   null_mi  null_nmi  best_pc
+  bitcoin-alpha   CSG            3783      22598   0.078126   0.1661  0.002544    0.0054        0
+  bitcoin-alpha   GINEConv       3783      22598   0.091584   0.1947  0.001613    0.0034        1
+  bitcoin-otc     CSG            5881      34386   0.091762   0.1496  0.001600    0.0026        0
+  bitcoin-otc     GINEConv       5881      34386   0.164678   0.2686  0.001582    0.0026        1
+  epinions        CSG          131580    1137936   0.061849   0.0938  0.000300    0.0005        0
+  epinions        GINEConv     131580    1137936   0.136783   0.2075  0.000767    0.0012        1
+  wiki-elec       CSG            7115     161218   0.012938   0.0171  0.000262    0.0003        0
+  wiki-elec       GINEConv       7115     161218   0.091873   0.1215  0.000457    0.0006        1
+  wiki-rfa        CSG           11256     273210   0.006118   0.0080  0.000406    0.0005        0
+  wiki-rfa        GINEConv      11256     273210   0.099088   0.1294  0.000139    0.0002        1
+  slashdot090221  CSG           82140     800768   0.075367   0.0950  0.000221    0.0003        0
+  slashdot090221  GINEConv      82140     800768   0.135767   0.1711  0.000357    0.0004        1
+
+Per-PCA-component MI (bits), one row per dataset x model:
+  bitcoin-alpha   CSG        [0.078126, 0.000714, 0.003734, 0.002722, 0.002096]
+  bitcoin-alpha   GINEConv   [0.004578, 0.091584, 0.050444, 0.014112, 0.013176]
+  bitcoin-otc     CSG        [0.091762, 0.007470, 0.007574, 0.001411, 0.005794]
+  bitcoin-otc     GINEConv   [0.005140, 0.164678, 0.088304, 0.080063, 0.044952]
+  epinions        CSG        [0.061849, 0.003882, 0.001264, 0.000302, 0.005493]
+  epinions        GINEConv   [0.006476, 0.136783, 0.017241, 0.015489, 0.002040]
+  wiki-elec       CSG        [0.012938, 0.003501, 0.000604, 0.000081, 0.000070]
+  wiki-elec       GINEConv   [0.040838, 0.091873, 0.007963, 0.040864, 0.032000]
+  wiki-rfa        CSG        [0.006118, 0.000559, 0.004061, 0.002440, 0.001905]
+  wiki-rfa        GINEConv   [0.013392, 0.099088, 0.003777, 0.000962, 0.001766]
+  slashdot090221  CSG        [0.075367, 0.001229, 0.001330, 0.001836, 0.000299]
+  slashdot090221  GINEConv   [0.005391, 0.135767, 0.018857, 0.008922, 0.004088]

@@ -1,0 +1,4 @@
+{
+  "model_name": "certainty",
+  "formula": "phi_j = |s_j - 0.5|, weighted mean"
+}

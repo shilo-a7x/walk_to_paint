@@ -1,0 +1,25 @@
+[1/4] embeddingsGenerator  (wiki-RfA_canon, Fri Jun 26 06:48:43 AM IDT 2026)
+cuda
+Traceback (most recent call last):
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/SGA/embeddingsGenerator.py", line 116, in <module>
+    run(train_file_name)
+  File "/home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/SGA/embeddingsGenerator.py", line 65, in run
+    x = model.create_spectral_features(
+  File "/home/dsi/shilo_avital/.conda/envs/sga_env/lib/python3.10/site-packages/torch_geometric/nn/models/signed_gcn.py", line 124, in create_spectral_features
+    svd.fit(A)
+  File "/home/dsi/shilo_avital/.conda/envs/sga_env/lib/python3.10/site-packages/sklearn/decomposition/_truncated_svd.py", line 206, in fit
+    self.fit_transform(X)
+  File "/home/dsi/shilo_avital/.conda/envs/sga_env/lib/python3.10/site-packages/sklearn/utils/_set_output.py", line 316, in wrapped
+    data_to_wrap = f(self, X, *args, **kwargs)
+  File "/home/dsi/shilo_avital/.conda/envs/sga_env/lib/python3.10/site-packages/sklearn/base.py", line 1365, in wrapper
+    return fit_method(estimator, *args, **kwargs)
+  File "/home/dsi/shilo_avital/.conda/envs/sga_env/lib/python3.10/site-packages/sklearn/decomposition/_truncated_svd.py", line 244, in fit_transform
+    U, Sigma, VT = _randomized_svd(
+  File "/home/dsi/shilo_avital/.conda/envs/sga_env/lib/python3.10/site-packages/sklearn/utils/extmath.py", line 568, in _randomized_svd
+    Q = _randomized_range_finder(
+  File "/home/dsi/shilo_avital/.conda/envs/sga_env/lib/python3.10/site-packages/sklearn/utils/extmath.py", line 297, in _randomized_range_finder
+    Q = xp.asarray(random_state.normal(size=(A.shape[1], size)))
+  File "mtrand.pyx", line 1540, in numpy.random.mtrand.RandomState.normal
+  File "_common.pyx", line 636, in numpy.random._common.cont
+numpy.core._exceptions._ArrayMemoryError: Unable to allocate 551. GiB for an array with shape (999934872, 74) and data type float64
+[FAILED:emb] wiki-RfA_canon

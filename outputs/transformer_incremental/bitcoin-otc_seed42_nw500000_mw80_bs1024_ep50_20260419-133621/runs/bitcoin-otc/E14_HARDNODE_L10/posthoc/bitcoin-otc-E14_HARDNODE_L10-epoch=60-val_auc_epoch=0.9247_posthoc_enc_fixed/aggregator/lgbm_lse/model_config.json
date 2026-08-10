@@ -1,0 +1,11 @@
+{
+  "model_name": "lgbm_lse",
+  "architecture": "lgbm(3 feats)\u2192q_j, LSE(\u03b2=10.000) pool per edge",
+  "beta": 10.0,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "lr": 0.05
+  }
+}

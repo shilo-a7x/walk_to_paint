@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 34
+Run ID: funcsweep_20260727
+Model: func_len_harmonic  (1/(1+a*len))
+theta* = [6.54293750000001]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8979 (54920 edges)
+  Test  AUC: 0.8983 (54921 edges)

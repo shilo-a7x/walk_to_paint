@@ -1,0 +1,10 @@
+{
+  "model_name": "func_maxprob_power",
+  "description": "max(q,1-q)^b  confidence in predicted class",
+  "theta_star": [
+    0.42587890624999947
+  ],
+  "n_iters": 15,
+  "n_params": 1,
+  "seed": 44
+}

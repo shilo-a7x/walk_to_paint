@@ -1,0 +1,10 @@
+{
+  "model_name": "func_logq_power",
+  "description": "(-log(q))^b",
+  "theta_star": [
+    -0.26699218750000114
+  ],
+  "n_iters": 18,
+  "n_params": 1,
+  "seed": 46
+}

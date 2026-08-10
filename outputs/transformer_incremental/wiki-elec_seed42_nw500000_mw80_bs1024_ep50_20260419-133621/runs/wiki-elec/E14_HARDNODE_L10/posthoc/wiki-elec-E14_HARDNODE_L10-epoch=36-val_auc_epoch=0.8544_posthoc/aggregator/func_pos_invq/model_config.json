@@ -1,0 +1,11 @@
+{
+  "model_name": "func_pos_invq",
+  "description": "exp(-a*rp)*(1-q)^b",
+  "theta_star": [
+    -1.2079587953707596,
+    -0.44466644280680223
+  ],
+  "n_iters": 49,
+  "n_params": 2,
+  "seed": 42
+}

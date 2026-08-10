@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-otc
+Epoch: 60
+Run ID: bitcoin-otc-E14_HARDNODE_L10-epoch=60-val_auc_epoch=0.9247_posthoc_enc_fixed
+Model: lgbm_func_len_pos  (lgbm→q_j then len^{-a}*exp(-g*rp))
+theta* = [2.1941467285156264, 1.6707397460937417]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9498 (3559 edges)
+  Test  AUC: 0.9394 (3560 edges)

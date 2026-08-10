@@ -1,0 +1,23 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/wiki-elec.pt
+[INFO] wiki-elec: 7115 nodes, 82950 train, 10369 val, 10370 test edges
+[epoch 0] loss=4.0890 val_auc=0.5431 tst_auc=0.5542
+[epoch 20] loss=0.5295 val_auc=0.6183 tst_auc=0.6308
+[epoch 40] loss=0.4646 val_auc=0.7798 tst_auc=0.7844
+[epoch 60] loss=0.3656 val_auc=0.8472 tst_auc=0.8486
+[epoch 80] loss=0.3412 val_auc=0.8615 tst_auc=0.8646
+[epoch 100] loss=0.3269 val_auc=0.8680 tst_auc=0.8711
+[epoch 120] loss=0.3227 val_auc=0.8709 tst_auc=0.8744
+[epoch 140] loss=0.3379 val_auc=0.8608 tst_auc=0.8655
+[epoch 160] loss=0.3226 val_auc=0.8712 tst_auc=0.8733
+[epoch 180] loss=0.3173 val_auc=0.8733 tst_auc=0.8757
+[epoch 200] loss=0.3148 val_auc=0.8731 tst_auc=0.8759
+[epoch 220] loss=0.3139 val_auc=0.8744 tst_auc=0.8771
+[epoch 240] loss=0.3140 val_auc=0.8747 tst_auc=0.8774
+
+=== RESULTS: GINEConv on wiki-elec (seed=42) ===
+  Val  AUC      : 0.8743
+  Val  F1       : 0.7518
+  Test AUC      : 0.8753
+  Test Macro F1 : 0.7551
+  Saved → results_our_splits_canonical/wiki-elec/GINEConv/seed42/score.csv
+  Saved → results_our_splits_canonical/wiki-elec/GINEConv/seed42/best_epoch_artifacts.pkl

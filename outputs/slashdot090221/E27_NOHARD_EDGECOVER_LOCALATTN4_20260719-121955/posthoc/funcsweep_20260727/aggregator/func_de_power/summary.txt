@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 34
+Run ID: funcsweep_20260727
+Model: func_de_power  ((de+1)^{-a})
+theta* = [0.37666015624999993]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8975 (54920 edges)
+  Test  AUC: 0.8979 (54921 edges)

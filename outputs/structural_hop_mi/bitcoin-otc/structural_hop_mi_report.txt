@@ -1,0 +1,41 @@
+========================================================================
+  STRUCTURAL HOP-MI REPORT
+========================================================================
+
+MI (bits) between target edge sign and structural features
+at TRUE BFS graph-hop distance d from the target edge endpoints.
+
+This is DIFFERENT from C(k) in graph_signal_analysis.py:
+  C(k) = sign correlation at WALK step k (confounded by cycling)
+  This   = MI at GRAPH hop d (unconfounded by walk sampling)
+
+Key: if MI at d≥3 is significant → long-range graph structure
+     predicts target sign → deep GNN / far-walking model can help.
+     If MI drops to 0 at d=2 → local model is sufficient.
+
+Features:
+  B1 sign: mean_sign_out, frac_pos_out
+  B2 struct: mean_out_deg, frac_dead, sign_entropy,
+             signed_cc (fraction balanced triangles)
+  B2+: overlap (fraction of u-side and v-side d-hop sets that coincide)
+
+────────────────────────────────────────────────────────────────────────
+  DATASET: bitcoin-otc
+────────────────────────────────────────────────────────────────────────
+  feature               d=1  d=2  d=3  d=4  d=5  (MI in bits)
+  mean_sign_out         0.0440  0.0012  0.0050  0.0100  0.0132
+  frac_pos_out          0.0440  0.0012  0.0050  0.0100  0.0132
+  mean_out_deg          0.0103  0.0027  0.0009  0.0029  0.0006
+  frac_dead             0.0376  0.0099  0.0024  0.0005  0.0012
+  sign_entropy          0.0443  0.0012  0.0050  0.0100  0.0132
+  signed_cc             0.0081  0.0022  0.0014  0.0014  0.0009
+  overlap               0.0042  0.0057  0.0047  0.0003  0.0012
+
+  Pearson r:
+  mean_sign_out         +0.303  +0.098  -0.063  -0.106  -0.137
+  frac_pos_out          +0.303  +0.098  -0.063  -0.106  -0.137
+  mean_out_deg          +0.086  +0.030  +0.007  +0.041  +0.014
+  frac_dead             -0.128  -0.058  +0.035  -0.010  -0.021
+  sign_entropy          -0.266  -0.086  +0.069  +0.109  +0.140
+  signed_cc             +0.067  -0.026  +0.002  +0.011  -0.025
+  overlap               -0.031  +0.022  -0.014  +0.001  +0.030

@@ -1,0 +1,17 @@
+{
+  "model_name": "lgbm_func_pos_expds",
+  "func_key": "func_pos_expds",
+  "description": "lgbm\u2192q_j then exp(-a*ds_raw)",
+  "theta_star": [
+    0.5225000000000017
+  ],
+  "n_iters": 20,
+  "n_params": 1,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

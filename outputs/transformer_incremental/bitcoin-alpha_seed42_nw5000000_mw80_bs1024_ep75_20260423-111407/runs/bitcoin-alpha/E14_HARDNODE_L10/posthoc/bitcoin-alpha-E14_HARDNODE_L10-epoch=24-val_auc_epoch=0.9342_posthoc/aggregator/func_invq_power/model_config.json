@@ -1,0 +1,10 @@
+{
+  "model_name": "func_invq_power",
+  "description": "(1-q)^b",
+  "theta_star": [
+    3.487500000000005
+  ],
+  "n_iters": 20,
+  "n_params": 1,
+  "seed": 42
+}

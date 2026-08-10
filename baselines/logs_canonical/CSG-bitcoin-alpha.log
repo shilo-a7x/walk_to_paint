@@ -1,0 +1,10 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/bitcoin-alpha.pt
+[INFO] bitcoin-alpha: 3783 nodes, 19348 train, 2419 val, 2419 test edges
+
+=== RESULTS: CSG on bitcoin-alpha (seed=42) ===
+  Val  AUC      : 0.8592
+  Val  F1       : 0.9352
+  Test AUC      : 0.8451
+  Test Macro F1 : 0.9290
+  Saved → results_our_splits_canonical/bitcoin-alpha/CSG/seed42/score.csv
+  Saved → results_our_splits_canonical/bitcoin-alpha/CSG/seed42/best_epoch_artifacts.pkl

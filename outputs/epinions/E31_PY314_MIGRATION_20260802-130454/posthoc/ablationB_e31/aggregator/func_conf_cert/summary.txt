@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 41
+Run ID: ablationB_e31
+Model: func_conf_cert  (|q-0.5|^b)
+theta* = [6.1445312500000115]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9512 (84080 edges)
+  Test  AUC: 0.9520 (84080 edges)

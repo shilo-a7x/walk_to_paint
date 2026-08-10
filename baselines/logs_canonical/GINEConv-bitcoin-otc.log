@@ -1,0 +1,23 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/bitcoin-otc.pt
+[INFO] bitcoin-otc: 5881 nodes, 28473 train, 3559 val, 3560 test edges
+[epoch 0] loss=4.3306 val_auc=0.4908 tst_auc=0.4956
+[epoch 20] loss=0.4255 val_auc=0.5512 tst_auc=0.5427
+[epoch 40] loss=0.3664 val_auc=0.6858 tst_auc=0.7060
+[epoch 60] loss=0.3310 val_auc=0.7380 tst_auc=0.7572
+[epoch 80] loss=0.2688 val_auc=0.7948 tst_auc=0.8017
+[epoch 100] loss=0.2228 val_auc=0.8621 tst_auc=0.8515
+[epoch 120] loss=0.1761 val_auc=0.8807 tst_auc=0.8771
+[epoch 140] loss=0.1659 val_auc=0.8785 tst_auc=0.8745
+[epoch 160] loss=0.1498 val_auc=0.8758 tst_auc=0.8717
+[epoch 180] loss=0.1372 val_auc=0.8810 tst_auc=0.8776
+[epoch 200] loss=0.1297 val_auc=0.8784 tst_auc=0.8783
+[epoch 220] loss=0.1238 val_auc=0.8772 tst_auc=0.8793
+[epoch 240] loss=0.1177 val_auc=0.8866 tst_auc=0.8846
+
+=== RESULTS: GINEConv on bitcoin-otc (seed=42) ===
+  Val  AUC      : 0.8884
+  Val  F1       : 0.7884
+  Test AUC      : 0.8849
+  Test Macro F1 : 0.7908
+  Saved → results_our_splits_canonical/bitcoin-otc/GINEConv/seed42/score.csv
+  Saved → results_our_splits_canonical/bitcoin-otc/GINEConv/seed42/best_epoch_artifacts.pkl

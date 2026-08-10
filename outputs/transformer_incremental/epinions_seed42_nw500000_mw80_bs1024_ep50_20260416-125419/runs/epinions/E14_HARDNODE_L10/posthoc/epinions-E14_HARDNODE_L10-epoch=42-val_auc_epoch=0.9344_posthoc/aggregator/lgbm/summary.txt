@@ -1,0 +1,17 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 42
+Run ID: epinions-E14_HARDNODE_L10-epoch=42-val_auc_epoch=0.9344_posthoc
+Model: lgbm
+
+Walk-level metrics:
+  Train AUC: 0.9441
+  Test  AUC: 0.9397
+  Train ACC: 0.8857
+  Test  ACC: 0.8844
+  Train F1: 0.6875
+  Test  F1: 0.6834
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9471 (73965 edges)
+  Test  AUC: 0.9446 (73783 edges)

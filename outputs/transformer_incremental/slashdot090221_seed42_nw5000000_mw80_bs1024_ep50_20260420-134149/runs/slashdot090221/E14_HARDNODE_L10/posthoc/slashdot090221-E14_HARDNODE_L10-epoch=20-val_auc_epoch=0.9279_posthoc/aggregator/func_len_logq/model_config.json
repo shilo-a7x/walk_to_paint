@@ -1,0 +1,11 @@
+{
+  "model_name": "func_len_logq",
+  "description": "len^{-a}*(-log(q))^b",
+  "theta_star": [
+    0.07795294259121455,
+    -0.16005278994562133
+  ],
+  "n_iters": 45,
+  "n_params": 2,
+  "seed": 42
+}

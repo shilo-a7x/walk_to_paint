@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 42
+Run ID: epinions-E14_HARDNODE_L10-epoch=42-val_auc_epoch=0.9344_posthoc_enc_fixed
+Model: lgbm_func_dist_min  (lgbm→q_j then (min(ds,de)+1)^{-a})
+theta* = [0.053320312499999606]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9470 (73965 edges)
+  Test  AUC: 0.9445 (73783 edges)

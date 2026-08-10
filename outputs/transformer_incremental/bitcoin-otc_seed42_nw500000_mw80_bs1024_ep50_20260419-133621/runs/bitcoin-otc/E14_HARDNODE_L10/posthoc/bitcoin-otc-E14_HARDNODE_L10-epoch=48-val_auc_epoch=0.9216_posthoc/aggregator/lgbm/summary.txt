@@ -1,0 +1,17 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-otc
+Epoch: 48
+Run ID: bitcoin-otc-E14_HARDNODE_L10-epoch=48-val_auc_epoch=0.9216_posthoc
+Model: lgbm
+
+Walk-level metrics:
+  Train AUC: 0.9307
+  Test  AUC: 0.9170
+  Train ACC: 0.8786
+  Test  ACC: 0.8584
+  Train F1: 0.4676
+  Test  F1: 0.4487
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9412 (3559 edges)
+  Test  AUC: 0.9410 (3560 edges)

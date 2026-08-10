@@ -1,0 +1,16 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/epinions.pt
+[INFO] epinions: 131580 nodes, 672639 train, 84080 val, 84080 test edges
+[INFO] Training GSGNN+CSG on epinions for 3000 epochs ...
+  Epoch 0000 | val_auc=0.7516 val_f1=0.5781 | tst_auc=0.7485 tst_f1mac=0.5777
+  Epoch 0500 | val_auc=0.6178 val_f1=0.6509 | tst_auc=0.6196 tst_f1mac=0.6562
+  Epoch 1000 | val_auc=0.8806 val_f1=0.8081 | tst_auc=0.8846 tst_f1mac=0.8096
+  Epoch 1500 | val_auc=0.8281 val_f1=0.7789 | tst_auc=0.8326 tst_f1mac=0.7815
+  Epoch 2000 | val_auc=0.8676 val_f1=0.7928 | tst_auc=0.8709 tst_f1mac=0.7924
+  Epoch 2500 | val_auc=0.8659 val_f1=0.8106 | tst_auc=0.8690 tst_f1mac=0.8123
+
+=== RESULTS: CSG-GSGNN on epinions (seed=42) ===
+  Val  AUC      : 0.8953
+  Val  F1 macro : 0.8183
+  Test AUC      : 0.8973
+  Test Macro F1 : 0.8220
+  Saved → results_our_splits_canonical/epinions/CSG-GSGNN/seed42/score.csv

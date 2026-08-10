@@ -1,0 +1,19 @@
+{
+  "model_name": "lgbm_func_log_both",
+  "func_key": "func_log_both",
+  "description": "lgbm\u2192q_j then exp(b1*log(q)+b2*log(1-q)+b3*log_len)  =q^b1*(1-q)^b2*len^b3",
+  "theta_star": [
+    -0.0110988558545094,
+    -0.01252023402532879,
+    -2.8020289291677756
+  ],
+  "n_iters": 39,
+  "n_params": 3,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

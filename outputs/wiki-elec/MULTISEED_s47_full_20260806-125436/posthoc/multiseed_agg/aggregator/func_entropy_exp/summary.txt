@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 48
+Run ID: multiseed_agg
+Model: func_entropy_exp  (exp(-a*H(q)))
+theta* = [2.09677734375]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8989 (10369 edges)
+  Test  AUC: 0.9038 (10370 edges)

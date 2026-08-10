@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 36
+Run ID: wiki-elec-E14_HARDNODE_L10-epoch=36-val_auc_epoch=0.8544_posthoc_enc_fixed
+Model: lgbm_func_len_conf  (lgbm→q_j then len^{-a}*q^b)
+theta* = [-1.1364756107330276, 0.22616539001464023]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8937 (8862 edges)
+  Test  AUC: 0.8834 (8857 edges)

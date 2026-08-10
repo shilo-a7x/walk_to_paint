@@ -1,0 +1,11 @@
+{
+  "model_name": "func_len_pos",
+  "description": "len^{-a}*exp(-g*rp)",
+  "theta_star": [
+    -0.26848808049303896,
+    3.9143697219217604
+  ],
+  "n_iters": 46,
+  "n_params": 2,
+  "seed": 42
+}

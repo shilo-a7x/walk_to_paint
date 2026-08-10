@@ -1,0 +1,15 @@
+{
+  "model_name": "lgbm_func_inv_len",
+  "func_key": "func_inv_len",
+  "description": "lgbm\u2192q_j then 1/len (fixed)",
+  "theta_star": [],
+  "n_iters": 0,
+  "n_params": 0,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

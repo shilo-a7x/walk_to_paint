@@ -1,0 +1,122 @@
+[
+  {
+    "dataset": "bitcoin-alpha",
+    "model": "GINEConv",
+    "cov_n": 2419,
+    "cov_auc": 0.8610059918006938,
+    "unc_n": 0,
+    "unc_auc": NaN,
+    "cov_negR": 0.06366267052501033,
+    "unc_negR": NaN
+  },
+  {
+    "dataset": "bitcoin-alpha",
+    "model": "SiGAT",
+    "cov_n": 2419,
+    "cov_auc": 0.882112038072303,
+    "unc_n": 0,
+    "unc_auc": NaN,
+    "cov_negR": 0.06366267052501033,
+    "unc_negR": NaN
+  },
+  {
+    "dataset": "bitcoin-otc",
+    "model": "GINEConv",
+    "cov_n": 3560,
+    "cov_auc": 0.8848812081810558,
+    "unc_n": 0,
+    "unc_auc": NaN,
+    "cov_negR": 0.1002808988764045,
+    "unc_negR": NaN
+  },
+  {
+    "dataset": "bitcoin-otc",
+    "model": "SiGAT",
+    "cov_n": 3560,
+    "cov_auc": 0.8759251437071862,
+    "unc_n": 0,
+    "unc_auc": NaN,
+    "cov_negR": 0.1002808988764045,
+    "unc_negR": NaN
+  },
+  {
+    "dataset": "wiki-elec",
+    "model": "GINEConv",
+    "cov_n": 8857,
+    "cov_auc": 0.8737875752345909,
+    "unc_n": 1513,
+    "unc_auc": 0.882077691221833,
+    "cov_negR": 0.21666478491588573,
+    "unc_negR": 0.1844018506278916
+  },
+  {
+    "dataset": "wiki-elec",
+    "model": "SiGAT",
+    "cov_n": 8857,
+    "cov_auc": 0.8891985457136844,
+    "unc_n": 1513,
+    "unc_auc": 0.9165228908523728,
+    "cov_negR": 0.21666478491588573,
+    "unc_negR": 0.1844018506278916
+  },
+  {
+    "dataset": "wiki-rfa",
+    "model": "GINEConv",
+    "cov_n": 15280,
+    "cov_auc": 0.8722473481686859,
+    "unc_n": 2442,
+    "unc_auc": 0.855094656928695,
+    "cov_negR": 0.21407068062827225,
+    "unc_negR": 0.22522522522522523
+  },
+  {
+    "dataset": "wiki-rfa",
+    "model": "SiGAT",
+    "cov_n": 15280,
+    "cov_auc": 0.8808176426530606,
+    "unc_n": 2442,
+    "unc_auc": 0.897072842590813,
+    "cov_negR": 0.21407068062827225,
+    "unc_negR": 0.22522522522522523
+  },
+  {
+    "dataset": "slashdot090221",
+    "model": "GINEConv",
+    "cov_n": 53962,
+    "cov_auc": 0.7868542856839486,
+    "unc_n": 959,
+    "unc_auc": 0.7560692740708144,
+    "cov_negR": 0.22315703643304546,
+    "unc_negR": 0.38686131386861317
+  },
+  {
+    "dataset": "slashdot090221",
+    "model": "SiGAT",
+    "cov_n": 53962,
+    "cov_auc": 0.8570689213072313,
+    "unc_n": 959,
+    "unc_auc": 0.907102059152502,
+    "cov_negR": 0.22315703643304546,
+    "unc_negR": 0.38686131386861317
+  },
+  {
+    "dataset": "epinions",
+    "model": "GINEConv",
+    "cov_n": 73783,
+    "cov_auc": 0.8641884630938261,
+    "unc_n": 10297,
+    "unc_auc": 0.8214221910299275,
+    "cov_negR": 0.15567271593727552,
+    "unc_negR": 0.08555890065067495
+  },
+  {
+    "dataset": "epinions",
+    "model": "SiGAT",
+    "cov_n": 73783,
+    "cov_auc": 0.9108701824801552,
+    "unc_n": 10297,
+    "unc_auc": 0.9224229630151108,
+    "cov_negR": 0.15567271593727552,
+    "unc_negR": 0.08555890065067495
+  }
+]

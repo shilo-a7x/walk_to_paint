@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 36
+Run ID: funcsweep_20260727
+Model: func_dist_min  ((min(ds,de)+1)^{-a})
+theta* = [3.2997070312500068]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9003 (10369 edges)
+  Test  AUC: 0.9071 (10370 edges)

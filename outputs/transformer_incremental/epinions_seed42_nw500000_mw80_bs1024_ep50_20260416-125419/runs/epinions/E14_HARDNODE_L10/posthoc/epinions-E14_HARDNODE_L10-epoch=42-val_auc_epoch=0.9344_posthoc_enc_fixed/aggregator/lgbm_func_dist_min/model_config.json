@@ -1,0 +1,17 @@
+{
+  "model_name": "lgbm_func_dist_min",
+  "func_key": "func_dist_min",
+  "description": "lgbm\u2192q_j then (min(ds,de)+1)^{-a}",
+  "theta_star": [
+    0.053320312499999606
+  ],
+  "n_iters": 15,
+  "n_params": 1,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

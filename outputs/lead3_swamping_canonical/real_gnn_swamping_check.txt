@@ -1,0 +1,60 @@
+====================================================================================================
+  LEAD 3 STEP 2 -- real-GNN dilution levels plugged into the synthetic swamping curve
+====================================================================================================
+
+k_eff = 1/mean_share (effective # of equal-weight diluters implied by Lead 2's measured
+contribution_share). predicted_mean_auc looks up the nearest k on the Lead 3 Step 1
+synthetic curve at s1=ratio*s2 -- i.e. 'if this dataset's measured dilution were plugged
+into the idealized swamping experiment, how recoverable would the weak signal be.'
+regime: 'destroyed' if predicted_mean_auc < 0.55 (near chance), 'partial' if < 0.75,
+else 'recoverable'.
+
+dataset         model      bucket    degree range mean_share   k_eff  pred_auc(r=1)  pred_auc(r=4)  regime(r=4)
+bitcoin-alpha   CSG             0           [1,4]    0.62419    1.60           0.7303           0.6105  partial
+bitcoin-alpha   CSG             1          [5,14]    0.14226    7.03           0.6456           0.5524  partial
+bitcoin-alpha   CSG             2         [15,46]    0.04578   21.84           0.5917           0.5413  destroyed
+bitcoin-alpha   CSG             3        [47,308]    0.01354   64.00           0.5386           0.5102  destroyed
+bitcoin-alpha   GINEConv        0           [1,5]    0.53045    1.89           0.7303           0.6105  partial
+bitcoin-alpha   GINEConv        1          [6,16]    0.10935    9.14           0.6456           0.5524  partial
+bitcoin-alpha   GINEConv        2         [17,50]    0.03626   27.58           0.5917           0.5413  destroyed
+bitcoin-alpha   GINEConv        3        [51,308]    0.01100   64.00           0.5386           0.5102  destroyed
+bitcoin-otc     CSG             0           [1,4]    0.63042    1.59           0.7303           0.6105  partial
+bitcoin-otc     CSG             1          [5,13]    0.14911    6.71           0.6456           0.5524  partial
+bitcoin-otc     CSG             2         [14,45]    0.04801   20.83           0.5917           0.5413  destroyed
+bitcoin-otc     CSG             3        [46,421]    0.01235   64.00           0.5386           0.5102  destroyed
+bitcoin-otc     GINEConv        0           [1,5]    0.53657    1.86           0.7303           0.6105  partial
+bitcoin-otc     GINEConv        1          [6,16]    0.10868    9.20           0.6456           0.5524  partial
+bitcoin-otc     GINEConv        2         [17,51]    0.03560   28.09           0.5756           0.5325  destroyed
+bitcoin-otc     GINEConv        3        [52,421]    0.00952   64.00           0.5386           0.5102  destroyed
+epinions        CSG             0          [1,10]    0.47648    2.10           0.7303           0.6105  partial
+epinions        CSG             1         [11,51]    0.05133   19.48           0.5968           0.5276  destroyed
+epinions        CSG             2        [52,160]    0.01305   64.00           0.5386           0.5102  destroyed
+epinions        CSG             3      [161,2673]    0.00386   64.00           0.5386           0.5102  destroyed
+epinions        GINEConv        0          [1,13]    0.39680    2.52           0.7303           0.6105  partial
+epinions        GINEConv        1         [14,64]    0.03485   28.69           0.5756           0.5325  destroyed
+epinions        GINEConv        2        [65,181]    0.00949   64.00           0.5386           0.5102  destroyed
+epinions        GINEConv        3      [182,2786]    0.00296   64.00           0.5386           0.5102  destroyed
+wiki-elec       CSG             0          [1,25]    0.13446    7.44           0.6456           0.5524  partial
+wiki-elec       CSG             1         [26,43]    0.03388   29.51           0.5756           0.5325  destroyed
+wiki-elec       CSG             2         [44,66]    0.02141   46.71           0.5524           0.5094  destroyed
+wiki-elec       CSG             3        [67,252]    0.01224   64.00           0.5386           0.5102  destroyed
+wiki-elec       GINEConv        0          [1,35]    0.06495   15.40           0.5968           0.5276  destroyed
+wiki-elec       GINEConv        1         [36,52]    0.02299   43.49           0.5524           0.5094  destroyed
+wiki-elec       GINEConv        2         [53,81]    0.01555   64.00           0.5386           0.5102  destroyed
+wiki-elec       GINEConv        3        [82,354]    0.00812   64.00           0.5386           0.5102  destroyed
+wiki-rfa        CSG             0          [1,28]    0.12213    8.19           0.6456           0.5524  partial
+wiki-rfa        CSG             1         [29,53]    0.02911   34.36           0.5756           0.5325  destroyed
+wiki-rfa        CSG             2         [54,79]    0.01780   56.19           0.5386           0.5102  destroyed
+wiki-rfa        CSG             3        [80,353]    0.01032   64.00           0.5386           0.5102  destroyed
+wiki-rfa        GINEConv        0          [1,41]    0.05888   16.98           0.5968           0.5276  destroyed
+wiki-rfa        GINEConv        1         [42,66]    0.01886   53.01           0.5524           0.5094  destroyed
+wiki-rfa        GINEConv        2        [67,103]    0.01237   64.00           0.5386           0.5102  destroyed
+wiki-rfa        GINEConv        3       [104,562]    0.00680   64.00           0.5386           0.5102  destroyed
+slashdot090221  CSG             0           [1,5]    0.58405    1.71           0.7303           0.6105  partial
+slashdot090221  CSG             1          [6,19]    0.11529    8.67           0.6456           0.5524  partial
+slashdot090221  CSG             2         [20,76]    0.03294   30.36           0.5756           0.5325  destroyed
+slashdot090221  CSG             3       [77,1983]    0.00689   64.00           0.5386           0.5102  destroyed
+slashdot090221  GINEConv        0           [1,7]    0.47450    2.11           0.7303           0.6105  partial
+slashdot090221  GINEConv        1          [8,29]    0.07088   14.11           0.5968           0.5276  destroyed
+slashdot090221  GINEConv        2        [30,110]    0.01923   52.00           0.5524           0.5094  destroyed
+slashdot090221  GINEConv        3      [111,2008]    0.00432   64.00           0.5386           0.5102  destroyed

@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 30
+Run ID: multiseed_agg
+Model: func_fisher_power  ((q(1-q))^{-b}  Fisher-information / inverse-variance weighting)
+theta* = [0.9099609375]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8941 (17721 edges)
+  Test  AUC: 0.8906 (17722 edges)

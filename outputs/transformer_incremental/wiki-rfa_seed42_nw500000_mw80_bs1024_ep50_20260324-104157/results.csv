@@ -1,0 +1,2 @@
+exp_id,change,seed,best_epoch,val_auc,test_auc,train_auc,train_loss,val_loss,gap_loss,gap_auc,runtime_per_epoch_min,runtime_total_min,verdict,status,return_code,run_log,event_file,tmp_data_dir,cache_path,num_walks,max_walk_length,batch_size,epochs
+E12_DYNAMIC_TARGET_RESPLIT,Dynamic train/mask resplit each epoch (val/test fixed),42,,0.844,0.8279902935028076,0.992,0.0961,1.32,1.2239,0.14800000000000002,,,,ok,0,outputs/transformer_incremental/wiki-rfa_seed42_nw500000_mw80_bs1024_ep50_20260324-104157/artifacts/E12_DYNAMIC_TARGET_RESPLIT/run.log,,,,500000,80,1024,50

@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 34
+Run ID: funcsweep_20260727
+Model: func_len_invq  (len^{-a}*(1-q)^b)
+theta* = [0.7663936586264755, -0.16838361390400947]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8979 (54920 edges)
+  Test  AUC: 0.8984 (54921 edges)

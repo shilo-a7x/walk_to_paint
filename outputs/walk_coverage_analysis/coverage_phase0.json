@@ -1,0 +1,1160 @@
+{
+  "bitcoin-alpha": {
+    "dataset": "bitcoin-alpha",
+    "n_walks": 5000000,
+    "n_edge_tokens": 176616061,
+    "n_nodes": 3783,
+    "n_unique_covered_edges": 24186,
+    "per_split_edge_coverage": {
+      "train": {
+        "nominal": 11609,
+        "covered": 11609,
+        "coverage": 1.0,
+        "by_sign": {
+          "pos": {
+            "nominal": 10872,
+            "covered": 10872,
+            "coverage": 1.0
+          },
+          "neg": {
+            "nominal": 737,
+            "covered": 737,
+            "coverage": 1.0
+          }
+        }
+      },
+      "mask": {
+        "nominal": 7739,
+        "covered": 7739,
+        "coverage": 1.0,
+        "by_sign": {
+          "pos": {
+            "nominal": 7247,
+            "covered": 7247,
+            "coverage": 1.0
+          },
+          "neg": {
+            "nominal": 492,
+            "covered": 492,
+            "coverage": 1.0
+          }
+        }
+      },
+      "val": {
+        "nominal": 2419,
+        "covered": 2419,
+        "coverage": 1.0,
+        "by_sign": {
+          "pos": {
+            "nominal": 2266,
+            "covered": 2266,
+            "coverage": 1.0
+          },
+          "neg": {
+            "nominal": 153,
+            "covered": 153,
+            "coverage": 1.0
+          }
+        }
+      },
+      "test": {
+        "nominal": 2419,
+        "covered": 2419,
+        "coverage": 1.0,
+        "by_sign": {
+          "pos": {
+            "nominal": 2265,
+            "covered": 2265,
+            "coverage": 1.0
+          },
+          "neg": {
+            "nominal": 154,
+            "covered": 154,
+            "coverage": 1.0
+          }
+        }
+      }
+    },
+    "node_coverage": {
+      "n_nodes": 3783,
+      "frac_appear_as_token": 1.0,
+      "frac_with_incident_covered_edge": 1.0,
+      "n_zero_incident_covered": 0
+    },
+    "saturation_overall_covered_edges": {
+      "n_edges": 24186,
+      "n_covered": 24186,
+      "coverage_frac": 1.0,
+      "mean_visits": 7302.4088729016785,
+      "median_visits": 6856.0,
+      "p10_visits": 4217.0,
+      "p90_visits": 9843.5,
+      "max_visits": 299625,
+      "pct_occ0": 0.0,
+      "pct_occ_lt5": 0.0,
+      "pct_occ_lt1of_covered": null,
+      "redundancy_ratio": 7302.4088729016785
+    },
+    "saturation_per_split_covered": {
+      "train": {
+        "n_edges": 11609,
+        "n_covered": 11609,
+        "coverage_frac": 1.0,
+        "mean_visits": 7291.362477388233,
+        "median_visits": 6864.0,
+        "p10_visits": 4239.6,
+        "p90_visits": 9838.400000000001,
+        "max_visits": 299625,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.0,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 7291.362477388233
+      },
+      "mask": {
+        "n_edges": 7739,
+        "n_covered": 7739,
+        "coverage_frac": 1.0,
+        "mean_visits": 7296.060085282336,
+        "median_visits": 6861.0,
+        "p10_visits": 4256.800000000001,
+        "p90_visits": 9793.2,
+        "max_visits": 296230,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.0,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 7296.060085282336
+      },
+      "val": {
+        "n_edges": 2419,
+        "n_covered": 2419,
+        "coverage_frac": 1.0,
+        "mean_visits": 7435.672591980157,
+        "median_visits": 6839.0,
+        "p10_visits": 4060.8,
+        "p90_visits": 10080.800000000001,
+        "max_visits": 188445,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.0,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 7435.672591980157
+      },
+      "test": {
+        "n_edges": 2419,
+        "n_covered": 2419,
+        "coverage_frac": 1.0,
+        "mean_visits": 7242.4692021496485,
+        "median_visits": 6808.0,
+        "p10_visits": 4187.2,
+        "p90_visits": 9765.800000000003,
+        "max_visits": 188859,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.0,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 7242.4692021496485
+      }
+    },
+    "test_coverage_by_min_degree": [
+      {
+        "min_deg_bin": "1-1",
+        "nominal": 42,
+        "covered": 42,
+        "coverage": 1.0
+      },
+      {
+        "min_deg_bin": "2-3",
+        "nominal": 307,
+        "covered": 307,
+        "coverage": 1.0
+      },
+      {
+        "min_deg_bin": "4-7",
+        "nominal": 437,
+        "covered": 437,
+        "coverage": 1.0
+      },
+      {
+        "min_deg_bin": "8-15",
+        "nominal": 417,
+        "covered": 417,
+        "coverage": 1.0
+      },
+      {
+        "min_deg_bin": "16-31",
+        "nominal": 488,
+        "covered": 488,
+        "coverage": 1.0
+      },
+      {
+        "min_deg_bin": "32-inf",
+        "nominal": 728,
+        "covered": 728,
+        "coverage": 1.0
+      }
+    ]
+  },
+  "bitcoin-otc": {
+    "dataset": "bitcoin-otc",
+    "n_walks": 500000,
+    "n_edge_tokens": 13892203,
+    "n_nodes": 5881,
+    "n_unique_covered_edges": 35592,
+    "per_split_edge_coverage": {
+      "train": {
+        "nominal": 17084,
+        "covered": 17084,
+        "coverage": 1.0,
+        "by_sign": {
+          "pos": {
+            "nominal": 15374,
+            "covered": 15374,
+            "coverage": 1.0
+          },
+          "neg": {
+            "nominal": 1710,
+            "covered": 1710,
+            "coverage": 1.0
+          }
+        }
+      },
+      "mask": {
+        "nominal": 11389,
+        "covered": 11389,
+        "coverage": 1.0,
+        "by_sign": {
+          "pos": {
+            "nominal": 10249,
+            "covered": 10249,
+            "coverage": 1.0
+          },
+          "neg": {
+            "nominal": 1140,
+            "covered": 1140,
+            "coverage": 1.0
+          }
+        }
+      },
+      "val": {
+        "nominal": 3559,
+        "covered": 3559,
+        "coverage": 1.0,
+        "by_sign": {
+          "pos": {
+            "nominal": 3203,
+            "covered": 3203,
+            "coverage": 1.0
+          },
+          "neg": {
+            "nominal": 356,
+            "covered": 356,
+            "coverage": 1.0
+          }
+        }
+      },
+      "test": {
+        "nominal": 3560,
+        "covered": 3560,
+        "coverage": 1.0,
+        "by_sign": {
+          "pos": {
+            "nominal": 3203,
+            "covered": 3203,
+            "coverage": 1.0
+          },
+          "neg": {
+            "nominal": 357,
+            "covered": 357,
+            "coverage": 1.0
+          }
+        }
+      }
+    },
+    "node_coverage": {
+      "n_nodes": 5881,
+      "frac_appear_as_token": 1.0,
+      "frac_with_incident_covered_edge": 1.0,
+      "n_zero_incident_covered": 0
+    },
+    "saturation_overall_covered_edges": {
+      "n_edges": 35592,
+      "n_covered": 35592,
+      "coverage_frac": 1.0,
+      "mean_visits": 390.3181332883794,
+      "median_visits": 340.0,
+      "p10_visits": 190.0,
+      "p90_visits": 511.0,
+      "max_visits": 101511,
+      "pct_occ0": 0.0,
+      "pct_occ_lt5": 0.0002247696111485727,
+      "pct_occ_lt1of_covered": null,
+      "redundancy_ratio": 390.3181332883794
+    },
+    "saturation_per_split_covered": {
+      "train": {
+        "n_edges": 17084,
+        "n_covered": 17084,
+        "coverage_frac": 1.0,
+        "mean_visits": 390.20598220557247,
+        "median_visits": 339.0,
+        "p10_visits": 190.0,
+        "p90_visits": 509.0,
+        "max_visits": 101511,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.00035120580660266915,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 390.20598220557247
+      },
+      "mask": {
+        "n_edges": 11389,
+        "n_covered": 11389,
+        "coverage_frac": 1.0,
+        "mean_visits": 393.32434805514094,
+        "median_visits": 340.0,
+        "p10_visits": 188.0,
+        "p90_visits": 508.0,
+        "max_visits": 100253,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 8.780402142418122e-05,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 393.32434805514094
+      },
+      "val": {
+        "n_edges": 3559,
+        "n_covered": 3559,
+        "coverage_frac": 1.0,
+        "mean_visits": 399.23040179825796,
+        "median_visits": 343.0,
+        "p10_visits": 196.60000000000002,
+        "p90_visits": 516.0,
+        "max_visits": 55111,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.0,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 399.23040179825796
+      },
+      "test": {
+        "n_edges": 3560,
+        "n_covered": 3560,
+        "coverage_frac": 1.0,
+        "mean_visits": 372.3292134831461,
+        "median_visits": 343.0,
+        "p10_visits": 191.0,
+        "p90_visits": 516.0999999999999,
+        "max_visits": 11300,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.0002808988764044944,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 372.3292134831461
+      }
+    },
+    "test_coverage_by_min_degree": [
+      {
+        "min_deg_bin": "1-1",
+        "nominal": 87,
+        "covered": 87,
+        "coverage": 1.0
+      },
+      {
+        "min_deg_bin": "2-3",
+        "nominal": 414,
+        "covered": 414,
+        "coverage": 1.0
+      },
+      {
+        "min_deg_bin": "4-7",
+        "nominal": 648,
+        "covered": 648,
+        "coverage": 1.0
+      },
+      {
+        "min_deg_bin": "8-15",
+        "nominal": 658,
+        "covered": 658,
+        "coverage": 1.0
+      },
+      {
+        "min_deg_bin": "16-31",
+        "nominal": 654,
+        "covered": 654,
+        "coverage": 1.0
+      },
+      {
+        "min_deg_bin": "32-inf",
+        "nominal": 1099,
+        "covered": 1099,
+        "coverage": 1.0
+      }
+    ]
+  },
+  "epinions": {
+    "dataset": "epinions",
+    "n_walks": 500000,
+    "n_edge_tokens": 7333923,
+    "n_nodes": 131580,
+    "n_unique_covered_edges": 739293,
+    "per_split_edge_coverage": {
+      "train": {
+        "nominal": 403583,
+        "covered": 355185,
+        "coverage": 0.8800791906497548,
+        "by_sign": {
+          "pos": {
+            "nominal": 344221,
+            "covered": 300066,
+            "coverage": 0.8717248511857209
+          },
+          "neg": {
+            "nominal": 59362,
+            "covered": 55119,
+            "coverage": 0.9285232977325562
+          }
+        }
+      },
+      "mask": {
+        "nominal": 269056,
+        "covered": 236360,
+        "coverage": 0.8784788296860133,
+        "by_sign": {
+          "pos": {
+            "nominal": 229482,
+            "covered": 199718,
+            "coverage": 0.8702991955796098
+          },
+          "neg": {
+            "nominal": 39574,
+            "covered": 36642,
+            "coverage": 0.9259109516349118
+          }
+        }
+      },
+      "val": {
+        "nominal": 84080,
+        "covered": 73965,
+        "coverage": 0.879697906755471,
+        "by_sign": {
+          "pos": {
+            "nominal": 71713,
+            "covered": 62440,
+            "coverage": 0.8706929008687406
+          },
+          "neg": {
+            "nominal": 12367,
+            "covered": 11525,
+            "coverage": 0.9319155817902482
+          }
+        }
+      },
+      "test": {
+        "nominal": 84080,
+        "covered": 73783,
+        "coverage": 0.8775333016175071,
+        "by_sign": {
+          "pos": {
+            "nominal": 71713,
+            "covered": 62297,
+            "coverage": 0.8686988412142848
+          },
+          "neg": {
+            "nominal": 12367,
+            "covered": 11486,
+            "coverage": 0.9287620279776826
+          }
+        }
+      }
+    },
+    "node_coverage": {
+      "n_nodes": 131580,
+      "frac_appear_as_token": 0.9722298221614227,
+      "frac_with_incident_covered_edge": 0.9722298221614227,
+      "n_zero_incident_covered": 3654
+    },
+    "saturation_overall_covered_edges": {
+      "n_edges": 739293,
+      "n_covered": 739293,
+      "coverage_frac": 1.0,
+      "mean_visits": 9.920184554702939,
+      "median_visits": 4.0,
+      "p10_visits": 1.0,
+      "p90_visits": 16.0,
+      "max_visits": 22199,
+      "pct_occ0": 0.0,
+      "pct_occ_lt5": 0.5026829687282309,
+      "pct_occ_lt1of_covered": null,
+      "redundancy_ratio": 9.920184554702939
+    },
+    "saturation_per_split_covered": {
+      "train": {
+        "n_edges": 355185,
+        "n_covered": 355185,
+        "coverage_frac": 1.0,
+        "mean_visits": 10.03532243760294,
+        "median_visits": 4.0,
+        "p10_visits": 1.0,
+        "p90_visits": 16.0,
+        "max_visits": 22199,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.5025859763221983,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 10.03532243760294
+      },
+      "mask": {
+        "n_edges": 236360,
+        "n_covered": 236360,
+        "coverage_frac": 1.0,
+        "mean_visits": 9.878630055847013,
+        "median_visits": 4.0,
+        "p10_visits": 1.0,
+        "p90_visits": 16.0,
+        "max_visits": 20002,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.5032915891013708,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 9.878630055847013
+      },
+      "val": {
+        "n_edges": 73965,
+        "n_covered": 73965,
+        "coverage_frac": 1.0,
+        "mean_visits": 9.958385722977084,
+        "median_visits": 4.0,
+        "p10_visits": 1.0,
+        "p90_visits": 17.0,
+        "max_visits": 15663,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.5012505914959778,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 9.958385722977084
+      },
+      "test": {
+        "n_edges": 73783,
+        "n_covered": 73783,
+        "coverage_frac": 1.0,
+        "mean_visits": 9.460742989577545,
+        "median_visits": 4.0,
+        "p10_visits": 1.0,
+        "p90_visits": 17.0,
+        "max_visits": 4445,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.5026361085886993,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 9.460742989577545
+      }
+    },
+    "test_coverage_by_min_degree": [
+      {
+        "min_deg_bin": "1-1",
+        "nominal": 5732,
+        "covered": 5410,
+        "coverage": 0.9438241451500349
+      },
+      {
+        "min_deg_bin": "2-3",
+        "nominal": 6003,
+        "covered": 5472,
+        "coverage": 0.9115442278860569
+      },
+      {
+        "min_deg_bin": "4-7",
+        "nominal": 6618,
+        "covered": 5727,
+        "coverage": 0.8653671804170444
+      },
+      {
+        "min_deg_bin": "8-15",
+        "nominal": 7604,
+        "covered": 6535,
+        "coverage": 0.8594160967911626
+      },
+      {
+        "min_deg_bin": "16-31",
+        "nominal": 8738,
+        "covered": 7429,
+        "coverage": 0.8501945525291829
+      },
+      {
+        "min_deg_bin": "32-inf",
+        "nominal": 49385,
+        "covered": 43210,
+        "coverage": 0.8749620330059735
+      }
+    ]
+  },
+  "wiki-elec": {
+    "dataset": "wiki-elec",
+    "n_walks": 500000,
+    "n_edge_tokens": 1659657,
+    "n_nodes": 7115,
+    "n_unique_covered_edges": 88624,
+    "per_split_edge_coverage": {
+      "train": {
+        "nominal": 49770,
+        "covered": 42497,
+        "coverage": 0.8538677918424754,
+        "by_sign": {
+          "pos": {
+            "nominal": 39220,
+            "covered": 33286,
+            "coverage": 0.8486996430392657
+          },
+          "neg": {
+            "nominal": 10550,
+            "covered": 9211,
+            "coverage": 0.8730805687203792
+          }
+        }
+      },
+      "mask": {
+        "nominal": 33180,
+        "covered": 28408,
+        "coverage": 0.8561784207353828,
+        "by_sign": {
+          "pos": {
+            "nominal": 26146,
+            "covered": 22297,
+            "coverage": 0.8527881893979958
+          },
+          "neg": {
+            "nominal": 7034,
+            "covered": 6111,
+            "coverage": 0.8687802104065965
+          }
+        }
+      },
+      "val": {
+        "nominal": 10369,
+        "covered": 8862,
+        "coverage": 0.8546629376024689,
+        "by_sign": {
+          "pos": {
+            "nominal": 8171,
+            "covered": 6941,
+            "coverage": 0.8494676294211235
+          },
+          "neg": {
+            "nominal": 2198,
+            "covered": 1921,
+            "coverage": 0.8739763421292084
+          }
+        }
+      },
+      "test": {
+        "nominal": 10370,
+        "covered": 8857,
+        "coverage": 0.8540983606557377,
+        "by_sign": {
+          "pos": {
+            "nominal": 8172,
+            "covered": 6938,
+            "coverage": 0.8489965736661772
+          },
+          "neg": {
+            "nominal": 2198,
+            "covered": 1919,
+            "coverage": 0.873066424021838
+          }
+        }
+      }
+    },
+    "node_coverage": {
+      "n_nodes": 7115,
+      "frac_appear_as_token": 0.9987350667603654,
+      "frac_with_incident_covered_edge": 0.9987350667603654,
+      "n_zero_incident_covered": 9
+    },
+    "saturation_overall_covered_edges": {
+      "n_edges": 88624,
+      "n_covered": 88624,
+      "coverage_frac": 1.0,
+      "mean_visits": 18.726947553710055,
+      "median_visits": 7.0,
+      "p10_visits": 1.0,
+      "p90_visits": 43.0,
+      "max_visits": 4743,
+      "pct_occ0": 0.0,
+      "pct_occ_lt5": 0.37117485105614734,
+      "pct_occ_lt1of_covered": null,
+      "redundancy_ratio": 18.726947553710055
+    },
+    "saturation_per_split_covered": {
+      "train": {
+        "n_edges": 42497,
+        "n_covered": 42497,
+        "coverage_frac": 1.0,
+        "mean_visits": 18.647598654022637,
+        "median_visits": 7.0,
+        "p10_visits": 1.0,
+        "p90_visits": 43.0,
+        "max_visits": 1815,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.37397933971809777,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 18.647598654022637
+      },
+      "mask": {
+        "n_edges": 28408,
+        "n_covered": 28408,
+        "coverage_frac": 1.0,
+        "mean_visits": 18.9769431146156,
+        "median_visits": 7.0,
+        "p10_visits": 1.0,
+        "p90_visits": 44.0,
+        "max_visits": 3683,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.36658687693607434,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 18.9769431146156
+      },
+      "val": {
+        "n_edges": 8862,
+        "n_covered": 8862,
+        "coverage_frac": 1.0,
+        "mean_visits": 18.363010607086437,
+        "median_visits": 7.0,
+        "p10_visits": 1.0,
+        "p90_visits": 41.0,
+        "max_visits": 1257,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.3747461069735951,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 18.363010607086437
+      },
+      "test": {
+        "n_edges": 8857,
+        "n_covered": 8857,
+        "coverage_frac": 1.0,
+        "mean_visits": 18.669978548041097,
+        "median_visits": 7.0,
+        "p10_visits": 1.0,
+        "p90_visits": 40.400000000000546,
+        "max_visits": 4743,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.36886078807722705,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 18.669978548041097
+      }
+    },
+    "test_coverage_by_min_degree": [
+      {
+        "min_deg_bin": "1-1",
+        "nominal": 219,
+        "covered": 218,
+        "coverage": 0.9954337899543378
+      },
+      {
+        "min_deg_bin": "2-3",
+        "nominal": 251,
+        "covered": 248,
+        "coverage": 0.9880478087649402
+      },
+      {
+        "min_deg_bin": "4-7",
+        "nominal": 374,
+        "covered": 366,
+        "coverage": 0.9786096256684492
+      },
+      {
+        "min_deg_bin": "8-15",
+        "nominal": 686,
+        "covered": 650,
+        "coverage": 0.9475218658892128
+      },
+      {
+        "min_deg_bin": "16-31",
+        "nominal": 1270,
+        "covered": 1135,
+        "coverage": 0.8937007874015748
+      },
+      {
+        "min_deg_bin": "32-inf",
+        "nominal": 7570,
+        "covered": 6240,
+        "coverage": 0.8243064729194187
+      }
+    ]
+  },
+  "wiki-rfa": {
+    "dataset": "wiki-rfa",
+    "n_walks": 500000,
+    "n_edge_tokens": 4775948,
+    "n_nodes": 11256,
+    "n_unique_covered_edges": 152370,
+    "per_split_edge_coverage": {
+      "train": {
+        "nominal": 85061,
+        "covered": 73135,
+        "coverage": 0.8597947355427281,
+        "by_sign": {
+          "pos": {
+            "nominal": 66720,
+            "covered": 57448,
+            "coverage": 0.8610311750599521
+          },
+          "neg": {
+            "nominal": 18341,
+            "covered": 15687,
+            "coverage": 0.8552968758519165
+          }
+        }
+      },
+      "mask": {
+        "nominal": 56707,
+        "covered": 48716,
+        "coverage": 0.8590826529352638,
+        "by_sign": {
+          "pos": {
+            "nominal": 44479,
+            "covered": 38244,
+            "coverage": 0.8598214887924639
+          },
+          "neg": {
+            "nominal": 12228,
+            "covered": 10472,
+            "coverage": 0.8563951586522734
+          }
+        }
+      },
+      "val": {
+        "nominal": 17721,
+        "covered": 15239,
+        "coverage": 0.8599401839625304,
+        "by_sign": {
+          "pos": {
+            "nominal": 13900,
+            "covered": 11970,
+            "coverage": 0.8611510791366906
+          },
+          "neg": {
+            "nominal": 3821,
+            "covered": 3269,
+            "coverage": 0.8555352002093692
+          }
+        }
+      },
+      "test": {
+        "nominal": 17722,
+        "covered": 15280,
+        "coverage": 0.8622051687168492,
+        "by_sign": {
+          "pos": {
+            "nominal": 13901,
+            "covered": 12009,
+            "coverage": 0.8638946838356952
+          },
+          "neg": {
+            "nominal": 3821,
+            "covered": 3271,
+            "coverage": 0.8560586233970164
+          }
+        }
+      }
+    },
+    "node_coverage": {
+      "n_nodes": 11256,
+      "frac_appear_as_token": 0.9997334754797441,
+      "frac_with_incident_covered_edge": 0.9997334754797441,
+      "n_zero_incident_covered": 3
+    },
+    "saturation_overall_covered_edges": {
+      "n_edges": 152370,
+      "n_covered": 152370,
+      "coverage_frac": 1.0,
+      "mean_visits": 31.344411629585878,
+      "median_visits": 9.0,
+      "p10_visits": 1.0,
+      "p90_visits": 58.0,
+      "max_visits": 198015,
+      "pct_occ0": 0.0,
+      "pct_occ_lt5": 0.3342652753166634,
+      "pct_occ_lt1of_covered": null,
+      "redundancy_ratio": 31.344411629585878
+    },
+    "saturation_per_split_covered": {
+      "train": {
+        "n_edges": 73135,
+        "n_covered": 73135,
+        "coverage_frac": 1.0,
+        "mean_visits": 31.82407875846038,
+        "median_visits": 9.0,
+        "p10_visits": 1.0,
+        "p90_visits": 59.0,
+        "max_visits": 198015,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.33215286798386545,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 31.82407875846038
+      },
+      "mask": {
+        "n_edges": 48716,
+        "n_covered": 48716,
+        "coverage_frac": 1.0,
+        "mean_visits": 33.288632071598656,
+        "median_visits": 9.0,
+        "p10_visits": 1.0,
+        "p90_visits": 59.0,
+        "max_visits": 196505,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.3357213235897857,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 33.288632071598656
+      },
+      "val": {
+        "n_edges": 15239,
+        "n_covered": 15239,
+        "coverage_frac": 1.0,
+        "mean_visits": 26.404554104600038,
+        "median_visits": 9.0,
+        "p10_visits": 1.0,
+        "p90_visits": 55.0,
+        "max_visits": 2961,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.3356519456657261,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 26.404554104600038
+      },
+      "test": {
+        "n_edges": 15280,
+        "n_covered": 15280,
+        "coverage_frac": 1.0,
+        "mean_visits": 27.77657068062827,
+        "median_visits": 9.0,
+        "p10_visits": 1.0,
+        "p90_visits": 56.0,
+        "max_visits": 3193,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.33835078534031415,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 27.77657068062827
+      }
+    },
+    "test_coverage_by_min_degree": [
+      {
+        "min_deg_bin": "1-1",
+        "nominal": 364,
+        "covered": 363,
+        "coverage": 0.9972527472527473
+      },
+      {
+        "min_deg_bin": "2-3",
+        "nominal": 426,
+        "covered": 423,
+        "coverage": 0.9929577464788732
+      },
+      {
+        "min_deg_bin": "4-7",
+        "nominal": 643,
+        "covered": 632,
+        "coverage": 0.9828926905132193
+      },
+      {
+        "min_deg_bin": "8-15",
+        "nominal": 1219,
+        "covered": 1162,
+        "coverage": 0.9532403609515997
+      },
+      {
+        "min_deg_bin": "16-31",
+        "nominal": 1838,
+        "covered": 1585,
+        "coverage": 0.8623503808487486
+      },
+      {
+        "min_deg_bin": "32-inf",
+        "nominal": 13232,
+        "covered": 11115,
+        "coverage": 0.840009068923821
+      }
+    ]
+  },
+  "slashdot090221": {
+    "dataset": "slashdot090221",
+    "n_walks": 5000000,
+    "n_edge_tokens": 30894745,
+    "n_nodes": 82140,
+    "n_unique_covered_edges": 539649,
+    "per_split_edge_coverage": {
+      "train": {
+        "nominal": 263616,
+        "covered": 259030,
+        "coverage": 0.9826034838553047,
+        "by_sign": {
+          "pos": {
+            "nominal": 204034,
+            "covered": 201141,
+            "coverage": 0.9858209906192105
+          },
+          "neg": {
+            "nominal": 59582,
+            "covered": 57889,
+            "coverage": 0.9715853781343359
+          }
+        }
+      },
+      "mask": {
+        "nominal": 175745,
+        "covered": 172679,
+        "coverage": 0.9825542689692452,
+        "by_sign": {
+          "pos": {
+            "nominal": 136023,
+            "covered": 134111,
+            "coverage": 0.9859435536637187
+          },
+          "neg": {
+            "nominal": 39722,
+            "covered": 38568,
+            "coverage": 0.9709480892200796
+          }
+        }
+      },
+      "val": {
+        "nominal": 54920,
+        "covered": 53978,
+        "coverage": 0.9828477785870356,
+        "by_sign": {
+          "pos": {
+            "nominal": 42507,
+            "covered": 41910,
+            "coverage": 0.9859552544286824
+          },
+          "neg": {
+            "nominal": 12413,
+            "covered": 12068,
+            "coverage": 0.9722065576411826
+          }
+        }
+      },
+      "test": {
+        "nominal": 54921,
+        "covered": 53962,
+        "coverage": 0.9825385553795452,
+        "by_sign": {
+          "pos": {
+            "nominal": 42508,
+            "covered": 41920,
+            "coverage": 0.9861673096828832
+          },
+          "neg": {
+            "nominal": 12413,
+            "covered": 12042,
+            "coverage": 0.9701119793764602
+          }
+        }
+      }
+    },
+    "node_coverage": {
+      "n_nodes": 82140,
+      "frac_appear_as_token": 0.9953615777940102,
+      "frac_with_incident_covered_edge": 0.9953615777940102,
+      "n_zero_incident_covered": 381
+    },
+    "saturation_overall_covered_edges": {
+      "n_edges": 539649,
+      "n_covered": 539649,
+      "coverage_frac": 1.0,
+      "mean_visits": 57.24970304772176,
+      "median_visits": 14.0,
+      "p10_visits": 3.0,
+      "p90_visits": 75.0,
+      "max_visits": 228130,
+      "pct_occ0": 0.0,
+      "pct_occ_lt5": 0.1916301151303903,
+      "pct_occ_lt1of_covered": null,
+      "redundancy_ratio": 57.24970304772176
+    },
+    "saturation_per_split_covered": {
+      "train": {
+        "n_edges": 259030,
+        "n_covered": 259030,
+        "coverage_frac": 1.0,
+        "mean_visits": 57.74111878932942,
+        "median_visits": 13.0,
+        "p10_visits": 3.0,
+        "p90_visits": 74.0,
+        "max_visits": 228130,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.19172682700845461,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 57.74111878932942
+      },
+      "mask": {
+        "n_edges": 172679,
+        "n_covered": 172679,
+        "coverage_frac": 1.0,
+        "mean_visits": 56.798331007244656,
+        "median_visits": 14.0,
+        "p10_visits": 3.0,
+        "p90_visits": 75.0,
+        "max_visits": 224578,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.19063696222470597,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 56.798331007244656
+      },
+      "val": {
+        "n_edges": 53978,
+        "n_covered": 53978,
+        "coverage_frac": 1.0,
+        "mean_visits": 59.54881618437141,
+        "median_visits": 14.0,
+        "p10_visits": 3.0,
+        "p90_visits": 76.0,
+        "max_visits": 116587,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.1937641261254585,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 59.54881618437141
+      },
+      "test": {
+        "n_edges": 53962,
+        "n_covered": 53962,
+        "coverage_frac": 1.0,
+        "mean_visits": 54.0353952781587,
+        "median_visits": 13.0,
+        "p10_visits": 3.0,
+        "p90_visits": 75.0,
+        "max_visits": 116187,
+        "pct_occ0": 0.0,
+        "pct_occ_lt5": 0.192209332493236,
+        "pct_occ_lt1of_covered": null,
+        "redundancy_ratio": 54.0353952781587
+      }
+    },
+    "test_coverage_by_min_degree": [
+      {
+        "min_deg_bin": "1-1",
+        "nominal": 2703,
+        "covered": 2664,
+        "coverage": 0.9855715871254163
+      },
+      {
+        "min_deg_bin": "2-3",
+        "nominal": 4549,
+        "covered": 4499,
+        "coverage": 0.989008573312816
+      },
+      {
+        "min_deg_bin": "4-7",
+        "nominal": 5852,
+        "covered": 5789,
+        "coverage": 0.9892344497607656
+      },
+      {
+        "min_deg_bin": "8-15",
+        "nominal": 7995,
+        "covered": 7885,
+        "coverage": 0.9862414008755472
+      },
+      {
+        "min_deg_bin": "16-31",
+        "nominal": 9632,
+        "covered": 9485,
+        "coverage": 0.9847383720930233
+      },
+      {
+        "min_deg_bin": "32-inf",
+        "nominal": 24190,
+        "covered": 23640,
+        "coverage": 0.9772633319553534
+      }
+    ]
+  }
+}

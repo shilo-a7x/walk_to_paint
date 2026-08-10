@@ -1,0 +1,10 @@
+{
+  "model_name": "func_dist_min",
+  "description": "(min(ds,de)+1)^{-a}",
+  "theta_star": [
+    1.1505859375000018
+  ],
+  "n_iters": 17,
+  "n_params": 1,
+  "seed": 42
+}

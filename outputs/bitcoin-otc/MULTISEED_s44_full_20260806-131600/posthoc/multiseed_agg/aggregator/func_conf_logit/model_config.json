@@ -1,0 +1,10 @@
+{
+  "model_name": "func_conf_logit",
+  "description": "sig(b*(q-0.5))",
+  "theta_star": [
+    -2.0812500000000123
+  ],
+  "n_iters": 20,
+  "n_params": 1,
+  "seed": 44
+}

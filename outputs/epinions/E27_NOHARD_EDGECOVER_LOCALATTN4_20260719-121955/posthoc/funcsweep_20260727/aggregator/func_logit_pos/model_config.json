@@ -1,0 +1,11 @@
+{
+  "model_name": "func_logit_pos",
+  "description": "exp(-a*rp)*|logit(q)|^b",
+  "theta_star": [
+    2.740229934073424,
+    1.9813403581270161
+  ],
+  "n_iters": 42,
+  "n_params": 2,
+  "seed": 42
+}

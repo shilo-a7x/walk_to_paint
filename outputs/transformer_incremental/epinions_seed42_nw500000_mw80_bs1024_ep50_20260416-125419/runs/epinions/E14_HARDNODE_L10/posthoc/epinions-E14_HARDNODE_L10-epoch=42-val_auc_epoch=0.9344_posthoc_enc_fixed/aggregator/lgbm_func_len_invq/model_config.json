@@ -1,0 +1,18 @@
+{
+  "model_name": "lgbm_func_len_invq",
+  "func_key": "func_len_invq",
+  "description": "lgbm\u2192q_j then len^{-a}*(1-q)^b",
+  "theta_star": [
+    0.23766677704406905,
+    -0.12056762771681359
+  ],
+  "n_iters": 45,
+  "n_params": 2,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 20
+Run ID: slashdot090221-E14_HARDNODE_L10-epoch=20-val_auc_epoch=0.9279_posthoc
+Model: func_log6  (exp(b1..b6 with pairwise q/rp/log_len interactions))
+theta* = [0.0009165207175134337, 0.00038594212882269384, -0.056957710290143196, -2.8755659970018953e-07, 0.0007616488705825315, 0.001953079732570191]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8953 (53978 edges)
+  Test  AUC: 0.8949 (53962 edges)

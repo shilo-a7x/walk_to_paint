@@ -1,0 +1,10 @@
+{
+  "model_name": "func_pos_exprel",
+  "description": "exp(-a*rel_pos)",
+  "theta_star": [
+    2.8264648437500037
+  ],
+  "n_iters": 18,
+  "n_params": 1,
+  "seed": 42
+}

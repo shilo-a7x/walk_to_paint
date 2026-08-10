@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 25
+Run ID: wiki-rfa-E14_HARDNODE_L10-epoch=25-val_auc_epoch=0.8630_posthoc
+Model: func_len_pos  (len^{-a}*exp(-g*rp))
+theta* = [0.4960296630859375, 1.060833740234375]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8783 (15239 edges)
+  Test  AUC: 0.8813 (15280 edges)

@@ -1,0 +1,117 @@
+{
+  "num_walks": 500000,
+  "num_edges": 24186,
+  "coverage_overall": {
+    "n": 24186,
+    "covered": 24186,
+    "pct": 100.0
+  },
+  "coverage_by_split": {
+    "train": {
+      "n": 11609,
+      "covered": 11609,
+      "pct": 100.0
+    },
+    "test": {
+      "n": 2419,
+      "covered": 2419,
+      "pct": 100.0
+    },
+    "mask": {
+      "n": 7739,
+      "covered": 7739,
+      "pct": 100.0
+    },
+    "val": {
+      "n": 2419,
+      "covered": 2419,
+      "pct": 100.0
+    }
+  },
+  "coverage_by_sign": {
+    "pos": {
+      "n": 22650,
+      "covered": 22650,
+      "pct": 100.0
+    },
+    "neg": {
+      "n": 1536,
+      "covered": 1536,
+      "pct": 100.0
+    }
+  },
+  "coverage_by_split_sign": {
+    "train_pos": {
+      "n": 10872,
+      "covered": 10872,
+      "pct": 100.0
+    },
+    "test_pos": {
+      "n": 2265,
+      "covered": 2265,
+      "pct": 100.0
+    },
+    "mask_pos": {
+      "n": 7247,
+      "covered": 7247,
+      "pct": 100.0
+    },
+    "val_pos": {
+      "n": 2266,
+      "covered": 2266,
+      "pct": 100.0
+    },
+    "mask_neg": {
+      "n": 492,
+      "covered": 492,
+      "pct": 100.0
+    },
+    "test_neg": {
+      "n": 154,
+      "covered": 154,
+      "pct": 100.0
+    },
+    "train_neg": {
+      "n": 737,
+      "covered": 737,
+      "pct": 100.0
+    },
+    "val_neg": {
+      "n": 153,
+      "covered": 153,
+      "pct": 100.0
+    }
+  },
+  "occurrence_stats": {
+    "mean": 730.724882163235,
+    "median": 687.0,
+    "p10": 422.0,
+    "pct_zero": 0.0,
+    "pct_lt5": 0.0,
+    "max": 29608
+  },
+  "redundancy_ratio": 730.724882163235,
+  "sign_coverage_gap": 0.0,
+  "degree_coverage": {
+    "deg_1": {
+      "n": 393,
+      "covered": 393,
+      "pct": 100.0
+    },
+    "deg_2_5": {
+      "n": 5122,
+      "covered": 5122,
+      "pct": 100.0
+    },
+    "deg_6_20": {
+      "n": 8527,
+      "covered": 8527,
+      "pct": 100.0
+    },
+    "deg_21+": {
+      "n": 10144,
+      "covered": 10144,
+      "pct": 100.0
+    }
+  }
+}

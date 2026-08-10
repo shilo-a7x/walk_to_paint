@@ -1,0 +1,11 @@
+{
+  "model_name": "func_pos_conf",
+  "description": "exp(-a*rp)*q^b",
+  "theta_star": [
+    4.312223310768561,
+    19.45291068404914
+  ],
+  "n_iters": 35,
+  "n_params": 2,
+  "seed": 42
+}

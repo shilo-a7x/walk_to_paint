@@ -1,0 +1,20 @@
+{
+  "model_name": "lgbm_func_log4",
+  "func_key": "func_log4",
+  "description": "lgbm\u2192q_j then exp(b0 + b1*q + b2*rp + b3*log_len)",
+  "theta_star": [
+    0.0023218257379188376,
+    0.004298042903185637,
+    -0.01496358058128456,
+    -2.811773928034511
+  ],
+  "n_iters": 61,
+  "n_params": 4,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

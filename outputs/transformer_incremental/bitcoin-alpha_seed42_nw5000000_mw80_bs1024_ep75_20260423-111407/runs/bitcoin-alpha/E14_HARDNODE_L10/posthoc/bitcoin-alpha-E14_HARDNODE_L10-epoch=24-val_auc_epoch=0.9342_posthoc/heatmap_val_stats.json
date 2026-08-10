@@ -1,0 +1,22 @@
+{
+  "grid_shape": [
+    80,
+    80
+  ],
+  "total_cells": 6400,
+  "non_empty_cells": 3240,
+  "sparsity": 0.49375,
+  "num_triplets": 1799304,
+  "accuracy": {
+    "mean": 0.9521319270133972,
+    "std": 0.025866372510790825,
+    "min": 0.5935596227645874,
+    "max": 1.0
+  },
+  "position_stats": {
+    "avg_dist_from_start": 27.407734879709043,
+    "avg_dist_from_end": 27.235857309270695,
+    "boundary_accuracy": 0.9022828868114254,
+    "interior_accuracy": 0.9560782194658657
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "model_name": "func_fisher_power",
+  "description": "(q(1-q))^{-b}  Fisher-information / inverse-variance weighting",
+  "theta_star": [
+    1.1761718750000005
+  ],
+  "n_iters": 13,
+  "n_params": 1,
+  "seed": 42
+}

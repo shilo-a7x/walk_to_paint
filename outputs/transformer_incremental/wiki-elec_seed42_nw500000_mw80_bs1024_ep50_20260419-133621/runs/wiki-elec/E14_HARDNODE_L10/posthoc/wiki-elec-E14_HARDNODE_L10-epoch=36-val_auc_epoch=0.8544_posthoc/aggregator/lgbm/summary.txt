@@ -1,0 +1,17 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 36
+Run ID: wiki-elec-E14_HARDNODE_L10-epoch=36-val_auc_epoch=0.8544_posthoc
+Model: lgbm
+
+Walk-level metrics:
+  Train AUC: 0.8794
+  Test  AUC: 0.8508
+  Train ACC: 0.7786
+  Test  ACC: 0.7473
+  Train F1: 0.6177
+  Test  F1: 0.5644
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8936 (8862 edges)
+  Test  AUC: 0.8826 (8857 edges)

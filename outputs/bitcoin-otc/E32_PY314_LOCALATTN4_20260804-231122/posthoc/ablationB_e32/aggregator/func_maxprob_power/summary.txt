@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-otc
+Epoch: 35
+Run ID: ablationC_e32
+Model: func_maxprob_power  (max(q,1-q)^b  confidence in predicted class)
+theta* = [1.0843750000000003]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9290 (3559 edges)
+  Test  AUC: 0.9360 (3560 edges)

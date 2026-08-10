@@ -1,0 +1,30 @@
+[
+  [
+    "SGA-GSGNN-wiki-rfa",
+    "SGA-GSGNN",
+    "wiki-rfa",
+    "FAIL(rc=1)",
+    10.0
+  ],
+  [
+    "SGA-GSGNN-bitcoin-alpha",
+    "SGA-GSGNN",
+    "bitcoin-alpha",
+    "OK",
+    55.1
+  ],
+  [
+    "SGA-GSGNN-bitcoin-otc",
+    "SGA-GSGNN",
+    "bitcoin-otc",
+    "OK",
+    60.1
+  ],
+  [
+    "SGA-GSGNN-wiki-elec",
+    "SGA-GSGNN",
+    "wiki-elec",
+    "OK",
+    85.1
+  ]
+]

@@ -8,10 +8,37 @@
 **/__pycache__/
 /nohup
 nohup.out
-outputs/
 *.pkl
+*.pt
+*.ckpt
+*.npy
+*.npz
+*.bak
 *.log
 *.out
+events.out.tfevents.*
 /tmp
-*.pt
-/baselines
+
+# outputs/: keep small analysis reports/figures (md, csv, yaml, json, plus
+# figures in the curated lead/analysis dirs), exclude big regenerable
+# per-run training artifacts (checkpoints/tfevents already caught above).
+# These are the raw per-dataset training-run dirs -- diagnostic PNGs here
+# (e.g. weight_surface.png per run/aggregator) are regenerable via
+# run_posthoc.py, not worth tracking individually.
+outputs/bitcoin-alpha/**/*.png
+outputs/bitcoin-otc/**/*.png
+outputs/epinions/**/*.png
+outputs/slashdot090221/**/*.png
+outputs/wiki-elec/**/*.png
+outputs/wiki-rfa/**/*.png
+outputs/transformer_incremental/**/*.png
+outputs/_pre_e15_lead_backup_20260629-080402/**/*.png
+
+# baselines/: contains cloned third-party repos (own .git dirs) and their
+# checkpoints/predictions -- keep those ignored, only track our own small
+# summary artifacts.
+/baselines/*
+!/baselines/all_results.csv
+!/baselines/all_results_canonical.csv
+!/baselines/logs_canonical
+!/baselines/logs_canonical/*.log

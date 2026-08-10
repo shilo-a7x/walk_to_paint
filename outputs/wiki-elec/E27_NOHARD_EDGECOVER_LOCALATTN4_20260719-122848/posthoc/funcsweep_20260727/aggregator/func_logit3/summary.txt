@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 36
+Run ID: funcsweep_20260727
+Model: func_logit3  (exp(b1*logit(q) + b2*rp + b3*log_len)  signed confidence)
+theta* = [-0.0038469221536351185, -0.006572934527892091, -1.45643772147919]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8997 (10369 edges)
+  Test  AUC: 0.9067 (10370 edges)

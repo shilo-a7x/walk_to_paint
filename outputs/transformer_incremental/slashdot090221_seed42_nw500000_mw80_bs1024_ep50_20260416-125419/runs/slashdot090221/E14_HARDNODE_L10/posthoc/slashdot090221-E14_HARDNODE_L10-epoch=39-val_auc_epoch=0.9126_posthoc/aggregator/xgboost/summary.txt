@@ -1,0 +1,17 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 39
+Run ID: slashdot090221-E14_HARDNODE_L10-epoch=39-val_auc_epoch=0.9126_posthoc
+Model: xgboost
+
+Walk-level metrics:
+  Train AUC: 0.9229
+  Test  AUC: 0.8746
+  Train ACC: 0.8202
+  Test  ACC: 0.7950
+  Train F1: 0.5440
+  Test  F1: 0.4710
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8478 (37467 edges)
+  Test  AUC: 0.8481 (37322 edges)

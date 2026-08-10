@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-alpha
+Epoch: 39
+Run ID: multiseed_agg
+Model: func_entropy_exp  (exp(-a*H(q)))
+theta* = [3.5640625000000035]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9222 (2419 edges)
+  Test  AUC: 0.9165 (2419 edges)

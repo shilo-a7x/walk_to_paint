@@ -1,0 +1,9 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 42
+Run ID: epinions-E14_HARDNODE_L10-epoch=42-val_auc_epoch=0.9344_posthoc_enc_fixed
+Model: lgbm_self_attention (lgbm(3 feats)→q_j, SelfAttention(d=32,h=4) mean pool)
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9485 (73965 edges)
+  Test  AUC: 0.9457 (73783 edges)

@@ -1,0 +1,10 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/wiki-elec.pt
+[INFO] wiki-elec: 7115 nodes, 82950 train, 10369 val, 10370 test edges
+
+=== RESULTS: CSG on wiki-elec (seed=42) ===
+  Val  AUC      : 0.7785
+  Val  F1       : 0.8336
+  Test AUC      : 0.7747
+  Test Macro F1 : 0.8379
+  Saved → results_our_splits_canonical/wiki-elec/CSG/seed42/score.csv
+  Saved → results_our_splits_canonical/wiki-elec/CSG/seed42/best_epoch_artifacts.pkl

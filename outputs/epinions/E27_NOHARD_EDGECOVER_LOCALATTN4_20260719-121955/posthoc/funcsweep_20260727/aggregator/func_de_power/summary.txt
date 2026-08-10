@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 30
+Run ID: funcsweep_20260727
+Model: func_de_power  ((de+1)^{-a})
+theta* = [0.14443359374999967]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9525 (84080 edges)
+  Test  AUC: 0.9523 (84080 edges)

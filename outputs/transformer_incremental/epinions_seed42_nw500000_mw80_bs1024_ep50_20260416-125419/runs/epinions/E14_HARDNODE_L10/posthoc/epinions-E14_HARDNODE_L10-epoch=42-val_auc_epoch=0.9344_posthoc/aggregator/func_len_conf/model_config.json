@@ -1,0 +1,11 @@
+{
+  "model_name": "func_len_conf",
+  "description": "len^{-a}*q^b",
+  "theta_star": [
+    0.18735903590255584,
+    -0.14010754308011605
+  ],
+  "n_iters": 44,
+  "n_params": 2,
+  "seed": 42
+}

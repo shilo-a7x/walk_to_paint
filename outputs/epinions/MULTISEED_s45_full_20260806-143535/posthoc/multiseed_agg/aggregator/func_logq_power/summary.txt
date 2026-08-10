@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 54
+Run ID: multiseed_agg
+Model: func_logq_power  ((-log(q))^b)
+theta* = [-0.2626953125000011]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9493 (84080 edges)
+  Test  AUC: 0.9499 (84080 edges)

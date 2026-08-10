@@ -1,0 +1,39 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/slashdot090221.pt
+[INFO] slashdot090221: 82140 nodes, 439361 train, 54920 val, 54921 test edges
+  [epoch 50/1500] loss=101579.5625 val_auc=0.5195 (best=0.5195)
+  [epoch 100/1500] loss=61580.5352 val_auc=0.6519 (best=0.6519)
+  [epoch 150/1500] loss=41581.0859 val_auc=0.7010 (best=0.7010)
+  [epoch 200/1500] loss=34263.2227 val_auc=0.7177 (best=0.7177)
+  [epoch 250/1500] loss=31593.6719 val_auc=0.7327 (best=0.7327)
+  [epoch 300/1500] loss=29662.3555 val_auc=0.7447 (best=0.7447)
+  [epoch 350/1500] loss=27380.8203 val_auc=0.7544 (best=0.7544)
+  [epoch 400/1500] loss=25923.5488 val_auc=0.7629 (best=0.7629)
+  [epoch 450/1500] loss=24824.8086 val_auc=0.7725 (best=0.7725)
+  [epoch 500/1500] loss=25362.4297 val_auc=0.7864 (best=0.7864)
+  [epoch 550/1500] loss=25485.2441 val_auc=0.7963 (best=0.7963)
+  [epoch 600/1500] loss=26609.7383 val_auc=0.8066 (best=0.8066)
+  [epoch 650/1500] loss=30297.9590 val_auc=0.8136 (best=0.8136)
+  [epoch 700/1500] loss=27735.8906 val_auc=0.8196 (best=0.8196)
+  [epoch 750/1500] loss=26543.8477 val_auc=0.8263 (best=0.8263)
+  [epoch 800/1500] loss=27098.5176 val_auc=0.8328 (best=0.8328)
+  [epoch 850/1500] loss=29114.7422 val_auc=0.8388 (best=0.8388)
+  [epoch 900/1500] loss=27288.7734 val_auc=0.8413 (best=0.8413)
+  [epoch 950/1500] loss=26907.2734 val_auc=0.8441 (best=0.8441)
+  [epoch 1000/1500] loss=26168.1641 val_auc=0.8476 (best=0.8476)
+  [epoch 1050/1500] loss=25933.7852 val_auc=0.8501 (best=0.8501)
+  [epoch 1100/1500] loss=38897.5469 val_auc=0.8552 (best=0.8552)
+  [epoch 1150/1500] loss=28931.7324 val_auc=0.8583 (best=0.8583)
+  [epoch 1200/1500] loss=24404.4961 val_auc=0.8574 (best=0.8583)
+  [epoch 1250/1500] loss=23908.3750 val_auc=0.8573 (best=0.8583)
+  [epoch 1300/1500] loss=27786.6855 val_auc=0.8586 (best=0.8586)
+  [epoch 1350/1500] loss=40609.1914 val_auc=0.8594 (best=0.8594)
+  [epoch 1400/1500] loss=50795.5781 val_auc=0.8601 (best=0.8601)
+  [epoch 1450/1500] loss=66014.6094 val_auc=0.8580 (best=0.8601)
+  [epoch 1500/1500] loss=70596.6875 val_auc=0.8586 (best=0.8601)
+
+=== RESULTS: SiGAT on slashdot090221 (seed=42) ===
+  Val  AUC : 0.8601
+  Test AUC : 0.8587
+  Test F1  : 0.8955
+  Saved -> results_our_splits_canonical/slashdot090221/SiGAT/seed42/score.csv
+  Saved -> results_our_splits_canonical/slashdot090221/SiGAT/seed42/best_epoch_artifacts.pkl

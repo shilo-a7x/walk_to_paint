@@ -1,0 +1,7 @@
+Lead 2 Step 4 -- synthetic-fog targeted calibration (exact discrete MI)
+(see generate_synthetic_fog_graph.py module docstring for why this
+ replaces edge_sign_mi_vs_distance_v3.py's pooled-frontier MI here)
+
+MI(sign(u,v), majority-sign of v's own out-edges) [d=1 analog]      = 0.000493 bits  (want ~0)
+MI(sign(u,v), b(rep1(v)))  unconditional [expected ~0, see docstring] = 0.009646 bits
+I(sign(u,v); b(rep1(v)) | b(u))  [engineered d=2 dependency]        = 0.635026 bits  (want substantial)

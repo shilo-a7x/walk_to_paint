@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 34
+Run ID: ablationC_e32
+Model: func_fisher_power  ((q(1-q))^{-b}  Fisher-information / inverse-variance weighting)
+theta* = [0.3988281249999994]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8978 (54920 edges)
+  Test  AUC: 0.8983 (54921 edges)

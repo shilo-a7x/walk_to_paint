@@ -1,0 +1,22 @@
+========================================================================
+  EDGE-SIGN MI vs DIRECTED DISTANCE  (v3 — streaming exact)  —  forward graph (A)
+========================================================================
+
+d=0: same source node (exact formula, O(N))
+d=1: direct out-neighbour (exact formula, O(E))
+d>=2: per-unique-source BFS, streaming 2×2 table (no pair storage)
+MIN_PAIRS_FOR_MI=2000 — depths below this threshold show nan
+
+NOTE: rises at d>=7 in v2 were sampling noise (n<2000 pairs).
+      The null expectation for MI at n=1000 is ~0.0007 bits.
+
+────────────────────────────────────────────────────────────────────────
+  synthetic-fog
+────────────────────────────────────────────────────────────────────────
+  d            n_pairs       MI (bits)         NMI
+  d=0           423,696      0.00021402   0.0002217
+  d=1           426,228      0.00000005   0.0000000
+  d=2        58,642,737      0.00000000   0.0000000
+  d=3        75,962,897      0.00000002   0.0000000
+  d=4        28,689,356      0.00000002   0.0000000
+  d=5         6,145,597      0.00000002   0.0000000

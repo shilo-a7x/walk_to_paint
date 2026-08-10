@@ -1,0 +1,17 @@
+{
+  "model_name": "lgbm_func_invq_power",
+  "func_key": "func_invq_power",
+  "description": "lgbm\u2192q_j then (1-q)^b",
+  "theta_star": [
+    0.25400390624999936
+  ],
+  "n_iters": 16,
+  "n_params": 1,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

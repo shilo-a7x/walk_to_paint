@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 30
+Run ID: ablationC_e32
+Model: func_entropy_exp  (exp(-a*H(q)))
+theta* = [4.415625000000006]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9542 (84080 edges)
+  Test  AUC: 0.9535 (84080 edges)

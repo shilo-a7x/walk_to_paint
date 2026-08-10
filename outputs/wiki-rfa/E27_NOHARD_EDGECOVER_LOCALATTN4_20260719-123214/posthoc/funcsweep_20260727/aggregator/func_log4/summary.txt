@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 33
+Run ID: funcsweep_20260727
+Model: func_log4  (exp(b0 + b1*q + b2*rp + b3*log_len))
+theta* = [0.0013730513788897838, 0.0004720743958447996, 0.0018249454271569332, -0.07264199940632314]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8937 (17721 edges)
+  Test  AUC: 0.8959 (17722 edges)

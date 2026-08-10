@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-otc
+Epoch: 46
+Run ID: ablationB_e31
+Model: func_conf_cert  (|q-0.5|^b)
+theta* = [1.052734375]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9239 (3559 edges)
+  Test  AUC: 0.9353 (3560 edges)

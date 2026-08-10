@@ -1,0 +1,16 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/bitcoin-alpha.pt
+[INFO] bitcoin-alpha: 3783 nodes, 19348 train, 2419 val, 2419 test edges
+[INFO] Training GSGNN+CSG on bitcoin-alpha for 3000 epochs ...
+  Epoch 0000 | val_auc=0.4899 val_f1=0.4837 | tst_auc=0.4659 tst_f1mac=0.4836
+  Epoch 0500 | val_auc=0.8051 val_f1=0.7100 | tst_auc=0.7714 tst_f1mac=0.7062
+  Epoch 1000 | val_auc=0.7895 val_f1=0.6835 | tst_auc=0.7876 tst_f1mac=0.6620
+  Epoch 1500 | val_auc=0.8431 val_f1=0.5648 | tst_auc=0.8404 tst_f1mac=0.5708
+  Epoch 2000 | val_auc=0.8437 val_f1=0.6004 | tst_auc=0.8375 tst_f1mac=0.6038
+  Epoch 2500 | val_auc=0.8185 val_f1=0.5317 | tst_auc=0.8152 tst_f1mac=0.5437
+
+=== RESULTS: CSG-GSGNN on bitcoin-alpha (seed=42) ===
+  Val  AUC      : 0.8336
+  Val  F1 macro : 0.7244
+  Test AUC      : 0.8140
+  Test Macro F1 : 0.7195
+  Saved → results_our_splits_canonical/bitcoin-alpha/CSG-GSGNN/seed42/score.csv

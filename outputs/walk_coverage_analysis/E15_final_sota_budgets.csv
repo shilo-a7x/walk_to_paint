@@ -1,0 +1,13 @@
+dataset,attention,walk_strategy,walk_k_min,max_walk_length,num_walks,test_auc_flp,coverage_pct,cache_path,winner_run_dir
+bitcoin-alpha,full,k_cover,5,80,5000000,0.9251,100,data/bitcoin-alpha/dataset_cache__k_cover_k5_nw5000000_mw80_seed42.pt,E15_SWEEP_k5_nw5000000_full
+bitcoin-alpha,local,k_cover,5,80,5000000,0.9362,100,data/bitcoin-alpha/dataset_cache__k_cover_k5_nw5000000_mw80_seed42.pt,E15_SWEEP_k5_nw5000000_local
+bitcoin-otc,full,k_cover,5,80,2000000,0.9427,100,data/bitcoin-otc/dataset_cache__k_cover_k5_nw2000000_mw80_seed42.pt,E15_COVERAGE_KCOVER_K5_NW2000000_20260628-173849
+bitcoin-otc,local,k_cover,5,80,1000000,0.9410,100,data/bitcoin-otc/dataset_cache__k_cover_k5_nw1000000_mw80_seed42.pt,E15_SWEEP_k5_nw1000000_local
+epinions,full,k_cover,5,80,3000000,0.9562,100,data/epinions/dataset_cache__k_cover_k5_nw3000000_mw80_seed42.pt,E15_SWEEP_k5_nw3000000_full
+epinions,local,k_cover,5,80,2000000,0.9568,100,data/epinions/dataset_cache__k_cover_k5_nw2000000_mw80_seed42.pt,E15_SWEEP_k5_nw2000000_local
+wiki-elec,full,k_cover,5,80,500000,0.9016,100,data/wiki-Elec/dataset_cache__k_cover_k5_nw500000_mw80_seed42.pt,E15_COVERAGE_KCOVER_K5_20260628-153111
+wiki-elec,local,k_cover,5,80,500000,0.9038,100,data/wiki-Elec/dataset_cache__k_cover_k5_nw500000_mw80_seed42.pt,E15_SWEEP_k5_nw500000_local
+wiki-rfa,full,k_cover,5,80,1000000,0.8932,100,data/wiki-RfA/dataset_cache__k_cover_k5_nw1000000_mw80_seed42.pt,E15_COVERAGE_KCOVER_K5_20260628-153111
+wiki-rfa,local,k_cover,5,80,1000000,0.8916,100,data/wiki-RfA/dataset_cache__k_cover_k5_nw1000000_mw80_seed42.pt,E15_SWEEP_k5_nw1000000_local
+slashdot090221,full,k_cover,5,80,5000000,0.9012,100,data/slashdot090221/dataset_cache__k_cover_k5_nw5000000_mw80_seed42.pt,E15_COVERAGE_KCOVER_K5_20260628-160751
+slashdot090221,local,k_cover,5,80,3000000,0.8984,100,data/slashdot090221/dataset_cache__k_cover_k5_nw3000000_mw80_seed42.pt,E15_SWEEP_k5_nw3000000_local

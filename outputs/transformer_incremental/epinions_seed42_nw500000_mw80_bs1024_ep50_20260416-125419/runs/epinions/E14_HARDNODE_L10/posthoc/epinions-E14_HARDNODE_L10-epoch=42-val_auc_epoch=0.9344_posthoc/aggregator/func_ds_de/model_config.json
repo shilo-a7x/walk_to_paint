@@ -1,0 +1,11 @@
+{
+  "model_name": "func_ds_de",
+  "description": "(ds+1)^{-a}*(de+1)^{-b}",
+  "theta_star": [
+    0.2551922839134902,
+    -0.029464715346694915
+  ],
+  "n_iters": 36,
+  "n_params": 2,
+  "seed": 42
+}

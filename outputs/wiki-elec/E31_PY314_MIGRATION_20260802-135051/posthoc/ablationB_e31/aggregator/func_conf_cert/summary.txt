@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 37
+Run ID: ablationB_e31
+Model: func_conf_cert  (|q-0.5|^b)
+theta* = [0.6749023437499997]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8988 (10369 edges)
+  Test  AUC: 0.9043 (10370 edges)

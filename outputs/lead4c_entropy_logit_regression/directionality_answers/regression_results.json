@@ -1,0 +1,48 @@
+{
+  "x_definition": "rank_biserial_r of Claim 1 (H_out<H_in), +1=fully confirms .. -1=fully reversed",
+  "y_definition": "point-estimate shared-edge AUC gap, best(walk_full,walk_localattn4) - best(GINEConv,SiGAT)",
+  "dataset_order": [
+    "bitcoin-alpha",
+    "bitcoin-otc",
+    "epinions",
+    "wiki-elec",
+    "wiki-rfa",
+    "slashdot090221"
+  ],
+  "x": [
+    0.14647329670574105,
+    0.22372736433871804,
+    0.2868607097803583,
+    -0.20610726964966394,
+    -0.18307185976126797,
+    0.27517039692367495
+  ],
+  "y_point": [
+    0.053225251569622434,
+    0.05718116156859243,
+    0.042107648601456105,
+    0.01062406218976264,
+    0.010033743117221383,
+    0.041864739838926135
+  ],
+  "ols_point_estimate": {
+    "n": 6,
+    "slope": 0.08074071840348193,
+    "intercept": 0.02853169112255004,
+    "se_slope": 0.021268270371345037,
+    "t": 3.796299228557144,
+    "p": 0.019164606208553307,
+    "r2": 0.7827490566781301
+  },
+  "pearson_r": 0.8847310646055839,
+  "pearson_p": 0.019164606208553328,
+  "spearman_r": 0.48571428571428577,
+  "spearman_p": 0.3287230320699709,
+  "mc_slope_mean": 0.07918815539796505,
+  "mc_slope_ci_lo": 0.05921313092647902,
+  "mc_slope_ci_hi": 0.09892587972571075,
+  "mc_pearson_r_mean": 0.8508550598936332,
+  "mc_pearson_r_ci_lo": 0.6835087653711269,
+  "mc_pearson_r_ci_hi": 0.9760575473163247,
+  "n_mc": 5000
+}

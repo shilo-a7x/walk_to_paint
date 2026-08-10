@@ -1,0 +1,20 @@
+========================================================================================
+  LEAD 3 STEP 3 -- attention-mass-beyond-1-hop vs. 1-hop ambiguity, bitcoin-alpha
+========================================================================================
+
+ambiguity_score(v) = agreement rate among v's training-graph out-edge signs
+(1.0 = all same sign / unambiguous, 0.5 = perfectly mixed / maximally ambiguous).
+Rising mean_frac_beyond_1hop as ambiguity_score DECREASES (i.e. as ambiguity
+increases) = evidence attention adaptively compensates for weak 1-hop evidence.
+Flat trend = generic far-reach, unconditional on local ambiguity.
+
+n_targets_used=56,097, n_dropped=15,017
+verify: re-agg eff_dist=9.2124 vs published=9.2124
+
+ bin       ambig_range       n  mean_ambiguity   mean_frac_beyond_1hop
+   0     [0.500,0.900]   11864          0.7851                  0.3976
+   1     [0.904,0.986]   10793          0.9432                  0.4150
+   2     [0.990,1.000]   33440          0.9993                  0.4220
+
+Pearson corr(ambiguity_score, frac_beyond_1hop) = 0.1932  (negative = attention reaches further when ambiguity is HIGHER, consistent with adaptive compensation)
+Spearman corr = 0.1534

@@ -1,0 +1,10 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/epinions.pt
+[INFO] epinions: 131580 nodes, 672639 train, 84080 val, 84080 test edges
+
+=== RESULTS: CSG on epinions (seed=42) ===
+  Val  AUC      : 0.8061
+  Val  F1       : 0.9253
+  Test AUC      : 0.8030
+  Test Macro F1 : 0.9257
+  Saved → results_our_splits_canonical/epinions/CSG/seed42/score.csv
+  Saved → results_our_splits_canonical/epinions/CSG/seed42/best_epoch_artifacts.pkl

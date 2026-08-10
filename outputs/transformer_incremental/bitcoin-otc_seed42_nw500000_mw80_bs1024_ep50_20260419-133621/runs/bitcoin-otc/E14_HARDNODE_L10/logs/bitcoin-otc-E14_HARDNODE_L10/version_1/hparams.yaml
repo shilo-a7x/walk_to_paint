@@ -1,0 +1,85 @@
+cfg:
+  reproducibility:
+    seed: 42
+  preprocess:
+    save: true
+    use_cache: true
+    num_workers: 8
+  dataset:
+    name: bitcoin-otc
+    data_dir: /home/eng/shilo_avital/yolo_lab/walk_to_paint/tmp/transformer_incremental/bitcoin-otc_seed42_nw500000_mw80_bs1024_ep50_20260419-133621/tmp_data
+    edge_list_file: soc-sign-bitcoinotc.csv.gz
+    train_ratio: 0.48
+    mask_ratio: 0.32
+    val_ratio: 0.1
+    test_ratio: 0.1
+    binary: true
+    remove_self_loops: true
+    multiedge_handling: most_recent
+    num_walks: 500000
+    max_walk_length: 80
+  model:
+    embedding_dim: 64
+    hidden_dim: 128
+    dropout: 0.2
+    nhead: 4
+    nlayers: 3
+    dynamic_train_masking: true
+    dynamic_train_mask_seed_offset: 0
+    node_context_mode: replace
+    node_replace_prob: 0.2
+    node_replace_unk_ratio: 0.7
+    hardness_map_path: /home/eng/shilo_avital/yolo_lab/walk_to_paint/outputs/transformer_incremental/bitcoin-otc_seed42_nw500000_mw80_bs1024_ep50_20260419-133621/artifacts/E14_HARDNODE_L10/hardness_map.pt
+    hardness_lambda: 1.0
+    vocab_size: 5886
+    num_classes: 2
+    pad_id: 0
+    ignore_index: -1
+    unk_id: 2
+    mask_id: 1
+    class_weights:
+    - 0.12560443846073654
+    - 1.8743955615392633
+  training:
+    batch_size: 1024
+    epochs: 50
+    lr: 0.0016
+    weight_decay: 0.0001
+    early_stopping_patience: 15
+    gradient_clip_val: 0.54
+    log_dir: /home/eng/shilo_avital/yolo_lab/walk_to_paint/outputs/transformer_incremental/bitcoin-otc_seed42_nw500000_mw80_bs1024_ep50_20260419-133621/runs/bitcoin-otc/E14_HARDNODE_L10/logs
+    exp_name: E14_HARDNODE_L10
+    checkpoint_dir: /home/eng/shilo_avital/yolo_lab/walk_to_paint/outputs/transformer_incremental/bitcoin-otc_seed42_nw500000_mw80_bs1024_ep50_20260419-133621/runs/bitcoin-otc/E14_HARDNODE_L10/checkpoints
+    resume_from_checkpoint: null
+    eval_only: false
+    use_cuda: true
+    num_workers: 16
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+    callbacks:
+      enable_prediction_saver: false
+      enable_per_epoch_test_runner: false
+  paths:
+    base_outputs_dir: /home/eng/shilo_avital/yolo_lab/walk_to_paint/outputs/transformer_incremental/bitcoin-otc_seed42_nw500000_mw80_bs1024_ep50_20260419-133621/runs
+    use_dataset_outputs: true
+    append_timestamp: false
+  float32_precision: medium
+  optuna:
+    initial_params:
+      dataset:
+        max_walk_length: 80
+        num_walks: 5000000
+      training:
+        lr: 0.0016
+        weight_decay: 0.0001
+        batch_size: 1024
+        gradient_clip_val: 0.54
+        early_stopping_patience: 15
+        epochs: 50
+      model:
+        embedding_dim: 64
+        hidden_dim: 128
+        nhead: 4
+        nlayers: 3
+        dropout: 0.2

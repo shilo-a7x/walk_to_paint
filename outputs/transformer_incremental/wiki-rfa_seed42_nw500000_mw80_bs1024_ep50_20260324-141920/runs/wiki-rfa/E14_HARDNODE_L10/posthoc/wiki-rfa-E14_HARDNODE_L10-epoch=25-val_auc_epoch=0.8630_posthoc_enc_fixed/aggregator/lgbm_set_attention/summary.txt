@@ -1,0 +1,9 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 25
+Run ID: wiki-rfa-E14_HARDNODE_L10-epoch=25-val_auc_epoch=0.8630_posthoc_enc_fixed
+Model: lgbm_set_attention (lgbm(3 feats)→q_j, PMA(d=32,h=4) seed pool)
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8848 (15239 edges)
+  Test  AUC: 0.8791 (15280 edges)

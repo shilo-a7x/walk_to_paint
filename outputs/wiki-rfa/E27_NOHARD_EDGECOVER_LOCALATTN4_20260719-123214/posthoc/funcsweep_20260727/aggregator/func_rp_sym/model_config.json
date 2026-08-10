@@ -1,0 +1,10 @@
+{
+  "model_name": "func_rp_sym",
+  "description": "(rp*(1-rp))^a  mid-peak",
+  "theta_star": [
+    -0.08710937500000052
+  ],
+  "n_iters": 16,
+  "n_params": 1,
+  "seed": 42
+}

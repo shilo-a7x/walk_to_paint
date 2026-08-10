@@ -1,0 +1,10 @@
+{
+  "model_name": "func_dist_prod",
+  "description": "((ds+1)(de+1))^{-a}",
+  "theta_star": [
+    1.2210937500000016
+  ],
+  "n_iters": 18,
+  "n_params": 1,
+  "seed": 42
+}

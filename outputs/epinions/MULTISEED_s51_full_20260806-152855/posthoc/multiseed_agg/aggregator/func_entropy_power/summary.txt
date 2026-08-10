@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 57
+Run ID: multiseed_agg
+Model: func_entropy_power  ((ln2-H(q))^b)
+theta* = [1.5155273437500014]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9548 (84080 edges)
+  Test  AUC: 0.9526 (84080 edges)

@@ -1,0 +1,19 @@
+{
+  "model_name": "lgbm_func_logq3",
+  "func_key": "func_logq3",
+  "description": "lgbm\u2192q_j then exp(b1*log(q) + b2*rp + b3*log_len)  i.e. q^b1*exp(b2*rp)*len^b3",
+  "theta_star": [
+    -0.01076711419592092,
+    -0.012589093414486871,
+    -2.8096924205085494
+  ],
+  "n_iters": 43,
+  "n_params": 3,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-otc
+Epoch: 36
+Run ID: multiseed_agg
+Model: func_conf_power  (q^b)
+theta* = [-0.7382812500000016]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9232 (3559 edges)
+  Test  AUC: 0.9292 (3560 edges)

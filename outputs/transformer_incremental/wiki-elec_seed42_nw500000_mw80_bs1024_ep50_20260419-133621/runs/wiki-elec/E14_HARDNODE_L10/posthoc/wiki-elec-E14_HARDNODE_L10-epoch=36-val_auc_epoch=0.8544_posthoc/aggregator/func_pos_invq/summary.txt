@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 36
+Run ID: wiki-elec-E14_HARDNODE_L10-epoch=36-val_auc_epoch=0.8544_posthoc
+Model: func_pos_invq  (exp(-a*rp)*(1-q)^b)
+theta* = [-1.2079587953707596, -0.44466644280680223]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8888 (8862 edges)
+  Test  AUC: 0.8927 (8857 edges)

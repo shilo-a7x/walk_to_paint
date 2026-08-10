@@ -1,0 +1,10 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/slashdot090221.pt
+[INFO] slashdot090221: 82140 nodes, 439361 train, 54920 val, 54921 test edges
+
+=== RESULTS: CSG on slashdot090221 (seed=42) ===
+  Val  AUC      : 0.6793
+  Val  F1       : 0.8181
+  Test AUC      : 0.6747
+  Test Macro F1 : 0.8150
+  Saved → results_our_splits_canonical/slashdot090221/CSG/seed42/score.csv
+  Saved → results_our_splits_canonical/slashdot090221/CSG/seed42/best_epoch_artifacts.pkl

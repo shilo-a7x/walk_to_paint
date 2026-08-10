@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 44
+Run ID: ablationC_e32
+Model: func_entropy_power  ((ln2-H(q))^b)
+theta* = [0.12470703124999921]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9003 (10369 edges)
+  Test  AUC: 0.9075 (10370 edges)

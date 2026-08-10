@@ -1,0 +1,23 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/slashdot090221.pt
+[INFO] slashdot090221: 82140 nodes, 439361 train, 54920 val, 54921 test edges
+[epoch 0] loss=3.7269 val_auc=0.5026 tst_auc=0.5032
+[epoch 20] loss=0.5924 val_auc=0.5704 tst_auc=0.5703
+[epoch 40] loss=0.5522 val_auc=0.6836 tst_auc=0.6839
+[epoch 60] loss=0.5289 val_auc=0.7303 tst_auc=0.7324
+[epoch 80] loss=0.4817 val_auc=0.7676 tst_auc=0.7703
+[epoch 100] loss=0.4200 val_auc=0.7901 tst_auc=0.7915
+[epoch 120] loss=0.4244 val_auc=0.7623 tst_auc=0.7621
+[epoch 140] loss=0.5912 val_auc=0.7211 tst_auc=0.7212
+[epoch 160] loss=0.4439 val_auc=0.7669 tst_auc=0.7679
+[epoch 180] loss=0.3743 val_auc=0.7840 tst_auc=0.7843
+[epoch 200] loss=0.3654 val_auc=0.7779 tst_auc=0.7774
+[epoch 220] loss=0.3580 val_auc=0.7783 tst_auc=0.7776
+[epoch 240] loss=0.3510 val_auc=0.7786 tst_auc=0.7779
+
+=== RESULTS: GINEConv on slashdot090221 (seed=42) ===
+  Val  AUC      : 0.7870
+  Val  F1       : 0.6859
+  Test AUC      : 0.7864
+  Test Macro F1 : 0.6838
+  Saved → results_our_splits_canonical/slashdot090221/GINEConv/seed42/score.csv
+  Saved → results_our_splits_canonical/slashdot090221/GINEConv/seed42/best_epoch_artifacts.pkl

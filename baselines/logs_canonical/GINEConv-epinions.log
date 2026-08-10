@@ -1,0 +1,23 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/epinions.pt
+[INFO] epinions: 131580 nodes, 672639 train, 84080 val, 84080 test edges
+[epoch 0] loss=23.0180 val_auc=0.4725 tst_auc=0.4732
+[epoch 20] loss=0.5403 val_auc=0.6248 tst_auc=0.6283
+[epoch 40] loss=0.6804 val_auc=0.7143 tst_auc=0.7155
+[epoch 60] loss=0.4147 val_auc=0.7863 tst_auc=0.7877
+[epoch 80] loss=0.3501 val_auc=0.8351 tst_auc=0.8376
+[epoch 100] loss=0.3257 val_auc=0.8412 tst_auc=0.8432
+[epoch 120] loss=0.2950 val_auc=0.8382 tst_auc=0.8413
+[epoch 140] loss=0.2802 val_auc=0.8451 tst_auc=0.8482
+[epoch 160] loss=0.6585 val_auc=0.3673 tst_auc=0.3708
+[epoch 180] loss=0.5400 val_auc=0.5698 tst_auc=0.5732
+[epoch 200] loss=0.4763 val_auc=0.6755 tst_auc=0.6780
+[epoch 220] loss=0.4889 val_auc=0.6732 tst_auc=0.6753
+[epoch 240] loss=0.4056 val_auc=0.7793 tst_auc=0.7814
+
+=== RESULTS: GINEConv on epinions (seed=42) ===
+  Val  AUC      : 0.8575
+  Val  F1       : 0.8004
+  Test AUC      : 0.8610
+  Test Macro F1 : 0.8049
+  Saved → results_our_splits_canonical/epinions/GINEConv/seed42/score.csv
+  Saved → results_our_splits_canonical/epinions/GINEConv/seed42/best_epoch_artifacts.pkl

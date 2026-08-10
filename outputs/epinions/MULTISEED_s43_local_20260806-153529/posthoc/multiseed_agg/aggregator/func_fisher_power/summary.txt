@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 36
+Run ID: multiseed_agg
+Model: func_fisher_power  ((q(1-q))^{-b}  Fisher-information / inverse-variance weighting)
+theta* = [0.6563476562499997]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9545 (84080 edges)
+  Test  AUC: 0.9521 (84080 edges)

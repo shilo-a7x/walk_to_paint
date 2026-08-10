@@ -1,0 +1,17 @@
+variant,line_dist,phi
+undirected_her_machine,1,0.3266014131651276
+undirected_her_machine,2,0.04011995062989328
+undirected_her_machine,3,0.006970040282163787
+undirected_her_machine,4,-0.033324878700521456
+undirected_her_machine,5,-0.057528845273235714
+undirected_her_machine,6,-0.06157893098287815
+undirected_her_machine,7,-0.04422016151557741
+undirected_her_machine,8,-0.033484331524388004
+directed_her_machine,1,0.37806530640680136
+directed_her_machine,2,0.04544379580509597
+directed_her_machine,3,0.023284214510805756
+directed_her_machine,4,0.011147728606628046
+directed_her_machine,5,-0.007661217552321352
+directed_her_machine,6,-0.03167781568644652
+directed_her_machine,7,-0.02981075672631387
+directed_her_machine,8,-0.017823950128796003

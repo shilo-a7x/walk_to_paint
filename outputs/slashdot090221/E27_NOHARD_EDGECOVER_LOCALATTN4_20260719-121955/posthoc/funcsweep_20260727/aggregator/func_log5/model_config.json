@@ -1,0 +1,14 @@
+{
+  "model_name": "func_log5",
+  "description": "exp(b1*q + b2*log_ds + b3*log_de + b4*log_len + b5*q*log_len)",
+  "theta_star": [
+    0.000317959560770377,
+    -0.001351746295471471,
+    -7.6093760340679605e-06,
+    -0.7270711297300037,
+    -0.00027877892333356415
+  ],
+  "n_iters": 47,
+  "n_params": 5,
+  "seed": 42
+}

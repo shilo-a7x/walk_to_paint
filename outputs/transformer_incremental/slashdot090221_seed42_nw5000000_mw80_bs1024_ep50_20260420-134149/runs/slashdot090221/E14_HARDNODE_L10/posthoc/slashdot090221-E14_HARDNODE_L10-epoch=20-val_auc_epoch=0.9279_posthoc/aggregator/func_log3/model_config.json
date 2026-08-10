@@ -1,0 +1,12 @@
+{
+  "model_name": "func_log3",
+  "description": "exp(b1*q + b2*rp + b3*log_len)",
+  "theta_star": [
+    0.0012207170054634644,
+    0.002541971346321375,
+    -0.05444119295926181
+  ],
+  "n_iters": 35,
+  "n_params": 3,
+  "seed": 42
+}

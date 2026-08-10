@@ -1,0 +1,67 @@
+========================================================================================
+  LEAD 2 STEP 2 -- walk-transformer relay-token hidden-state MI
+========================================================================================
+
+Same pairing as Step 1's h_v^(1) measurement (relay's own representation
+vs. the sign of the relay's own next-hop edge), applied to the walk-
+transformer's per-layer hidden state at the relay token's position.
+Ceiling: H(sign) ~= 1 bit. 'nmi' is already MI/H(context).
+
+n_filtered_backtrack = candidates dropped because the walk backtracked
+(W landed back on the masked edge's other endpoint or one of its direct
+neighbors, verified via the real graph adjacency) instead of reaching a
+genuinely fresh 2-hop frontier node -- see module docstring bug-fix note.
+
+────────────────────────────────────────────────────────────────────────────────────────
+  bitcoin-alpha   (n_pairs=99,378, nlayers=4, n_filtered_backtrack=23,113 [18.9%])
+────────────────────────────────────────────────────────────────────────────────────────
+  layer       mi(bits)       nmi   best_pc  n_components
+  0           0.006281    0.0204         3             5
+  1           0.010257    0.0333         2             5
+  2           0.082055    0.2665         0             5
+  3           0.102915    0.3343         0             5
+
+────────────────────────────────────────────────────────────────────────────────────────
+  bitcoin-otc   (n_pairs=77,527, nlayers=3, n_filtered_backtrack=13,970 [15.3%])
+────────────────────────────────────────────────────────────────────────────────────────
+  layer       mi(bits)       nmi   best_pc  n_components
+  0           0.035913    0.0965         3             5
+  1           0.028246    0.0759         2             5
+  2           0.087703    0.2356         0             5
+
+────────────────────────────────────────────────────────────────────────────────────────
+  epinions   (n_pairs=32,055, nlayers=3, n_filtered_backtrack=14,504 [31.2%])
+────────────────────────────────────────────────────────────────────────────────────────
+  layer       mi(bits)       nmi   best_pc  n_components
+  0           0.055482    0.0811         4             5
+  1           0.058920    0.0861         4             5
+  2           0.034530    0.0505         0             5
+
+────────────────────────────────────────────────────────────────────────────────────────
+  wiki-elec   (n_pairs=8,322, nlayers=5, n_filtered_backtrack=252 [2.9%])
+────────────────────────────────────────────────────────────────────────────────────────
+  layer       mi(bits)       nmi   best_pc  n_components
+  0           0.043279    0.0603         1             5
+  1           0.043005    0.0599         3             5
+  2           0.047798    0.0666         4             5
+  3           0.067425    0.0940         3             5
+  4           0.057164    0.0797         0             5
+
+────────────────────────────────────────────────────────────────────────────────────────
+  wiki-rfa   (n_pairs=26,745, nlayers=5, n_filtered_backtrack=410 [1.5%])
+────────────────────────────────────────────────────────────────────────────────────────
+  layer       mi(bits)       nmi   best_pc  n_components
+  0           0.022371    0.0319         4             5
+  1           0.014120    0.0201         4             5
+  2           0.001101    0.0016         1             5
+  3           0.003896    0.0056         0             5
+  4           0.012547    0.0179         2             5
+
+────────────────────────────────────────────────────────────────────────────────────────
+  slashdot   (n_pairs=9,045, nlayers=4, n_filtered_backtrack=9,584 [51.4%])
+────────────────────────────────────────────────────────────────────────────────────────
+  layer       mi(bits)       nmi   best_pc  n_components
+  0           0.013653    0.0212         3             5
+  1           0.081044    0.1260         2             5
+  2           0.107688    0.1674         3             5
+  3           0.110446    0.1717         0             5

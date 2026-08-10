@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 34
+Run ID: funcsweep_20260727
+Model: func_dist_min  ((min(ds,de)+1)^{-a})
+theta* = [1.0940429687500015]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8978 (54920 edges)
+  Test  AUC: 0.8979 (54921 edges)

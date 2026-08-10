@@ -1,0 +1,14 @@
+/home/eng/shilo_avital/yolo_lab/walk_to_paint/.venv/lib64/python3.9/site-packages/networkx/utils/backends.py:135: RuntimeWarning: networkx backend defined more than once: nx-loopback
+  backends.update(_get_backends("networkx.backends"))
+total directed edge lines in file: 549,202
+distinct ordered (u,v) directed edges: 549,202
+reciprocal pairs (both (u,v) and (v,u) present): 48,721
+  sign AGREES both directions: 46,772 (96.0%)
+  sign DISAGREES between directions: 1,949 (4.0%) -- these lose real, distinct information under nx.Graph()'s silent overwrite
+
+nx.Graph() (her v2 loader) final edge count: 500,481
+expected distinct UNORDERED node pairs: 500,481  (matches -> confirms full collapse)
+
+nx.DiGraph() (her v1 loader) final edge count: 549,202  (matches total directed lines -> confirms NO collapse)
+
+production (array-based full[u]/full[v] adjacency): keeps all 549,202 distinct directed edges as separate ids -- reciprocal pairs are never merged, both directions' signs survive as independent observations.

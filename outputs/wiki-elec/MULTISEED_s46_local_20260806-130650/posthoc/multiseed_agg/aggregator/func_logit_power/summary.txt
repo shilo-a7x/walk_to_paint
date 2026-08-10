@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 41
+Run ID: multiseed_agg
+Model: func_logit_power  (|logit(q)|^b)
+theta* = [0.23369140624999932]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9002 (10369 edges)
+  Test  AUC: 0.9069 (10370 edges)

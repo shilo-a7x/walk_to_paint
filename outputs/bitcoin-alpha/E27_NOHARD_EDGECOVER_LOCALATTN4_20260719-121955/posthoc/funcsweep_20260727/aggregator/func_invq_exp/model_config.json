@@ -1,0 +1,10 @@
+{
+  "model_name": "func_invq_exp",
+  "description": "exp(b*(1-q))",
+  "theta_star": [
+    -46.60000000000004
+  ],
+  "n_iters": 28,
+  "n_params": 1,
+  "seed": 42
+}

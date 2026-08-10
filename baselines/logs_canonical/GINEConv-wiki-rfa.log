@@ -1,0 +1,23 @@
+[INFO] Loading splits from /home/eng/shilo_avital/yolo_lab/walk_to_paint/baselines/splits_canonical/wiki-rfa.pt
+[INFO] wiki-rfa: 11256 nodes, 141768 train, 17721 val, 17722 test edges
+[epoch 0] loss=6.0472 val_auc=0.5317 tst_auc=0.5336
+[epoch 20] loss=0.5495 val_auc=0.6177 tst_auc=0.6302
+[epoch 40] loss=0.5147 val_auc=0.7797 tst_auc=0.7903
+[epoch 60] loss=0.3879 val_auc=0.8450 tst_auc=0.8500
+[epoch 80] loss=0.3765 val_auc=0.8501 tst_auc=0.8555
+[epoch 100] loss=0.3644 val_auc=0.8567 tst_auc=0.8614
+[epoch 120] loss=0.3581 val_auc=0.8601 tst_auc=0.8655
+[epoch 140] loss=0.3544 val_auc=0.8628 tst_auc=0.8680
+[epoch 160] loss=0.3610 val_auc=0.8629 tst_auc=0.8682
+[epoch 180] loss=0.3475 val_auc=0.8647 tst_auc=0.8693
+[epoch 200] loss=0.3432 val_auc=0.8669 tst_auc=0.8716
+[epoch 220] loss=0.3423 val_auc=0.8679 tst_auc=0.8724
+[epoch 240] loss=0.3399 val_auc=0.8684 tst_auc=0.8729
+
+=== RESULTS: GINEConv on wiki-rfa (seed=42) ===
+  Val  AUC      : 0.8652
+  Val  F1       : 0.7326
+  Test AUC      : 0.8699
+  Test Macro F1 : 0.7413
+  Saved → results_our_splits_canonical/wiki-rfa/GINEConv/seed42/score.csv
+  Saved → results_our_splits_canonical/wiki-rfa/GINEConv/seed42/best_epoch_artifacts.pkl

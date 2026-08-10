@@ -1,0 +1,88 @@
+{
+  "all_6": {
+    "k_datasets": 6,
+    "per_dataset": {
+      "bitcoin-alpha": {
+        "logit": 0.06569525926539495,
+        "var": 0.005976593163491044,
+        "n_nontied": 670
+      },
+      "bitcoin-otc": {
+        "logit": 0.20349655393041333,
+        "var": 0.0035328268791303815,
+        "n_nontied": 1144
+      },
+      "epinions": {
+        "logit": 0.503014470966742,
+        "var": 0.00023647289178665358,
+        "n_nontied": 18008
+      },
+      "wiki-elec": {
+        "logit": -0.3899817964378179,
+        "var": 0.0033608601191528237,
+        "n_nontied": 1236
+      },
+      "wiki-rfa": {
+        "logit": -0.30782663854424863,
+        "var": 0.0018340832294320665,
+        "n_nontied": 2233
+      },
+      "slashdot090221": {
+        "logit": 0.4157715262777039,
+        "var": 0.00023882460536839683,
+        "n_nontied": 17483
+      }
+    },
+    "fixed_effect_logit": 0.3762210191201532,
+    "fixed_effect_prop": 0.592961336336992,
+    "Q": 528.9162540383676,
+    "df": 5,
+    "Q_p": 4.567251092502022e-112,
+    "tau2": 0.0871647312071071,
+    "I2_pct": 99.05467076085786,
+    "random_effect_logit": 0.08508351906565918,
+    "random_effect_prop": 0.5212580570269985,
+    "random_effect_prop_ci_lo": 0.46145204170583687,
+    "random_effect_prop_ci_hi": 0.5804608377008187,
+    "null_prop": 0.5,
+    "excludes_null": false
+  },
+  "confirmed_4_excl_wiki": {
+    "k_datasets": 4,
+    "per_dataset": {
+      "bitcoin-alpha": {
+        "logit": 0.06569525926539495,
+        "var": 0.005976593163491044,
+        "n_nontied": 670
+      },
+      "bitcoin-otc": {
+        "logit": 0.20349655393041333,
+        "var": 0.0035328268791303815,
+        "n_nontied": 1144
+      },
+      "epinions": {
+        "logit": 0.503014470966742,
+        "var": 0.00023647289178665358,
+        "n_nontied": 18008
+      },
+      "slashdot090221": {
+        "logit": 0.4157715262777039,
+        "var": 0.00023882460536839683,
+        "n_nontied": 17483
+      }
+    },
+    "fixed_effect_logit": 0.4439987872918744,
+    "fixed_effect_prop": 0.6092114481362771,
+    "Q": 58.38278738970479,
+    "df": 3,
+    "Q_p": 1.3021999853839846e-12,
+    "tau2": 0.011396030714353267,
+    "I2_pct": 94.86149919500242,
+    "random_effect_logit": 0.32513491973977854,
+    "random_effect_prop": 0.5805751591657008,
+    "random_effect_prop_ci_lo": 0.5526295321055755,
+    "random_effect_prop_ci_hi": 0.6080133426205533,
+    "null_prop": 0.5,
+    "excludes_null": true
+  }
+}

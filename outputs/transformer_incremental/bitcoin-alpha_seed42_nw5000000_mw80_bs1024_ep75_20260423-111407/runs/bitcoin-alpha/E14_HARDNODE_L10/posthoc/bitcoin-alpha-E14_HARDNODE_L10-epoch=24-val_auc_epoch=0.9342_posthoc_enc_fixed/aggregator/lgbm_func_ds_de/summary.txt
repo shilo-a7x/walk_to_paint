@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-alpha
+Epoch: 24
+Run ID: bitcoin-alpha-E14_HARDNODE_L10-epoch=24-val_auc_epoch=0.9342_posthoc_enc_fixed
+Model: lgbm_func_ds_de  (lgbm→q_j then (ds+1)^{-a}*(de+1)^{-b})
+theta* = [0.5749999999999997, 0.5499999999999998]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9440 (2419 edges)
+  Test  AUC: 0.9123 (2419 edges)

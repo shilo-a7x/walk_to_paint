@@ -1,0 +1,9 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 20
+Run ID: slashdot090221-E14_HARDNODE_L10-epoch=20-val_auc_epoch=0.9279_posthoc_enc_fixed
+Model: lgbm_self_attention (lgbm(3 feats)→q_j, SelfAttention(d=32,h=4) mean pool)
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8977 (53978 edges)
+  Test  AUC: 0.8957 (53962 edges)

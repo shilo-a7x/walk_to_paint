@@ -1,0 +1,22 @@
+{
+  "grid_shape": [
+    1,
+    1
+  ],
+  "total_cells": 1,
+  "non_empty_cells": 1,
+  "sparsity": 0.0,
+  "num_triplets": 0,
+  "accuracy": {
+    "mean": 0.0,
+    "std": 0.0,
+    "min": 0.0,
+    "max": 0.0
+  },
+  "position_stats": {
+    "avg_dist_from_start": null,
+    "avg_dist_from_end": null,
+    "boundary_accuracy": null,
+    "interior_accuracy": null
+  }
+}

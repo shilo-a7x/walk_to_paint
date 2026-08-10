@@ -1,0 +1,10 @@
+{
+  "model_name": "func_centrality",
+  "description": "Gaussian exp(-a*(rp-0.5)^2)",
+  "theta_star": [
+    -9.237402343750011
+  ],
+  "n_iters": 25,
+  "n_params": 1,
+  "seed": 42
+}

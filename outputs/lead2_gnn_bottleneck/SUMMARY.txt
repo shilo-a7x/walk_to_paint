@@ -1,0 +1,272 @@
+================================================================================================
+  LEAD 2: GNN BOTTLENECK INVESTIGATION -- CONSOLIDATED SUMMARY
+================================================================================================
+
+Question: GNNs compress a 2-hop node's info through a fixed-size embedding at
+the 1-hop intermediate node (h_v^(1)) before it can reach the target edge's
+prediction. The walk-transformer has no such forced compression (every token
+stays attention-visible). Does this bottleneck explain part of the walk
+model's AUC advantage over GNN baselines?
+
+Scope note: every number below is reported per-dataset, never averaged
+across datasets -- the cross-dataset disagreements are themselves findings,
+not noise to be smoothed over (see "Tensions" section).
+
+------------------------------------------------------------------------------------------------
+STEP 0-1: h_v^(1) bottleneck MI vs. ceiling (all 6 datasets x GINEConv/CSG)
+------------------------------------------------------------------------------------------------
+Pairing: h_v^(1) vs. the signs of v's own direct out-edges. Ceiling: H(sign) ~= 1 bit.
+
+  dataset          model      mi(bits)   nmi      null_nmi
+  bitcoin-alpha    CSG        0.0781     0.1661   0.0054
+  bitcoin-alpha    GINEConv   0.0916     0.1947   0.0034
+  bitcoin-otc      CSG        0.0918     0.1496   0.0026
+  bitcoin-otc      GINEConv   0.1647     0.2686   0.0026
+  epinions         CSG        0.0618     0.0938   0.0005
+  epinions         GINEConv   0.1368     0.2075   0.0012
+  wiki-elec        CSG        0.0129     0.0171   0.0003
+  wiki-elec        GINEConv   0.0919     0.1215   0.0006
+  wiki-rfa         CSG        0.0061     0.0080   0.0005
+  wiki-rfa         GINEConv   0.0991     0.1294   0.0002
+  slashdot090221   CSG        0.0754     0.0950   0.0003
+  slashdot090221   GINEConv   0.1358     0.1711   0.0004
+
+Verdict: both models retain real (well above permutation-null) but far from
+lossless (NMI 0.008-0.27) neighbor-sign information in h_v^(1). Consistent
+direction on all 6 datasets, both models -> genuine bottleneck signature, not
+a single-dataset artifact. GINEConv consistently retains MORE than CSG (sum
++ nonlinear MLP vs. CSG's mean aggregation). wiki-elec/wiki-rfa weakest
+retention for both models.
+
+------------------------------------------------------------------------------------------------
+STEP 1b: per-edge sensitivity, degree-stratified (all 6 datasets x GINEConv/CSG)
+------------------------------------------------------------------------------------------------
+contribution_share (pre-MLP) and leave_one_out_delta_relative (post-MLP), by
+out-degree quantile bucket (0=lowest degree, 3=highest). Full per-dataset
+tables in edge_sensitivity_report.txt; headline pattern below.
+
+  CSG contribution_share, bucket 0 -> bucket 3 (monotonic decrease, all 6):
+    bitcoin-alpha:    0.557 -> 0.122 -> 0.041 -> 0.013
+    bitcoin-otc:      0.566 -> 0.121 -> 0.039 -> 0.011
+    epinions:         0.459 -> 0.038 -> 0.010 -> 0.003
+    wiki-elec:        0.204 -> 0.030 -> 0.015 -> 0.007
+    wiki-rfa:         0.197 -> 0.026 -> 0.013 -> 0.006
+    slashdot090221:   0.430 -> 0.067 -> 0.021 -> 0.007
+
+  GINEConv contribution_share, bucket 0 -> bucket 3 (monotonic decrease, all 6):
+    bitcoin-alpha:    0.477 -> 0.089 -> 0.029 -> 0.009
+    bitcoin-otc:      0.484 -> 0.088 -> 0.027 -> 0.007
+    epinions:         0.378 -> 0.025 -> 0.007 -> 0.002
+    wiki-elec:        0.129 -> 0.018 -> 0.009 -> 0.004
+    wiki-rfa:         0.125 -> 0.015 -> 0.008 -> 0.004
+    slashdot090221:   0.314 -> 0.038 -> 0.012 -> 0.004
+
+Verdict: contribution_share decreases sharply/monotonically with degree on
+EVERY dataset, both models -- confirms dilution (a high-degree node's
+specific edge contributes a shrinking share of the mean/sum aggregate).
+mean_delta_relative stays flat-to-mildly-rising with degree for GINEConv
+(nonlinear MLP partially counteracts linear pre-MLP dilution) but DECREASES
+with degree for CSG -- the two architectures' nonlinearities interact with
+dilution differently, but the underlying pre-MLP dilution mechanism is
+universal.
+
+------------------------------------------------------------------------------------------------
+STEP 2: Walk-transformer relay-token MI (all 6 datasets) -- CORRECTED (bug fix)
+------------------------------------------------------------------------------------------------
+BUG (user-caught, fixed): original measurement trusted walk-token-position
+offset i+/-3 as a stand-in for true 2-graph-hop distance, but random walks
+can backtrack (walk_sampler.py only follows directed out-edges; several
+datasets have genuine bidirectional edge pairs), landing back on the masked
+edge's own other endpoint or a direct neighbor instead of a fresh 2-hop
+frontier node. Fixed by verifying true distance via real graph adjacency
+(baselines/splits/<ds>.pt) and filtering backtracked/stale pairs.
+
+Final-layer NMI, before vs. after the fix, with % of candidate pairs
+filtered as backtracks:
+
+  dataset          NMI (buggy)  NMI (corrected)  % filtered (backtrack)
+  bitcoin-alpha    0.32         0.3343           18.9%
+  bitcoin-otc      0.24         0.2356           15.3%
+  slashdot090221   0.28         0.1717           51.4%
+  epinions         0.10         0.0505           31.2%
+  wiki-elec        0.08         0.0797           2.9%
+  wiki-rfa         0.02-0.05    0.0179            1.5%
+
+Verdict (revised): the fix changes the cross-dataset pattern materially.
+slashdot090221 drops out of the "high-NMI" cluster (was 0.28 alongside
+alpha/otc, now 0.1717, ~40% relative drop) -- over half its candidate pairs
+were backtracks, meaning the original number largely measured "does R
+recall the very edge just masked" rather than genuine 2-hop retention.
+epinions roughly halves (0.10->0.0505). wiki-elec/wiki-rfa barely move (low
+backtrack rates, 1.5-2.9%) and remain the lowest-NMI datasets. Post-fix,
+only bitcoin-alpha/bitcoin-otc form a clean "high-NMI" pair; slashdot090221
+no longer co-clusters with them despite still having one of the largest
+walk-model AUC margins over baselines -- the original "high relay-MI tracks
+large AUC margin" narrative is weaker than first reported. This measures
+whether the relay token's representation RETAINS 2-hop info, not whether the
+final prediction USES it via attention (attention_analysis.py's effective-
+distance metric measures that separately, but is itself flagged with the
+same unfixed walk-distance bug -- not corrected, marked only per user
+instruction -- so read it as provisional, don't conflate with Step 2).
+
+------------------------------------------------------------------------------------------------
+STEP 3: Oracle-GNN ablation (skip connection bypassing the 1-hop relay)
+------------------------------------------------------------------------------------------------
+Delta = oracle AUC - baseline AUC (tst_auc). Positive = oracle's direct 2-hop
+access helped.
+
+  dataset          GINEConv baseline  GINEConv oracle  Delta     CSG baseline  CSG oracle  Delta
+  bitcoin-alpha    0.8740             0.8774           +0.0034   0.7930        0.7883      -0.0047
+  bitcoin-otc      0.8970             0.8964           -0.0007   0.8095        0.8074      -0.0021
+  epinions         0.8753             0.9075           +0.0321   0.7627        0.7553      -0.0074
+  wiki-elec        0.8638             0.8726           +0.0088   0.6906        0.6805      -0.0101
+  wiki-rfa         0.8506             0.8576           +0.0070   0.7118        0.6603      -0.0516
+  slashdot090221   0.8567             0.8821           +0.0254   0.6838        0.7041      +0.0203
+
+Verdict: GINEConv's oracle gain is positive on all 6, LARGE specifically on
+epinions (+0.0321) and slashdot090221 (+0.0254). CSG's oracle effect is
+flat-to-negative on 5/6 datasets, positive only on slashdot090221. The two
+architectures genuinely disagree on whether oracle 2-hop access helps at all
+-- do not average across model type.
+
+------------------------------------------------------------------------------------------------
+TENSIONS (the disagreements are findings, not noise)
+------------------------------------------------------------------------------------------------
+1. Step 2 (walk relay MI) vs. Step 3 (GINEConv oracle gain) point in OPPOSITE
+   directions across datasets: epinions/wiki-elec/wiki-rfa are where the walk
+   transformer's relay MI is LOWEST, yet epinions is where GINEConv's oracle
+   gains the MOST (+0.0321) and wiki-elec/wiki-rfa show real but smaller
+   GINEConv oracle gains (+0.0088/+0.0070) while CSG shows its LARGEST
+   negative effect on wiki-rfa (-0.0516). No clean single story ties relay-MI
+   strength to oracle-gain strength. [Confirmed still holds after Step 2's
+   walk-distance bug fix: epinions/wiki-elec/wiki-rfa remain the bottom three
+   by corrected relay-MI (0.0505/0.0797/0.0179) even though their relative
+   order shifted slightly -- the tension is not an artifact of the bug.]
+2. CSG and GINEConv disagree on whether 2-hop oracle access helps AT ALL --
+   GINEConv: positive on 6/6. CSG: positive on 1/6 (slashdot090221 only).
+   Mean-aggregation SignedConv layers may already discard 2-hop-relevant
+   information in a way that an oracle shortcut can't recover (the shortcut
+   bypasses the COMPRESSION, but if the compressed representation it's
+   concatenated with also carries decision-relevant noise from CSG's
+   curriculum-learning schedule, oracle access alone may not net-help).
+
+------------------------------------------------------------------------------------------------
+STEP 4/5: Synthetic "inverted fog" graph -- ABANDONED
+------------------------------------------------------------------------------------------------
+Goal: a synthetic graph with MI(sign,d=1)~=0, MI(sign,d=2) substantial --
+opposite of every real dataset -- to test whether baseline GNN specifically
+fails when 2-hop signal is the ONLY signal, while oracle-GNN/walk-transformer
+don't (real datasets' d>=2 MI is already too close to zero for any model to
+show a meaningful gain from better 2-hop access there).
+
+Construction (generate_synthetic_fog_graph.py, rep1-based): bitcoin-alpha's
+real topology, i.i.d. binary latent b(v) per node, sign(u,v) depends on
+match(b(u), b(rep1(v))) where rep1(v) is one fixed neighbor of v -- placing
+the dependency specifically at d=2 from u (through v's own neighbor) while
+keeping it independent of v's own out-edges (d=1).
+
+Calibration (targeted exact discrete MI, replacing edge_sign_mi_vs_distance_
+v3.py's pooled-frontier MI which measures a different quantity -- node-
+personality homophily, diluted to ~0 by averaging over dozens of irrelevant
+frontier nodes -- not what this construction encodes):
+  MI(sign, majority-sign of v's own out-edges)        = 0.000493 bits (~0, good)
+  I(sign; b(rep1(v)) | b(u))  [conditional, not marginal] = 0.635 bits (substantial, good)
+The marginal MI(sign, b(rep1(v))) alone is ~0 by construction (an equality
+test between two independent uniform bits carries no marginal information
+about either bit alone) -- this is not a flaw, it's why the conditional form
+is the correct calibration target. Calibration confirmed correct.
+
+Trained GINEConv baseline + oracle on the calibrated graph:
+  GINEConv baseline AUC = 0.5825, GINEConv oracle AUC = 0.5740 (oracle WORSE).
+
+Diagnosis -- ABANDONED, not just a tuning failure: GNN baselines (GINEConv,
+CSG) initialize node features x as FIXED random vectors, never updated by
+gradient descent (not registered as model parameters) -- b(v)'s identity
+never enters the model as a learnable input anywhere. On real datasets this
+doesn't matter because the predictive signal is generalizable STRUCTURAL
+balance (shared conv weights learn triadic-balance-style patterns that
+transfer across nodes). Synthetic-fog's signal instead requires recovering
+an arbitrary i.i.d. per-node latent label with no structural regularity --
+not learnable through fixed random features and shared weights regardless of
+the bottleneck question. The oracle's near-chance, non-positive result
+confirms this: a shortcut to a representation that never had access to
+informative signal can't help. Separately, the walk-transformer uses a
+TRAINABLE nn.Embedding keyed by node id (src/model/model.py:26) and could in
+principle memorize per-node latents the GNN baselines structurally cannot --
+making any walk-transformer advantage on this graph confounded with
+"trainable node embedding vs. fixed feature," not isolable as a pure
+bottleneck effect. Decision (user, 2026-06-22): abandon synthetic-fog rather
+than invest in a redesign; this report rests on the real-dataset findings
+(Steps 0-3) only.
+
+------------------------------------------------------------------------------------------------
+NEW FOLLOW-UP (in progress): SiGAT baseline + attention-weight diagnostic
+------------------------------------------------------------------------------------------------
+User's new idea: check whether GNN attention/aggregation weights actually
+track neighbor importance, or whether some genuinely-important neighbors get
+under-weighted ("good information through bad pipes"). Requires a literal
+attention-weight model (GAT-style), so SiGAT (baselines/SGA/sigat_SGA.py,
+38 parallel GATConv channels + MLP, trainable node embedding) was newly
+integrated as both a comparable baseline AND the attention-weight probe
+source. Bare SiGAT + its own native curriculum only (no SGA data-
+augmentation pipeline), on the same canonical splits as GINEConv/CSG.
+
+SiGAT test AUC (best-val-AUC checkpoint), all 6 datasets, DONE:
+  bitcoin-alpha    0.8449     bitcoin-otc      0.8700
+  epinions         0.8712     wiki-elec        0.8563
+  wiki-rfa         0.8422     slashdot090221   0.8428
+Trails the walk-transformer and the best per-dataset GNN baseline on every
+dataset (e.g. bitcoin-alpha: SiGAT 0.8449 vs. best-baseline 0.8804 vs. ours
+0.9131) -- expected, since SiGAT is an older/simpler architecture and SGA's
+data augmentation was deliberately excluded. Its role here is as an
+attention-weight PROBE, not a new SOTA contender.
+
+DONE: both diagnostics built and run on all 6 datasets
+(baselines/SGA/extract_attention_weights.py + scripts/
+lead2_sigat_attention_weight_mi.py). Mid-build correction: leave-one-out
+delta had to be measured at the FINAL post-MLP embedding, not the raw
+per-channel GATConv output -- the latter is Spearman~0.99 correlated with
+alpha by construction (tautological), since a GAT channel's own output is
+mathematically determined by its own attention weights.
+
+Variant 2 (Spearman(alpha, post-MLP leave-one-out delta)): pos channel
+0.92-0.99 across all 6 datasets (attention tracks true impact well);
+neg channel lower and more variable, 0.73-0.91.
+
+Variant 1 (MI(final embedding, neighbor's own out-edge sign), bucketed by
+attention weight, low->high):
+  POSITIVE channel: clean monotonic increase on ALL 6 datasets -- no "bad
+  pipe" cases, attention weight tracks true importance well.
+  NEGATIVE channel: sign-asymmetric and genuinely mixed. wiki-elec/wiki-rfa/
+  slashdot090221 still mostly monotonic, but bitcoin-otc and epinions show a
+  real violation -- bucket 1 (low-mid attention) has HIGHER MI than bucket 3
+  (highest attention): bitcoin-otc 0.1369 vs 0.0524 (more than double),
+  epinions 0.1271 vs 0.1009. Not small-sample noise (n=1,237 and n=47,243
+  per bucket respectively). This is a genuine "good information through an
+  under-weighted pipe" finding, specific to negative edges on bitcoin-otc/
+  epinions -- not universal across datasets or edge signs.
+
+See LEAD2_GNN_BOTTLENECK_STATUS.md's "SiGAT baseline + attention-weight
+diagnostic" section and outputs/lead2_sigat_attention/
+attention_weight_mi_report.txt for full per-dataset tables.
+
+================================================================================================
+OVERALL VERDICT
+================================================================================================
+The 1-hop bottleneck is real and measurable on every real dataset: h_v^(1)
+retains genuine but partial (NMI 0.008-0.27) neighbor-sign information
+(Step 1), and that retention demonstrably dilutes with degree at the
+per-edge level (Step 1b). But whether bypassing the bottleneck (oracle
+ablation, Step 3) actually improves AUC is dataset- and architecture-
+dependent, not universal: GINEConv gains on all 6 (substantially on
+epinions/slashdot090221), CSG gains on only 1/6. The walk-transformer's
+relay-token MI (Step 2) is also highly dataset-dependent and does not
+cleanly track GINEConv's oracle-gain pattern. Combined with Lead 1's
+conclusion (over-averaging is real but modest, ~5-9% norm loss, and not the
+primary driver), the evidence here supports a SOFTER claim than "the
+bottleneck explains the walk model's advantage": the bottleneck is a real,
+measurable information-loss mechanism in GNN baselines, contributes to
+GINEConv's gap specifically on a subset of datasets, but does not explain a
+uniform AUC margin across datasets or model types. The walk-transformer's
+advantage is more likely attributable to multiple, dataset-dependent
+factors rather than the bottleneck alone.

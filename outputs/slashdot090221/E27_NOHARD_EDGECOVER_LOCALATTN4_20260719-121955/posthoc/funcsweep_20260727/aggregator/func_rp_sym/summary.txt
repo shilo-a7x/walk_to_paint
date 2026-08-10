@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 34
+Run ID: funcsweep_20260727
+Model: func_rp_sym  ((rp*(1-rp))^a  mid-peak)
+theta* = [-0.09140625000000052]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8983 (54920 edges)
+  Test  AUC: 0.8985 (54921 edges)

@@ -1,0 +1,10 @@
+{
+  "model_name": "func_entropy_exp",
+  "description": "exp(-a*H(q))",
+  "theta_star": [
+    4.415625000000006
+  ],
+  "n_iters": 19,
+  "n_params": 1,
+  "seed": 42
+}

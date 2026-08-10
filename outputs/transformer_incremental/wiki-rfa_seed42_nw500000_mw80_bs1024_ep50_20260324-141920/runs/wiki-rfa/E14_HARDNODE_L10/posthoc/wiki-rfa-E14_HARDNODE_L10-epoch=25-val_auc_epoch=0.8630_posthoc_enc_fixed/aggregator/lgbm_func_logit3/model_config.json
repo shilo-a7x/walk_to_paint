@@ -1,0 +1,19 @@
+{
+  "model_name": "lgbm_func_logit3",
+  "func_key": "func_logit3",
+  "description": "lgbm\u2192q_j then exp(b1*logit(q) + b2*rp + b3*log_len)  signed confidence",
+  "theta_star": [
+    0.0016001800411522631,
+    0.0031989615483539106,
+    0.024366640946503235
+  ],
+  "n_iters": 37,
+  "n_params": 3,
+  "seed": 42,
+  "lgbm": {
+    "n_estimators": 200,
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "class_weight": "balanced"
+  }
+}

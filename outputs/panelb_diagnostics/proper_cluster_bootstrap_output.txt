@@ -1,0 +1,18 @@
+self-test passed: vectorized cluster bootstrap matches brute-force reference exactly
+loaded 12,000,000 raw rows from /home/eng/shilo_avital/yolo_lab/walk_to_paint/outputs/panelb_diagnostics/panelb_raw_rows.npy
+
+ d      n_raw  n_distinct  pct_discarded_by_dedup  pct_pos_raw  pct_pos_deduped  composition_shift
+ 1      7,198       7,073                    1.7%       79.66%           79.51%             -0.15pp
+ 2    735,367     328,299                   55.4%       78.61%           76.61%             -2.00pp
+ 3  8,513,452     542,828                   93.6%       76.26%           77.18%             +0.92pp
+ 4  2,571,149     494,607                   80.8%       80.16%           77.20%             -2.96pp
+ 5    161,531      89,056                   44.9%       87.22%           80.99%             -6.23pp
+ 6     11,303       6,693                   40.8%       92.23%           88.06%             -4.17pp
+
+ d   phi_RAW(all data, nothing discarded)      n_raw  n_clusters  proper_cluster_CI_lo  proper_cluster_CI_hi  excl_0
+ 1                                0.33065      7,198       7,073               0.30336               0.35725     YES   (mean bootstrap n=7,198, ran in 0.1s so far)
+ 2                                0.06124    735,367     328,299               0.05888               0.06343     YES   (mean bootstrap n=735,388, ran in 11.6s so far)
+ 3                               -0.00095  8,513,452     542,828              -0.00159              -0.00026     YES   (mean bootstrap n=8,513,432, ran in 174.9s so far)
+ 4                               -0.02315  2,571,149     494,607              -0.02422              -0.02198     YES   (mean bootstrap n=2,571,091, ran in 215.6s so far)
+ 5                               -0.08082    161,531      89,056              -0.08499              -0.07696     YES   (mean bootstrap n=161,492, ran in 217.5s so far)
+ 6                               -0.07727     11,303       6,693              -0.08598              -0.06741     YES   (mean bootstrap n=11,289, ran in 217.6s so far)
