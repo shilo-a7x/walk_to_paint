@@ -50,7 +50,20 @@ DATASETS = ["bitcoin-alpha", "bitcoin-otc", "epinions", "wiki-elec", "wiki-rfa",
 SEEDS = [42] + list(range(43, 52))
 VARIANT = "out_in"  # same atomic-entropy axes as empconf_panelC (src_out, tgt_in)
 N_BINS = 4
-MIN_CELL_N = 30
+MIN_CELL_N_SIGAT_HEATMAP = 30  # standalone SiGAT-alone heatmap -- unchanged, not in the paper
+MIN_CELL_N_DELTA = 50  # PEWTER-vs-SiGAT delta heatmap -- bumped 2026-08-11 per the user's call
+
+# Cache of the expensive per-seed entropy-joined (u,v,y,p,src_ent,tgt_ent) records --
+# added 2026-08-11 per the user's standing rule ("every plot we do we need to save the
+# data so if we just want to change colors or threshold... we dont need to do the whole
+# thing again"). This is the part that's actually slow: SiGAT refits a fresh
+# LogisticRegression per seed (60 fits total) and PEWTER reloads/re-aggregates large
+# prediction pickles per seed -- neither depends on N_BINS/min_cell_n, so bin-edge or
+# threshold changes (like the MIN_CELL_N_DELTA bump above) never need to redo this part
+# again once cached. Delete a cache file to force a real recompute for that
+# dataset/model (e.g. after a checkpoint changes) -- same "safe to delete/regenerate"
+# convention as the figure_data/*.csv outputs.
+CACHE_DIR = os.path.join(ROOT, "outputs", "cache", "multiseed_entropy_records")
 
 # Production num_walks budget per dataset (CLAUDE.md "Walk sampler" table) -- needed
 # to build each seed's keyed cache filename.
@@ -150,7 +163,7 @@ def walk_raw_seed(ds, seed, variant="local"):
     return {"u": U, "v": V, "y": Y, "p": P}
 
 
-def binned_auc_grid(src_ent, tgt_ent, y, p, n_bins):
+def binned_auc_grid(src_ent, tgt_ent, y, p, n_bins, min_cell_n):
     edges = np.linspace(0.0, 1.0, n_bins + 1)
     src_bin = np.clip(np.digitize(src_ent, edges[1:-1]), 0, n_bins - 1)
     tgt_bin = np.clip(np.digitize(tgt_ent, edges[1:-1]), 0, n_bins - 1)
@@ -163,14 +176,26 @@ def binned_auc_grid(src_ent, tgt_ent, y, p, n_bins):
             mask = (src_bin == i) & (tgt_bin == j)
             n = int(mask.sum())
             n_grid[i, j] = n
-            if n < MIN_CELL_N or len(set(y_bin[mask])) < 2:
+            if n < min_cell_n or len(set(y_bin[mask])) < 2:
                 continue
             auc_grid[i, j] = roc_auc_score(y_bin[mask], p[mask])
     return auc_grid, n_grid, edges
 
 
-def per_seed_grids(ds, sign_dicts, model_loader, model_name):
-    grids = []
+def per_seed_records(ds, sign_dicts, model_loader, model_name):
+    """Load + entropy-join each seed's predictions ONCE (the expensive part --
+    pickle/artifact loading, LogisticRegression refit for SiGAT). Returns the raw
+    per-seed entropy-joined records so they can be binned at more than one
+    min_cell_n threshold without redoing this work. Cached to disk (CACHE_DIR) so a
+    second run (e.g. to change min_cell_n or bin edges) skips this entirely."""
+    cache_path = os.path.join(CACHE_DIR, f"{ds}__{model_name}.pkl")
+    if os.path.exists(cache_path):
+        with open(cache_path, "rb") as f:
+            records = pickle.load(f)
+        print(f"    {model_name}: loaded {len(records)} cached seed records from {cache_path}")
+        return records
+
+    records = []
     for seed in SEEDS:
         rec = model_loader(ds, seed)
         if rec is None or not len(rec["u"]):
@@ -181,12 +206,34 @@ def per_seed_grids(ds, sign_dicts, model_loader, model_name):
         if entry is None:
             print(f"    {model_name} seed={seed}: too few usable edges after entropy join")
             continue
+        records.append(entry)
+        print(f"    {model_name} seed={seed}: n={len(entry['y'])}")
+
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    with open(cache_path, "wb") as f:
+        pickle.dump(records, f)
+    return records
+
+
+def grids_from_records(records, min_cell_n):
+    """Bin already-loaded per-seed records at a given min_cell_n threshold (cheap --
+    no re-loading/re-fitting, just re-thresholding the same predictions)."""
+    if not records:
+        return None, None, None
+    grids, n_grids, edges = [], [], None
+    for entry in records:
         auc_grid, n_grid, edges = binned_auc_grid(
-            entry["src_ent"], entry["tgt_ent"], entry["y"], entry["p"], N_BINS)
+            entry["src_ent"], entry["tgt_ent"], entry["y"], entry["p"], N_BINS, min_cell_n)
         grids.append(auc_grid)
-        print(f"    {model_name} seed={seed}: n={len(entry['y'])}, "
-              f"valid cells={np.isfinite(auc_grid).sum()}/{N_BINS * N_BINS}")
-    return np.stack(grids, axis=0) if grids else None, edges if grids else None
+        n_grids.append(n_grid)
+    # mean cell sample size over valid (n>=min_cell_n) splits only, to match what
+    # actually went into the mean AUC -- splits below min_cell_n contribute NaN to
+    # auc_grid and shouldn't inflate the reported "n" for that cell.
+    auc_stack = np.stack(grids, axis=0)
+    n_stack = np.stack(n_grids, axis=0).astype(float)
+    n_stack[~np.isfinite(auc_stack)] = np.nan
+    mean_n = np.nanmean(n_stack, axis=0)
+    return auc_stack, edges, mean_n
 
 
 def main():
@@ -196,17 +243,26 @@ def main():
         edges_list = load_edges_canonical(DATASET_CONFIGS[_ds_key(ds)]["ds_name"])
         sign_dicts = build_sign_dicts(edges_list)
 
-        sigat_stack, bin_edges = per_seed_grids(ds, sign_dicts, sigat_raw_seed, "SiGAT")
-        walk_stack, _ = per_seed_grids(
+        sigat_records = per_seed_records(ds, sign_dicts, sigat_raw_seed, "SiGAT")
+        walk_records = per_seed_records(
             ds, sign_dicts, lambda d, s: walk_raw_seed(d, s, "local"), "PEWTER(local)")
 
+        # Standalone SiGAT-alone heatmap: unchanged threshold (MIN_CELL_N_SIGAT_HEATMAP).
+        sigat_stack, bin_edges, sigat_mean_n = grids_from_records(sigat_records, MIN_CELL_N_SIGAT_HEATMAP)
         if sigat_stack is None:
             print(f"  ✗ no usable SiGAT splits for {ds}, skipping")
             continue
-
         sigat_mean = np.nanmean(sigat_stack, axis=0)
         sigat_std = np.nanstd(sigat_stack, axis=0, ddof=1)
         sigat_n = np.sum(np.isfinite(sigat_stack), axis=0)
+
+        # Delta plot: higher threshold (MIN_CELL_N_DELTA), per the user's call --
+        # only the delta plot's reliability bar was raised, not the SiGAT-alone one.
+        sigat_stack_d, _, sigat_mean_n_d = grids_from_records(sigat_records, MIN_CELL_N_DELTA)
+        walk_stack, _, walk_mean_n = grids_from_records(walk_records, MIN_CELL_N_DELTA)
+        if sigat_stack_d is not None:
+            sigat_mean_d = np.nanmean(sigat_stack_d, axis=0)
+            sigat_n_d = np.sum(np.isfinite(sigat_stack_d), axis=0)
 
         for i in range(N_BINS):
             for j in range(N_BINS):
@@ -216,30 +272,38 @@ def main():
                     "tgt_bin_lo": bin_edges[j], "tgt_bin_hi": bin_edges[j + 1],
                     "mean_auc": sigat_mean[i, j], "std_auc": sigat_std[i, j],
                     "n_splits_valid": int(sigat_n[i, j]),
+                    "mean_cell_n": (round(float(sigat_mean_n[i, j]))
+                                    if np.isfinite(sigat_mean_n[i, j]) else ""),
                 })
 
-        if walk_stack is not None:
+        if walk_stack is not None and sigat_stack_d is not None:
             walk_mean = np.nanmean(walk_stack, axis=0)
             walk_n = np.sum(np.isfinite(walk_stack), axis=0)
             for i in range(N_BINS):
                 for j in range(N_BINS):
-                    both_valid = np.isfinite(walk_mean[i, j]) and np.isfinite(sigat_mean[i, j])
+                    both_valid = np.isfinite(walk_mean[i, j]) and np.isfinite(sigat_mean_d[i, j])
                     delta_rows.append({
                         "dataset": ds,
                         "src_bin_lo": bin_edges[i], "src_bin_hi": bin_edges[i + 1],
                         "tgt_bin_lo": bin_edges[j], "tgt_bin_hi": bin_edges[j + 1],
-                        "pewter_mean_auc": walk_mean[i, j], "sigat_mean_auc": sigat_mean[i, j],
-                        "delta": (walk_mean[i, j] - sigat_mean[i, j]) if both_valid else np.nan,
+                        "pewter_mean_auc": walk_mean[i, j], "sigat_mean_auc": sigat_mean_d[i, j],
+                        "delta": (walk_mean[i, j] - sigat_mean_d[i, j]) if both_valid else np.nan,
                         "n_splits_valid_pewter": int(walk_n[i, j]),
-                        "n_splits_valid_sigat": int(sigat_n[i, j]),
+                        "n_splits_valid_sigat": int(sigat_n_d[i, j]),
+                        "mean_cell_n_pewter": (round(float(walk_mean_n[i, j]))
+                                                if np.isfinite(walk_mean_n[i, j]) else ""),
+                        "mean_cell_n_sigat": (round(float(sigat_mean_n_d[i, j]))
+                                               if np.isfinite(sigat_mean_n_d[i, j]) else ""),
                     })
         else:
-            print(f"  ✗ no usable PEWTER(local) splits for {ds} -- delta heatmap skipped for this dataset")
+            print(f"  ✗ no usable PEWTER(local)/SiGAT(min_n={MIN_CELL_N_DELTA}) splits for {ds} "
+                  f"-- delta heatmap skipped for this dataset")
 
     os.makedirs(os.path.dirname(OUT_SIGAT_CSV), exist_ok=True)
     with open(OUT_SIGAT_CSV, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["dataset", "src_bin_lo", "src_bin_hi", "tgt_bin_lo",
-                                           "tgt_bin_hi", "mean_auc", "std_auc", "n_splits_valid"])
+                                           "tgt_bin_hi", "mean_auc", "std_auc", "n_splits_valid",
+                                           "mean_cell_n"])
         w.writeheader(); w.writerows(sigat_rows)
     print(f"\nwrote {OUT_SIGAT_CSV} ({len(sigat_rows)} rows)")
 
@@ -247,7 +311,8 @@ def main():
         with open(OUT_DELTA_CSV, "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=["dataset", "src_bin_lo", "src_bin_hi", "tgt_bin_lo",
                                                "tgt_bin_hi", "pewter_mean_auc", "sigat_mean_auc",
-                                               "delta", "n_splits_valid_pewter", "n_splits_valid_sigat"])
+                                               "delta", "n_splits_valid_pewter", "n_splits_valid_sigat",
+                                               "mean_cell_n_pewter", "mean_cell_n_sigat"])
             w.writeheader(); w.writerows(delta_rows)
         print(f"wrote {OUT_DELTA_CSV} ({len(delta_rows)} rows)")
 

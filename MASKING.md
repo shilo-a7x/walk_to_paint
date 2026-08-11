@@ -25,6 +25,81 @@ passed, what actually broke (a real NaN bug, now fixed), and the final design.
    "padding" from "disallowed" downstream, because both mean the same thing to
    attention: *invisible*.
 
+## A fourth, DIFFERENT thing that is also called "masking": the prediction target
+
+Concern (3) above is about **which edges are allowed to be seen at all** this stage.
+There is a completely separate mechanism — **target masking** — for **which
+already-allowed edge is this training/eval step's prediction target**. Both use the
+same literal `<MASK>` token id in `input_ids`, which is exactly why they're easy to
+conflate, but they do different things to `attention_mask`:
+
+| Position type | `input_ids` | `attention_mask` | Can other tokens attend to it? |
+|---|---|---|---|
+| **Disallowed edge** (concern 3: val/test during train, test during val) | `<MASK>` | `0` | **No** — invisible as a key, same as padding |
+| **Target edge** (this section: the edge being predicted right now) | `<MASK>` | `1` (untouched) | **Yes** — a normal, attendable position; only its *sign identity* is hidden, not its existence |
+
+This distinction matters for reading the model correctly: **a masked target edge is
+not hidden from attention.** It's exactly the MLM pattern — the model has to infer
+the missing sign from the *other* vertex/edge tokens around it, which it can only do
+if those other tokens (and the target's own position, as a "there is an edge here"
+signal) remain visible. Only concern-3 edges (wrong split for this stage entirely)
+are actually excluded from attention.
+
+**Where target masking happens, and the two ways it can be configured**
+(`model.dynamic_train_masking` in `config.yaml`, the "D" flag):
+
+- **Val and test, always**: `StageViewDataset` (`src/data/stage_dataset.py`) sets
+  `target_split = VAL` (at the val stage) or `TEST` (at the test stage). Every
+  position whose `split_mask` equals that stage's target split gets
+  `input_ids -> <MASK>` and its true class copied into `labels`; `attention_mask` is
+  untouched. This is static and unconditional — there's no "dynamic" variant for
+  eval, since resampling what's being evaluated epoch-to-epoch wouldn't mean
+  anything.
+- **Train, `dynamic_train_masking=False` (static)**: same mechanism as above, with
+  `target_split = MASK`. The `TRAIN`/`MASK` assignment was fixed once, back in
+  `prepare_data.py::split_edges` — a `MASK`-split edge is *always* the prediction
+  target, at every occurrence, in every epoch, for the whole run.
+- **Train, `dynamic_train_masking=True` (dynamic — the actual production default,
+  see CLAUDE.md's "D — Dynamic resplit")**: `StageViewDataset` explicitly skips its
+  own static target-masking logic at train time in this case (the
+  `not (self.stage == "train" and self.dynamic_train_masking)` guard in
+  `_getitem_ragged`) — so `input_ids` coming out of the dataset are **completely
+  unmasked** for every train-eligible position, TRAIN and MASK splits alike. Target
+  masking instead happens one layer up, in `LitEdgeClassifier`
+  (`src/model/lit_model.py`):
+  - `_build_dynamic_train_pool()` (called once, at `on_train_start`) merges TRAIN and
+    MASK into a single pool: `pool_mask = (split==TRAIN) | (split==MASK)`. This is
+    the literal, code-verified basis for calling it "a single pool" — the fixed
+    TRAIN/MASK assignment from `split_edges` still exists (it's what makes an edge
+    eligible for the pool at all — VAL/TEST are never in it), but *within* the pool
+    there is no permanent context/target distinction anymore.
+  - `_sample_epoch_targets(epoch)` (called once per epoch, `on_train_epoch_start`)
+    draws a fresh subset of the pool as this epoch's targets, stratified per class so
+    both signs are represented, sized by `target_ratio` (default
+    `mask_ratio / (train_ratio + mask_ratio)`, i.e. the same fraction the static
+    split would have used, just resampled instead of fixed — overridable via
+    `model.dynamic_target_ratio` for controlled experiments, see the E30 short-walk
+    investigation in CLAUDE.md). Seeded deterministically
+    (`base_seed + dynamic_train_mask_seed_offset + epoch`), so a given epoch's target
+    set is reproducible.
+  - `_build_dynamic_targets_for_batch()` (called per batch) applies the epoch's
+    target-id set to that batch's real edge ids: matching positions get
+    `input_ids -> <MASK>` and their class copied into `labels`, exactly like the
+    static path — `attention_mask` is, again, never touched here either. Positions in
+    the pool that *aren't* this epoch's targets keep their **true, unmasked** sign
+    token — i.e. on any given epoch most of the training pool is visible real
+    context, and only the sampled fraction is hidden-and-predicted.
+
+**Net effect, stated precisely**: under the production default
+(`dynamic_train_masking=True`), an edge in the TRAIN/MASK pool is *not* permanently
+"context" or "target" — which role it plays is redrawn every epoch. A val/test edge,
+by contrast, is *never* in that pool and is unconditionally excluded from attention
+(concern 3) whenever the current stage hasn't reached its split yet. These are the
+two claims that must not get merged into one sentence in the paper: "we split edges
+into a context set and a target set" is the *static* picture only; the actual default
+training regime resamples the context/target role every epoch from a combined pool,
+while the val/test exclusion is separate, permanent, and unaffected by any of this.
+
 ## PyTorch's two mask argument slots
 
 `nn.TransformerEncoder`/`nn.TransformerEncoderLayer.forward()` has exactly two

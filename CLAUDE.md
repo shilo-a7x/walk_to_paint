@@ -899,6 +899,21 @@ here.
     page). Rerun after re-plotting any panel it combines.
   - `aaai2027/figure_data/*.csv` and `aaai2027/figures/*.png` are both regenerable — safe to
     delete/regenerate, not hand-edited.
+  - **Standing rule (made explicit 2026-08-11, was only implicit before): if an extract
+    script's expensive step (loading/fitting raw per-seed predictions, refitting a
+    classifier, etc.) is separable from a cheap cosmetic parameter (a binning threshold,
+    bin edges, which columns to write), cache the expensive step's output to disk on its
+    own, separately from the final CSV** — so changing the cheap parameter later never
+    re-pays the expensive cost. Bit by this exact gap 2026-08-11:
+    `extract_multiseed_entropy_heatmaps.py` only cached the final binned CSV, so bumping
+    the delta heatmap's `MIN_CELL_N` (a pure re-thresholding of already-computed
+    predictions) forced a full ~75min rerun of the SiGAT LogisticRegression refits (60
+    fits) and PEWTER prediction reloads. Fixed by splitting `per_seed_records()`
+    (expensive: load+fit, cached to `outputs/cache/multiseed_entropy_records/<ds>__<model>.pkl`)
+    from `grids_from_records()` (cheap: bin at any threshold, no cache needed) — delete a
+    cache file to force a real recompute for that dataset/model (e.g. after a checkpoint
+    changes), same "safe to delete/regenerate" convention as the figure_data CSVs
+    themselves.
 - **Rule going forward: every `PEWTER_ASSETS_CHECKLIST.md` row that reaches DONE/NEEDS-FIGURE
   status must name its generating script(s) and output path(s)** (the `Scripts:`/`Data:`
   pattern already used in rows #21/#23/#25/#29/#30/#30b) — not just "done", so a future session

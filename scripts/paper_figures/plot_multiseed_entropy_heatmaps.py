@@ -96,13 +96,31 @@ def plot_sigat_mean():
     print(f"saved {OUT_SIGAT_PNG}")
 
 
+def _cell_n(rows, ds):
+    """Per-cell sample size to annotate alongside delta: mean of PEWTER's and
+    SiGAT's own mean-per-split cell n (nearly identical in practice -- same
+    canonical test split feeds both models each seed -- but kept as an average
+    rather than picking one arbitrarily)."""
+    grid = np.full((N_BINS, N_BINS), np.nan)
+    for r in rows:
+        if r["dataset"] != ds:
+            continue
+        i = int(round(float(r["src_bin_lo"]) / 0.25))
+        j = int(round(float(r["tgt_bin_lo"]) / 0.25))
+        vals = [float(r[k]) for k in ("mean_cell_n_pewter", "mean_cell_n_sigat") if r[k] != ""]
+        if vals:
+            grid[i, j] = sum(vals) / len(vals)
+    return grid
+
+
 def plot_delta():
     rows = list(csv.DictReader(open(IN_DELTA_CSV)))
     grids = {}
     max_abs = 0.0
     for ds in DATASET_ORDER:
         grid, edges = _grid_from_rows(rows, ds, "delta")
-        grids[ds] = (grid, edges)
+        n_grid = _cell_n(rows, ds)
+        grids[ds] = (grid, edges, n_grid)
         if np.any(np.isfinite(grid)):
             max_abs = max(max_abs, np.nanmax(np.abs(grid)))
     vmax = max(max_abs, 0.01)
@@ -110,11 +128,35 @@ def plot_delta():
     cmap = plt.get_cmap("RdBu").copy()  # NOT reversed: low=red, high=blue
     cmap.set_bad(color="#d9d9d0")
 
-    fig, axes = plt.subplots(2, 3, figsize=(11, 7.2))
+    fig, axes = plt.subplots(2, 3, figsize=(11, 7.6))
     im = None
     for ax, ds in zip(axes.flat, DATASET_ORDER):
-        grid, edges = grids[ds]
-        im = _draw_grid(ax, grid, edges, cmap=cmap, vmin=-vmax, vmax=vmax, fmt="{:+.2f}")
+        grid, edges, n_grid = grids[ds]
+        masked = np.ma.masked_invalid(grid.T)
+        im = ax.imshow(masked, origin="lower", extent=[0, 1, 0, 1], cmap=cmap,
+                        vmin=-vmax, vmax=vmax, aspect="auto")
+        for i in range(N_BINS):
+            for j in range(N_BINS):
+                v = grid[i, j]
+                cx, cy = (edges[i] + edges[i + 1]) / 2, (edges[j] + edges[j + 1]) / 2
+                if np.isnan(v):
+                    ax.text(cx, cy, "n/a", ha="center", va="center", fontsize=6.5, color="#777")
+                else:
+                    light = abs(v) / vmax > 0.55
+                    txt_color = "white" if light else "black"
+                    n_color = "#e0e0e0" if light else "#3a3a3a"
+                    ax.text(cx, cy + 0.028, f"{v:+.2f}", ha="center", va="center",
+                             fontsize=7, color=txt_color, fontweight="medium")
+                    n = n_grid[i, j]
+                    n_str = f"n≈{n:,.0f}" if np.isfinite(n) else ""
+                    ax.text(cx, cy - 0.038, n_str, ha="center", va="center",
+                             fontsize=5.5, color=n_color)
+        for e in edges:
+            ax.axvline(e, color="white", linewidth=0.5)
+            ax.axhline(e, color="white", linewidth=0.5)
+        ax.set_xticks(edges); ax.set_yticks(edges)
+        ax.set_xticklabels([f"{e:.2f}" for e in edges], fontsize=6)
+        ax.set_yticklabels([f"{e:.2f}" for e in edges], fontsize=6)
         ax.set_title(DISPLAY_LABEL.get(ds, ds), fontsize=10)
     for ax in axes[-1, :]:
         ax.set_xlabel(r"$H_{out}(u)$ (src)", fontsize=8)

@@ -1,16 +1,15 @@
-"""Plot step for the SHAP edge directionality figure. Pure rendering: reads
-aaai2027/figure_data/shap_edge_directionality.csv (built by
+"""Plot step for the SHAP edge directionality figure -- now Panel D of the
+Attention Directionality figure (2026-08-11, per the user's call). Pure
+rendering: reads aaai2027/figure_data/shap_edge_directionality.csv (built by
 extract_shap_edge_directionality.py).
 
-Design (agreed with the user 2026-08-10): small multiples, one subplot per dataset
-(2x3 grid, same layout as Empirical Confirmation Panel C), x-axis = hop distance
-(1, 2 -- the only two points the local attention window covers), y-axis =
-mean |SHAP| (probability units), two lines per subplot -- forward (solid, same blue
-as Attention Directionality Panel B, #2e75b6) and backward (dashed, same red,
-#c0392b) -- so this figure reads as a direct companion to Panel B: same
-forward/backward color code, but decomposed by distance and measured by actual causal
-contribution (Shapley) instead of raw attention weight. Error bars = cluster-robust SE
-(cluster = target edge_id).
+Design (revised 2026-08-11): single compact grouped bar chart, all 6 datasets
+in one plot (was a 2x3 grid of line plots -- dropped per the user's call,
+"why are there lines anyway", since hop only takes two values and a line
+implies a continuous axis). Same forward/backward color code as Panel B
+(#2e75b6 / #c0392b); hop 1 is solid, hop 2 is the same color with a hatch, so
+all 4 series (fwd/bwd x hop1/hop2) fit in one legend without adding new
+colors. Error bars = cluster-robust SE (cluster = target edge_id).
 """
 import csv
 import os
@@ -18,6 +17,8 @@ import os
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
+import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 IN_CSV = os.path.join(ROOT, "aaai2027", "figure_data", "shap_edge_directionality.csv")
@@ -27,6 +28,7 @@ DATASET_ORDER = ["bitcoin-alpha", "bitcoin-otc", "epinions", "slashdot090221", "
 DISPLAY_LABEL = {"slashdot090221": "slashdot"}
 FWD_COLOR = "#2e75b6"
 BWD_COLOR = "#c0392b"
+HATCH = "//"
 
 
 def main():
@@ -37,37 +39,40 @@ def main():
             float(r["mean_abs_shap"]), float(r["cluster_se"])
         )
 
-    fig, axes = plt.subplots(2, 3, figsize=(10.5, 6.4), sharex=True)
-    hops = [1, 2]
+    series = [
+        ("fwd", 1, FWD_COLOR, None, "forward, hop 1"),
+        ("fwd", 2, FWD_COLOR, HATCH, "forward, hop 2"),
+        ("bwd", 1, BWD_COLOR, None, "backward, hop 1"),
+        ("bwd", 2, BWD_COLOR, HATCH, "backward, hop 2"),
+    ]
 
-    for ax, ds in zip(axes.flat, DATASET_ORDER):
-        d = by_ds[ds]
-        fwd_y = [d[("fwd", h)][0] for h in hops]
-        fwd_e = [d[("fwd", h)][1] for h in hops]
-        bwd_y = [d[("bwd", h)][0] for h in hops]
-        bwd_e = [d[("bwd", h)][1] for h in hops]
+    x = np.arange(len(DATASET_ORDER))
+    width = 0.19
+    offsets = width * np.array([-1.5, -0.5, 0.5, 1.5])
 
-        ax.errorbar(hops, fwd_y, yerr=fwd_e, color=FWD_COLOR, marker="o", linestyle="-",
-                    linewidth=1.8, markersize=5, capsize=3, label="forward", zorder=3)
-        ax.errorbar(hops, bwd_y, yerr=bwd_e, color=BWD_COLOR, marker="s", linestyle="--",
-                    linewidth=1.8, markersize=5, capsize=3, label="backward", zorder=3)
+    fig, ax = plt.subplots(figsize=(9.2, 4.3))
 
-        ax.set_title(DISPLAY_LABEL.get(ds, ds), fontsize=10)
-        ax.set_xticks(hops)
-        ax.set_xlim(0.7, 2.3)
-        ax.set_ylim(0, max(fwd_y + bwd_y) * 1.35)
-        ax.grid(axis="y", alpha=0.25, zorder=0)
+    for (direction, hop, color, hatch, label), off in zip(series, offsets):
+        y = [by_ds[ds][(direction, hop)][0] for ds in DATASET_ORDER]
+        e = [by_ds[ds][(direction, hop)][1] for ds in DATASET_ORDER]
+        ax.bar(x + off, y, width, yerr=e, color=color, hatch=hatch, alpha=0.9 if hatch is None else 0.55,
+               edgecolor=color, linewidth=0.8, capsize=2, zorder=3,
+               error_kw={"linewidth": 0.8, "ecolor": "#333333"})
 
-    for ax in axes[-1, :]:
-        ax.set_xlabel("hop distance", fontsize=9)
-    for ax in axes[:, 0]:
-        ax.set_ylabel("mean |SHAP|", fontsize=9)
+    ax.set_xticks(x)
+    ax.set_xticklabels([DISPLAY_LABEL.get(d, d) for d in DATASET_ORDER], fontsize=10)
+    ax.tick_params(axis="y", labelsize=9)
+    ax.set_ylabel("mean |SHAP| (probability units)", fontsize=10)
+    ax.set_title("Causal contribution of context edges by hop distance and direction", fontsize=11)
+    ax.grid(axis="y", alpha=0.25, zorder=0)
 
-    handles, labels = axes.flat[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", ncol=2, fontsize=9,
-               bbox_to_anchor=(0.5, 1.02), frameon=False)
-    fig.suptitle("PEWTER (local attention): causal contribution of context edges by hop distance and direction",
-                 fontsize=10, y=1.07)
+    legend_handles = [
+        Patch(facecolor=FWD_COLOR, alpha=0.9, edgecolor=FWD_COLOR, label="forward, hop 1"),
+        Patch(facecolor=FWD_COLOR, alpha=0.55, hatch=HATCH, edgecolor=FWD_COLOR, label="forward, hop 2"),
+        Patch(facecolor=BWD_COLOR, alpha=0.9, edgecolor=BWD_COLOR, label="backward, hop 1"),
+        Patch(facecolor=BWD_COLOR, alpha=0.55, hatch=HATCH, edgecolor=BWD_COLOR, label="backward, hop 2"),
+    ]
+    ax.legend(handles=legend_handles, loc="upper right", fontsize=8.5, ncol=2, frameon=True)
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
