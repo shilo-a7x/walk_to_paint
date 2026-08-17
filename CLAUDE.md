@@ -838,6 +838,38 @@ OPEN WORKSTREAMS — audited 2026-07-19 (see plan files in ~/.claude/plans/):
   Results/Discussion/bib/Supplementary/final-QA tiers are NOT STARTED. Confirmed
   in-progress and real (2026-07-19) — take this as the top-priority workstream when
   triaging session time against everything else below.
+  - **2026-08-17: paper is now WSDM-targeted (`aaai2027/WSDM_format_revised.tex`), in a
+    closeout/punch-list phase.** Resume via
+    `~/.claude/plans/adaptive-watching-ember.md` (13-item closeout list, execution in
+    progress). **node2vec is the one non-GNN baseline added to Table 1** — fully aggregated,
+    `baselines/node2vec/results_canonical/summary.csv`, 6 datasets × 10 seeds, weaker than
+    every GNN baseline everywhere (safe, uncontroversial reference row). Three other non-GNN
+    candidates were tried and rejected, in this order: **POLE**, infeasible on this hardware
+    (dense O(n²) similarity-matrix memory blows up past ~423GB available on epinions/
+    slashdot090221). **SLF**, technically ran (`baselines/SLF/`, 6×10 complete) and actually
+    beat SiGAT on 3/6 datasets, but only trained 10 fixed epochs with no real validation-based
+    model selection — pulled rather than let an under-scrutinized result reshape the paper's
+    headline margins (on wiki-rfa the gap over SLF was +0.2pp, within noise). **SIGNet**
+    (`baselines/SIGNet/`, `baselines/SIGNet_repo/`, isolated `signet_env` conda env with a
+    patched `setup.py` pointing GSL at the conda prefix — build succeeds, imports fine): its
+    C++ training loop (`cpp_signet.cpp::TrainSEINEThread`) never honors its own sample-count
+    stopping condition — `count` blows past `total_samples/num_threads+2` by 1000%+ and keeps
+    going indefinitely (confirmed via debug printfs showing `total_samples` itself stays
+    correct throughout, so it's a real loop-logic bug in the ~2018 reference implementation,
+    not an environment/build issue). Not root-caused further (time-boxed); don't resume this
+    without a fix to that stopping condition. **Do not add SLF or SIGNet numbers anywhere
+    without redoing this investigation** — both were deliberately reverted, not abandoned
+    mid-stream.
+  - **Complexity claim (Sec 6.6, O(L²d)→O(Lwd) for local attention):** confirmed correct as
+    a *theoretical* claim (user's professor signed off 2026-08-17) but not realized by the
+    current `LocalAttentionEncoderLayer` implementation, which computes full dense L×L
+    attention and applies the window as a post-hoc mask — no real sparse/windowed
+    computation happens, so no wall-clock speedup exists today (see `MASKING.md`'s
+    benchmark table). The paper states the claim in its intended/theoretical form with no
+    benchmark (no time, no appendix room in WSDM's page limit). **Future-work item, not
+    scheduled**: implement genuine sparse/windowed attention to actually realize this
+    saving — e.g. if a reviewer asks for the benchmark. Don't start this without the user's
+    explicit go-ahead.
 - **LocalAttn4 H/no-H re-ablation — CLOSED 2026-07-19.** `HARDNESS_MINER_ROADMAP.md` items
   13/14 (`E27`/`E28`/`E29`, current sampler+masking, all 6 datasets + the asymmetric
   source/target weight probe on bitcoin-alpha/otc) all complete. Final verdict: **H
