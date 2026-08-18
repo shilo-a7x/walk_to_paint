@@ -30,7 +30,11 @@ DATASETS = ["bitcoin-alpha", "bitcoin-otc", "epinions", "slashdot090221", "wiki-
 MODELS = ["SiGAT"]  # GINEConv dropped from this figure 2026-08-04, kept in appendix/table only
 VMIN, VMAX = 0.5, 1.0
 N_BINS = 4
-DISPLAY_LABEL = {"slashdot090221": "slashdot", "SiGAT": "SiGAT"}
+DISPLAY_LABEL = {
+    "bitcoin-alpha": "Bitcoin-alpha", "bitcoin-otc": "Bitcoin-otc", "epinions": "Epinions",
+    "slashdot090221": "Slashdot", "wiki-elec": "Wiki-elec", "wiki-rfa": "Wiki-RfA",
+    "SiGAT": "SiGAT",
+}
 
 
 def load(path):

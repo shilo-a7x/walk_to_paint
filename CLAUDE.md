@@ -870,6 +870,115 @@ OPEN WORKSTREAMS — audited 2026-07-19 (see plan files in ~/.claude/plans/):
     scheduled**: implement genuine sparse/windowed attention to actually realize this
     saving — e.g. if a reviewer asks for the benchmark. Don't start this without the user's
     explicit go-ahead.
+  - **2026-08-18: professor overrode `WSDM_format_revised.tex`/`pewter_references.bib`
+    directly, mid-closeout — resync in progress, resume via
+    `~/.claude/plans/adaptive-watching-ember.md`'s "MAJOR RESYNC" section (and its C-bis/
+    C-ter follow-up overrides, same day).** New standing rules from this round, apply to
+    all future work on this paper: (1) the professor's `pewter_references.bib` is
+    canonical as-is — never edit a bib entry, only fix `\cite`/`\citep` calls in the tex to
+    match existing keys; (2) any bib addition/removal needs the user's explicit sign-off
+    before editing, no more unilateral verify-and-add; (3) math-proof findings (the
+    Propositions/Lemma/Corollary/Appendix proofs) must be presented and confirmed with the
+    user before any edit, never silently patched. **GINE dropped from the paper** (Table 1,
+    Baselines paragraph, all baseline-count sentences) per explicit user instruction — a
+    real edge-feature/leakage concern was found (`run_with_our_splits.py`'s
+    `train_edge_attr` is the raw unembedded sign scalar, and the same train edges back both
+    the message-passing input and the loss — not a test-time leak, but a training-time
+    self-referential shortcut specific to GINEConv's mechanism vs. the balance-theory
+    baselines' channel-separated approach). Only restore if a small learned-edge-embedding
+    experiment (one seed, bitcoin-alpha/bitcoin-otc first) succeeds — not yet run, low
+    priority backlog item. Dataset display names are now canonicalized everywhere in the
+    paper to Bitcoin-alpha/Bitcoin-otc/Epinions/Slashdot/Wiki-elec/Wiki-RfA (never the raw
+    `slashdot090221` key in rendered text). New deliverable, not part of the paper itself:
+    `aaai2027/STATISTICAL_TESTS_AUDIT.md` catalogs every empirical "A beats B" claim in the
+    paper against what statistical test (if any) backs it, with per-claim fix/keep/drop
+    recommendations — read this before adding or touching any significance claim. The
+    paper's edge-vs-vertex/directionality claim (new Abstract ending, stub Section 6.1
+    paragraph D) is **not yet backed by real data** — do not draft its prose until the
+    investigation in the plan's "Section D" lands.
+  - **2026-08-18: walk-budget κ selection was done via test AUC, not validation AUC —
+    confirmed and (partially) resolved.** `E25_BUDGET_SWEEP_RESULTS.md`/
+    `E26_WIKI_SWEEP_RESULTS.md` (the sweeps behind every dataset's `configs/<ds>.yaml`
+    `num_walks`) picked each dataset's κ by comparing **test AUC** across the grid — no
+    val AUC column exists in either doc. Re-extracted `val_auc_epoch` from each grid
+    point's TensorBoard logs (best-checkpoint value, no retraining) and compared: on
+    the actual swept grid (excluding the old-production-budget reference points, which
+    aren't part of the real grid), bitcoin-alpha and bitcoin-otc's picks are unaffected
+    (val AUC agrees, still climbing to 5×); epinions and slashdot090221's picks don't
+    change either (epinions' val AUC declines even more clearly toward floor than test
+    AUC suggested; slashdot's 3× vs. 5× gap under val AUC is 0.02pp, noise-level). But
+    **wiki-elec and wiki-rfa show a real, non-trivial disagreement** — val AUC peaks at
+    3× for wiki-elec (not 1.5×, +0.38pp over 1.5×) and at floor for wiki-rfa (not 1.5×,
+    +0.35pp over 1.5×, though the whole grid only spans ~1.4pp there and isn't cleanly
+    monotonic). Per the user: the wiki 1.5× pick was already known to be somewhat
+    arbitrary (mixed behavior between the two wiki-genre datasets), so this isn't a
+    fully new problem, just confirmation. **Resolution, per explicit user direction:
+    don't re-pick or retrain (no time, and parameter tuning isn't something this
+    project puts weight on) — instead stop claiming κ was validation-tuned anywhere in
+    the paper.** `WSDM_format_revised.tex`'s walk-budget table caption and the Setup
+    paragraph were reworded accordingly (κ now presented as a fixed per-dataset config
+    value, same treatment as the untuned-in-text architecture hyperparameters, not as
+    something optimized). The actual `configs/<dataset>.yaml` κ values are unchanged.
+    Section 6.6 (Complexity)'s own `\ph{TODO}` asking "why does κ vary by dataset" is
+    now effectively answered ("it isn't cleanly principled, don't over-read it") but
+    that TODO hasn't been edited yet — Section 6.6 is gated on presenting the user
+    alternative framings first, per its own note in the closeout plan.
+  - **2026-08-18: new deliverable, `aaai2027/STATISTICS_ELI5_GUIDE.md`** — plain-language
+    reference explaining every statistical concept/test used in this project (paired
+    tests, cluster-robust SE, FDR correction, meta-analysis, Shapley values, Spearman
+    vs. Pearson, etc.), for whenever a term in `STATISTICAL_TESTS_AUDIT.md` or a script
+    docstring needs unpacking. Not part of the paper.
+  - **2026-08-18: K-ablation (6.5(C) now, was a `\ph{TODO}`) — done.** A single walk
+    (K=1, no aggregation at all) already beats the best baseline on all 6 datasets; the
+    gap to the saturated ceiling (K≈8–32) is under 1pp everywhere — confirms the
+    per-walk representation carries the result, ensembling is a small secondary gain.
+    Script: `scripts/paper_figures/extract_ablation_kwalks.py` (log-spaced K grid,
+    fixed-seed random draw per edge, not first-in-file-order — reuses existing
+    `test_predictions.pkl` per-walk-occurrence data, no retraining), output
+    `aaai2027/figure_data/ablation_kwalks.csv`. **Side finding, not chased further**:
+    wiki-rfa seed=50's `test_predictions.pkl` has one edge (id 44403) with 101,594 of
+    350,260 total rows (29% of the file) — a real data anomaly, doesn't affect the
+    K-ablation's AUC (equal per-edge weighting) but worth a look if wiki-rfa seed 50
+    is ever used for anything more sensitive to per-edge row counts.
+  - **2026-08-18: cluster-robust SE added to the attention forward/backward split
+    (Panel B) AND the vertex/edge split (Panel C) of the Attention Directionality
+    figure — done, significant on all 6 datasets, both splits.** The saved
+    `attention_directionality.py` pickles only ever kept pre-averaged means, no
+    per-instance data, so no SE could be computed from what was already on disk — new
+    script `scripts/attention_directionality_panelB_se.py` reruns inference once
+    (same `LOCAL_RUN_INFO` checkpoints, same 20k-sample cap) and caches per-instance
+    (edge_id, forward_frac, backward_frac, node_frac, edge_frac) to
+    `outputs/attention_directionality/<ds>_local_panelBC_perinstance.pkl` — delete a
+    file to force a recompute, same convention as the other cached figure
+    intermediates; a bare rerun of the script reuses the cache and costs nothing.
+    Cluster-robust CI (95%, cluster=target edge) confirmed by an independent Wilcoxon
+    signed-rank test on the same per-edge cluster means — both agree on every dataset
+    by a wide margin. Both plot scripts (`plot_attndir_panelB_direction.py`,
+    `plot_attndir_panelC_nodeedge.py`) now render error bars from
+    `aaai2027/figure_data/attndir_panelBC_se.csv`. **Caught and fixed a real bug
+    mid-implementation**: the first version of the node/edge split leaked
+    self-attention (d=0) entirely into the "edge" category (since the target token
+    itself is always edge-typed), inflating edge mass from the true ~0.49 to a wrong
+    0.638 for bitcoin-alpha — fixed by excluding d=0 from both node/edge masks,
+    matching how `attention_directionality.py`'s own node_total/edge_total already
+    exclude self via only summing the fwd/bwd-masked contributions.
+  - **2026-08-18: dataset-name canonicalization extended to every figure-generation
+    script, not just the tex text.** The earlier canonicalization pass (see
+    "MAJOR RESYNC" below) only fixed the `.tex` file's own prose/table text — PNG
+    figures are separately rendered and untouched by that sweep. Audited every
+    `plot_*.py` script feeding the 4 figures actually `\includegraphics`'d in
+    `WSDM_format_revised.tex` (`pipeline_schematic.png` — hand-made `.drawio`, no
+    dataset labels, out of scope; `empconf_panels_abcde_combined.png`; the
+    `pewter_sigat_delta_heatmap.png`; `attndir_panels_abcd_combined.png`) and fixed
+    `DISPLAY_LABEL` dicts (or added one where missing) in every script with a real
+    lowercase-dataset-name label: `plot_attndir_panelA_headgrid.py`,
+    `plot_attndir_panelB_direction.py`, `plot_attndir_panelC_nodeedge.py`,
+    `plot_shap_edge_directionality.py`, `plot_empconf_panelB_mi_decay_linegraph.py`,
+    `plot_empconf_panelC_gnn_entropy_heatmap.py`, `plot_multiseed_entropy_heatmaps.py`.
+    `plot_empconf_panelD_signagreement_auc.py`/`plot_empconf_panelE_coefficients.py`
+    confirmed clean (pooled across datasets, no per-dataset labels currently — will
+    need the same treatment if/when Panel E's planned per-dataset stacked-bar rebuild
+    lands). All 4 figures regenerated; verified visually consistent.
 - **LocalAttn4 H/no-H re-ablation — CLOSED 2026-07-19.** `HARDNESS_MINER_ROADMAP.md` items
   13/14 (`E27`/`E28`/`E29`, current sampler+masking, all 6 datasets + the asymmetric
   source/target weight probe on bitcoin-alpha/otc) all complete. Final verdict: **H

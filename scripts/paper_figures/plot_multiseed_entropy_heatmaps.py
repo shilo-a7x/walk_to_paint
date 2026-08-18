@@ -28,7 +28,10 @@ OUT_SIGAT_PNG = os.path.join(ROOT, "aaai2027", "figures", "empconf_panelC_sigat_
 OUT_DELTA_PNG = os.path.join(ROOT, "aaai2027", "figures", "pewter_sigat_delta_heatmap.png")
 
 DATASET_ORDER = ["bitcoin-alpha", "bitcoin-otc", "epinions", "slashdot090221", "wiki-elec", "wiki-rfa"]
-DISPLAY_LABEL = {"slashdot090221": "slashdot"}
+DISPLAY_LABEL = {
+    "bitcoin-alpha": "Bitcoin-alpha", "bitcoin-otc": "Bitcoin-otc", "epinions": "Epinions",
+    "slashdot090221": "Slashdot", "wiki-elec": "Wiki-elec", "wiki-rfa": "Wiki-RfA",
+}
 N_BINS = 4
 
 

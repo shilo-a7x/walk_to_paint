@@ -25,7 +25,10 @@ IN_CSV = os.path.join(ROOT, "aaai2027", "figure_data", "shap_edge_directionality
 OUT_PNG = os.path.join(ROOT, "aaai2027", "figures", "shap_edge_directionality.png")
 
 DATASET_ORDER = ["bitcoin-alpha", "bitcoin-otc", "epinions", "slashdot090221", "wiki-elec", "wiki-rfa"]
-DISPLAY_LABEL = {"slashdot090221": "slashdot"}
+DISPLAY_LABEL = {
+    "bitcoin-alpha": "Bitcoin-alpha", "bitcoin-otc": "Bitcoin-otc", "epinions": "Epinions",
+    "slashdot090221": "Slashdot", "wiki-elec": "Wiki-elec", "wiki-rfa": "Wiki-RfA",
+}
 FWD_COLOR = "#2e75b6"
 BWD_COLOR = "#c0392b"
 HATCH = "//"

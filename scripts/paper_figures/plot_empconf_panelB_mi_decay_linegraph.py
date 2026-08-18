@@ -33,7 +33,10 @@ OUT_PNG = "aaai2027/figures/empconf_panelB_mi_decay_linegraph.png"
 DATASET_ORDER = ["bitcoin-alpha", "bitcoin-otc", "epinions", "slashdot090221", "wiki-elec", "wiki-rfa"]
 COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300"]
 MARKERS = ["o", "s", "^", "D", "v", "P"]
-DISPLAY_LABEL = {"slashdot090221": "slashdot"}  # shorter legend label only, internal key unchanged
+DISPLAY_LABEL = {
+    "bitcoin-alpha": "Bitcoin-alpha", "bitcoin-otc": "Bitcoin-otc", "epinions": "Epinions",
+    "slashdot090221": "Slashdot", "wiki-elec": "Wiki-elec", "wiki-rfa": "Wiki-RfA",
+}  # legend label only, internal key unchanged
 
 DATASET_RENAME = {"slashdot": "slashdot090221"}  # DATASET_CONFIGS key vs. paper name
 

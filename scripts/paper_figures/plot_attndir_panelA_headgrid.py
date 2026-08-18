@@ -26,9 +26,15 @@ NODE_COLOR = "#5b9bd5"
 EDGE_COLOR = "#f2a154"
 
 
+DISPLAY_LABEL = {
+    "bitcoin-alpha": "Bitcoin-alpha", "bitcoin-otc": "Bitcoin-otc", "epinions": "Epinions",
+    "slashdot090221": "Slashdot", "wiki-elec": "Wiki-elec", "wiki-rfa": "Wiki-RfA",
+}
+
+
 def main():
     rows = list(csv.DictReader(open(IN_CSV)))
-    dataset = rows[0]["dataset"]
+    dataset = DISPLAY_LABEL.get(rows[0]["dataset"], rows[0]["dataset"])
     layer = int(rows[0]["layer"])
     heads = sorted({int(r["head"]) for r in rows})
     window = max(abs(int(r["d"])) for r in rows)
