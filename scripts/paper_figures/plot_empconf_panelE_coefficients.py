@@ -90,7 +90,7 @@ def main():
 
     x = np.arange(len(TERM_ORDER))
     width = 0.62
-    fig, ax = plt.subplots(figsize=(7.4, 4.6))
+    fig, ax = plt.subplots(figsize=(7.4, 5.1))
 
     cum_pos = np.zeros(len(TERM_ORDER))
     cum_neg = np.zeros(len(TERM_ORDER))
@@ -125,16 +125,16 @@ def main():
 
     ax.axhline(0, color="black", linewidth=0.9, zorder=2)
     ax.set_xticks(x)
-    ax.set_xticklabels([TERM_DISPLAY[t] for t in TERM_ORDER], fontsize=10)
-    ax.tick_params(axis="y", labelsize=9)
-    ax.set_ylabel("stacked z-scored coefficient ($\\beta$)", fontsize=10)
-    ax.set_title("Which entropy term hurts SiGAT, by dataset", fontsize=11)
+    ax.set_xticklabels([TERM_DISPLAY[t] for t in TERM_ORDER], fontsize=15)
+    ax.tick_params(axis="y", labelsize=14)
+    ax.set_ylabel("stacked z-scored coefficient ($\\beta$)", fontsize=14)
+    ax.set_title("Which entropy term hurts SiGAT, by dataset", fontsize=16)
 
     dataset_handles, dataset_labels = ax.get_legend_handles_labels()
     hatch_handle = Patch(facecolor="white", edgecolor="#555", hatch="///",
                           label="not robust ($<$8/10 seeds sig.)")
-    ax.legend(handles=dataset_handles + [hatch_handle], fontsize=10, ncol=3,
-               loc="lower center", bbox_to_anchor=(0.5, -0.5), frameon=False)
+    ax.legend(handles=dataset_handles + [hatch_handle], fontsize=12.5, ncol=3,
+               loc="lower center", bbox_to_anchor=(0.5, -0.52), frameon=False)
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)

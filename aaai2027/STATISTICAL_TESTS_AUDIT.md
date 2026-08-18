@@ -31,7 +31,7 @@ generated artifact like the `figure_data/*.csv` files.
 | 3 | MI decay 178×–73,000× between distance 1 and 2–3 | Contributions #2, 6.1(A) | none (point ratios, real vs. null-shuffle control exists in the underlying script but isn't quoted) | adequate as a descriptive statistic | **State it plainly, no test** — it's a magnitude claim, not a comparison needing p-values |
 | 4 | Baseline AUC falls as endpoint entropy rises (bottleneck confirmation) | 6.1(B), Panel C | per-dataset 2-way ANOVA (src×tgt entropy bin, 10 seeds as replicates) | **done 2026-08-18** — both main effects sig. on all 6, interaction sig. on 5/6 (bitcoin-alpha underpowered) | Ready to cite in 6.1(B)'s rewrite; bitcoin-alpha's interaction result needs the sparsity caveat if quoted individually |
 | 5 | Entropy asymmetry: source lower than target on 4/6, reversed on 2/6 | 6.1(C) | one-sided Wilcoxon signed-rank per dataset + DerSimonian-Laird pooled random-effects | correct test, no FDR correction across the 6 per-dataset tests | **Keep as-is**, note FDR non-issue given p-value magnitudes (see below) |
-| 6 | Panel D (Fig. 2): sign-agreement bucketed AUC | 6.1(D)-adjacent / Figure 2 panel (D) caption | per-dataset dots, mean±SD over 10 seeds | **done 2026-08-18** — user picked the dots-per-dataset candidate; now wired into the combined figure and caption, replacing the pooled-bar version | No separate significance test attached to Panel D itself yet (distinct from the ANOVA on Panel B/C) — still open if the professor wants one |
+| 6 | Panel D (Fig. 2): sign-agreement bucketed AUC | 6.1(D)-adjacent / Figure 2 panel (D) caption | per-dataset dots, mean±SD over 10 seeds; paired Wilcoxon (same vs. diff) | **done 2026-08-18** — dots-per-dataset wired into the combined figure; paired test now done too: same>diff on all 6 datasets, both directions, p=0.001 throughout | Ready to state in the caption as a compact parenthetical — proposed wording pending your confirmation |
 | 7 | Panel E (Fig. 2): entropy-term coefficients, which term dominates error, per dataset | Figure 2 panel (E) caption | per-dataset: two-way cluster-robust SE + BH-FDR per seed, "robust" = significant in ≥8/10 seeds | **done 2026-08-18** — rebuilt as a per-dataset stacked bar (10-seed refit), citation gap still open | Keep new per-dataset test as-is; citation gap (`cameron2011robust`, `benjamini1995controlling`) still needs your sign-off before re-adding |
 | 8 | Ablation A: local attention matches/beats full on 4/6 datasets | 6.5(A) | "within reported standard errors" — informal eyeball | **needs a test added**, AND the "4/6" number itself is stale (real recompute shows 3/6, see plan Phase 4) | Fix/add cheaply — paired bootstrap across the 10 splits; fix the stale count in the same pass |
 | 9 | Ablation B: aggregator choice barely matters (spread < 0.0018 AUC) | 6.5(B), Table 2 | mean±std over 10 splits, spread vs. std comparison | **done 2026-08-18** — table rebuilt multiseed, spread tightened to 0.0018, an order of magnitude below the std | Formal paired-bootstrap on the 10-seed data is a nice-to-have, not needed — the spread-vs-std comparison already makes the point |
@@ -290,8 +290,36 @@ already settled regardless of which visual is chosen**: mean $\pm$ 1 SD (equival
 "Option 2" convention (per-split point, then average) used everywhere else in this project's
 multiseed work, not pooled raw predictions across seeds.
 
-**Recommendation:** pooled version — keep as-is, done. Per-dataset version — do not decide
-placement or exact chart type until the user reviews a candidate render.
+**Paired significance test — done 2026-08-18.** Per the professor's C-ter ask ("please have
+statistical tests for D and e"). Claim being tested: AUC is higher when a target edge's
+neighbor edges agree with its own sign (\emph{same}) than when they disagree (\emph{diff}).
+One-sided paired Wilcoxon signed-rank test across the 10 seeds (AUC$_\text{same}$ $-$
+AUC$_\text{diff}$ $>0$), per dataset, in and out directions separately — same test family
+already used for Table 1 and the entropy-asymmetry claim in 6.1(C), not a new convention.
+Reused the already-cached per-seed raw SiGAT predictions (`outputs/cache/
+sigat_raw_predictions/`, no refit) and the extract script's own bucketing logic — pure
+reduction of existing data. Result: **same $>$ diff on all 6 datasets, both directions
+(12/12), $p=0.001$ throughout** (the minimum achievable one-sided Wilcoxon $p$ at $n{=}10$ —
+a perfect sweep, same pattern as Table 1's paired test):
+
+| dataset | in: same | in: diff | in: $\Delta$ | out: same | out: diff | out: $\Delta$ |
+|---|---|---|---|---|---|---|
+| bitcoin-alpha | 0.964 | 0.619 | +0.344 | 0.894 | 0.776 | +0.118 |
+| bitcoin-otc | 0.948 | 0.638 | +0.310 | 0.949 | 0.827 | +0.122 |
+| epinions | 0.944 | 0.747 | +0.197 | 0.992 | 0.817 | +0.175 |
+| wiki-elec | 0.911 | 0.656 | +0.255 | 0.935 | 0.880 | +0.054 |
+| wiki-rfa | 0.890 | 0.658 | +0.232 | 0.926 | 0.862 | +0.064 |
+| slashdot090221 | 0.921 | 0.750 | +0.170 | 0.952 | 0.600 | +0.352 |
+
+All $p=0.0009766$. Script: `scripts/paper_figures/panelD_paired_significance.py`, data:
+`aaai2027/figure_data/panelD_paired_significance.csv`.
+
+**Recommendation:** pooled version — keep as-is, done. Paired test — clean, unambiguous
+result, ready to state in the caption as a compact parenthetical (proposed wording pending
+user confirmation). Per-dataset visualization — do not decide placement or exact chart type
+until the user reviews a candidate render (this is now moot for Figure 2 itself, since the
+per-dataset dots view was already adopted into the combined figure on 2026-08-18 — kept here
+as history of the decision process).
 
 ---
 
@@ -578,16 +606,16 @@ repo root; fixed, then reran and got the above). Script:
 **Decided 2026-08-18, user picked option (a), compact form — now in the tex.** Rather than
 stating "gain concentrates where the bound bites" as a uniform 6-dataset finding, Section 6.3's
 prose (right after the Figure 3 paragraph) now names only the two datasets where the regression
-is actually significant: "A per-dataset cluster-robust regression (clustered by split) of this
-delta on the source- and target-entropy bin midpoints finds a significant positive slope on both
-axes for Bitcoin-otc and on the source-entropy axis for Epinions (both $p<0.01$); the same
-regression is not significant on the other four datasets." Per the user's explicit instruction,
-this stays compact and does not itemize the other four datasets' individual coefficients/p-values
-(those remain in this audit doc's table above and in
-`aaai2027/figure_data/delta_heatmap_entropy_regression.csv` if needed for a supplementary table
-or a conversation with the professor) — slashdot090221's reversal on the target axis is likewise
-not called out in the main text. Options (b)/(c) from the original three (drop the framing
-entirely / investigate the bitcoin-otc-epinions split further) were not taken.
+is actually significant, in plain language with no statistical jargon (no "cluster-robust,"
+no explicit "not significant on the others" clause — toned down per direct user request): "Using
+a per-dataset regression of this delta on the source- and target-entropy bin midpoints, the
+effect is significant on both axes for Bitcoin-otc and on the source-entropy axis for Epinions
+(both $p<0.01$)." Per the user's explicit instruction, this stays compact and does not itemize
+the other four datasets' individual coefficients/p-values (those remain in this audit doc's
+table above and in `aaai2027/figure_data/delta_heatmap_entropy_regression.csv` if needed for a
+supplementary table or a conversation with the professor) — slashdot090221's reversal on the
+target axis is likewise not called out in the main text. Options (b)/(c) from the original three
+(drop the framing entirely / investigate the bitcoin-otc-epinions split further) were not taken.
 
 ---
 

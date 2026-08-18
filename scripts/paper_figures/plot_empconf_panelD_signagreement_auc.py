@@ -94,23 +94,23 @@ def plot_perdataset():
     spread = 0.5
     offsets = np.linspace(-spread / 2, spread / 2, n_ds)
 
-    fig, ax = plt.subplots(figsize=(7.2, 4.4))
+    fig, ax = plt.subplots(figsize=(7.2, 4.9))
     for off, ds in zip(offsets, DATASET_ORDER):
         aucs = [float(data[(ds, b)]["mean_auc"]) for b in BUCKET_ORDER]
         ses = [float(data[(ds, b)]["std_auc"]) for b in BUCKET_ORDER]
         ax.errorbar(x + off, aucs, yerr=ses, fmt=DATASET_MARKERS[ds], color=DATASET_COLORS[ds],
-                     markersize=6, capsize=3, linewidth=1.2, linestyle="none",
+                     markersize=8, capsize=3, linewidth=1.4, linestyle="none",
                      label=DATASET_DISPLAY[ds], zorder=3)
 
     ax.set_ylim(0.4, 1.05)
     ax.set_xticks(x)
-    ax.set_xticklabels([BUCKET_LABEL[b] for b in BUCKET_ORDER], fontsize=10)
+    ax.set_xticklabels([BUCKET_LABEL[b] for b in BUCKET_ORDER], fontsize=15)
     for xc in (x[:-1] + 0.5):
         ax.axvline(xc, color="#e1e0d9", linewidth=0.8, zorder=1)
-    ax.tick_params(axis="y", labelsize=9)
-    ax.set_ylabel("Test AUC", fontsize=10)
-    ax.set_title("SiGAT AUC by sign agreement, per dataset (mean $\\pm$ 1 SD, 10 splits)", fontsize=11)
-    ax.legend(fontsize=8, ncol=3, loc="lower center", bbox_to_anchor=(0.5, -0.32), frameon=False)
+    ax.tick_params(axis="y", labelsize=14)
+    ax.set_ylabel("Test AUC", fontsize=15)
+    ax.set_title("SiGAT AUC by sign agreement, per dataset (mean $\\pm$ 1 SD, 10 splits)", fontsize=16)
+    ax.legend(fontsize=12.5, ncol=3, loc="lower center", bbox_to_anchor=(0.5, -0.36), frameon=False)
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_PERDATASET_PNG), exist_ok=True)
