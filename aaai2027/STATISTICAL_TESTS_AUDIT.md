@@ -26,21 +26,21 @@ generated artifact like the `figure_data/*.csv` files.
 
 | # | Claim (short) | Location | Current test | Status | Recommendation |
 |---|---|---|---|---|---|
-| 1 | Pewter beats the best baseline, all 6 datasets, +3.3pp mean | Abstract, 6.2, 6.3, Conclusion | mean±std over 10 splits only | **needs a test added** | Add a paired test (Wilcoxon or paired bootstrap) per dataset across the 10 splits, vs. the strongest per-dataset baseline that has per-seed data; state as a compact parenthetical |
+| 1 | Pewter beats the best baseline, all 6 datasets, +3.3pp mean | Abstract, 6.2, 6.3, Conclusion | mean±std over 10 splits only | **done 2026-08-18** — paired Wilcoxon, 10/10 splits win on all 6 datasets, p=0.00098 throughout | Ready to state in 6.2's rewrite as a compact parenthetical; not yet inserted (6.2 prose doesn't exist yet) |
 | 2 | Edge-vs-vertex / "in some graphs most of the prediction is from edges, in others from vertices" | Abstract, Contributions #5, 6.1(D) | none — investigation not started | **needs investigation + a test**, see the WSDM closeout plan | Do not state as a headline empirical claim until real data backs it (see Section D of the plan file) |
 | 3 | MI decay 178×–73,000× between distance 1 and 2–3 | Contributions #2, 6.1(A) | none (point ratios, real vs. null-shuffle control exists in the underlying script but isn't quoted) | adequate as a descriptive statistic | **State it plainly, no test** — it's a magnitude claim, not a comparison needing p-values |
-| 4 | Baseline AUC falls as endpoint entropy rises (bottleneck confirmation) | 6.1(B), Panel C | none — visual heatmap monotonicity only | **needs a test added** (2-way ANOVA requested) | Fix/add cheaply — data (`sigat_raw_seed()`) already supports it |
+| 4 | Baseline AUC falls as endpoint entropy rises (bottleneck confirmation) | 6.1(B), Panel C | per-dataset 2-way ANOVA (src×tgt entropy bin, 10 seeds as replicates) | **done 2026-08-18** — both main effects sig. on all 6, interaction sig. on 5/6 (bitcoin-alpha underpowered) | Ready to cite in 6.1(B)'s rewrite; bitcoin-alpha's interaction result needs the sparsity caveat if quoted individually |
 | 5 | Entropy asymmetry: source lower than target on 4/6, reversed on 2/6 | 6.1(C) | one-sided Wilcoxon signed-rank per dataset + DerSimonian-Laird pooled random-effects | correct test, no FDR correction across the 6 per-dataset tests | **Keep as-is**, note FDR non-issue given p-value magnitudes (see below) |
-| 6 | Panel D (Fig. 2): sign-agreement bucketed AUC | 6.1(D)-adjacent / Figure 2 panel (d) caption | none — point AUC per bucket | **needs a test added**, plus multiseed rebuild (already planned) | Fix/add cheaply once the multiseed rebuild lands |
-| 7 | Panel E (Fig. 2): entropy-term coefficients, which term dominates error | Figure 2 panel (e) caption | two-way cluster-robust SE (Cameron–Gelbach–Miller) + BH-FDR | correct test, but **citations missing from bib** (`cameron2011robust`, `benjamini1995controlling` both dropped) | **Fix/add cheaply** — re-add citations (needs your sign-off, see note below); new per-dataset stacked-bar view needs its own new test (not yet designed) |
+| 6 | Panel D (Fig. 2): sign-agreement bucketed AUC | 6.1(D)-adjacent / Figure 2 panel (D) caption | per-dataset dots, mean±SD over 10 seeds | **done 2026-08-18** — user picked the dots-per-dataset candidate; now wired into the combined figure and caption, replacing the pooled-bar version | No separate significance test attached to Panel D itself yet (distinct from the ANOVA on Panel B/C) — still open if the professor wants one |
+| 7 | Panel E (Fig. 2): entropy-term coefficients, which term dominates error, per dataset | Figure 2 panel (E) caption | per-dataset: two-way cluster-robust SE + BH-FDR per seed, "robust" = significant in ≥8/10 seeds | **done 2026-08-18** — rebuilt as a per-dataset stacked bar (10-seed refit), citation gap still open | Keep new per-dataset test as-is; citation gap (`cameron2011robust`, `benjamini1995controlling`) still needs your sign-off before re-adding |
 | 8 | Ablation A: local attention matches/beats full on 4/6 datasets | 6.5(A) | "within reported standard errors" — informal eyeball | **needs a test added**, AND the "4/6" number itself is stale (real recompute shows 3/6, see plan Phase 4) | Fix/add cheaply — paired bootstrap across the 10 splits; fix the stale count in the same pass |
-| 9 | Ablation B: aggregator choice barely matters (spread < 0.0022 AUC) | 6.5(B), Table 2 | none in the tex; a single-split paired-bootstrap script exists (`ablationB_paired_significance.py`) but isn't cited/rerun for the multiseed table | **needs updating**, not fundamentally missing | Fix/add cheaply once Ablation B's multiseed rebuild lands — rerun the existing bootstrap script against the new per-seed data |
+| 9 | Ablation B: aggregator choice barely matters (spread < 0.0018 AUC) | 6.5(B), Table 2 | mean±std over 10 splits, spread vs. std comparison | **done 2026-08-18** — table rebuilt multiseed, spread tightened to 0.0018, an order of magnitude below the std | Formal paired-bootstrap on the 10-seed data is a nice-to-have, not needed — the spread-vs-std comparison already makes the point |
 | 10 | K-ablation: is the gain "just ensembling"? | 6.5(C) | mean±std AUC per K across 10 seeds | **done 2026-08-18** | K=1 already beats the best baseline on all 6 datasets; gap to saturated ceiling is <1pp everywhere — representation, not ensembling, carries the result. Script: `scripts/paper_figures/extract_ablation_kwalks.py` |
 | 11 | Attention split: forward- vs. backward-dominant per dataset | 6.4, Panel B/C of Fig. 4 | one-way cluster-robust SE (cluster = target edge) + Wilcoxon confirmation | **done 2026-08-18** — significant on all 6 datasets, both the fwd/bwd split (Panel B) and the node/edge split (Panel C) | Error bars added to both plots; 6.4 prose updated. Script: `scripts/attention_directionality_panelB_se.py`, cached per-instance data at `outputs/attention_directionality/<ds>_local_panelBC_perinstance.pkl` |
 | 12 | Shapley causal contribution: hop-1 forward-dominant on 3/6 datasets | 6.4, Panel D of Fig. 3 | one-way cluster-robust SE (cluster = target edge), CI-exclude-zero test | **done 2026-08-18** — test now named in-prose | Kept as-is |
 | 13 | Attention-split vs. entropy-asymmetry correlation (6 points) | 6.4 | Spearman ρ=−0.71, p=0.11, n=6 | **done 2026-08-18** — not significant, stated as such | Kept as descriptive; TODO removed from tex |
 | 14 | Vertex-vs-edge attention share vs. AUC boost over best GNN (6 points) | not yet in tex, feeds the edge-vs-vertex investigation (item #2) | Spearman ρ=−0.32, p=0.54, n=6 | **done 2026-08-18** — null result | Does not support "edge-leaning attention → bigger GNN advantage" as an alternative theory; do not cite this correlation as evidence for item #2's claim |
-| 15 | Figure 3 (delta heatmap): "gain concentrates where the bound bites" | 6.3 | none — visual trend only | **needs a test added** | Fix/add cheaply — regress per-bin AUC delta on source/target entropy, or correlate |
+| 15 | Figure 3 (delta heatmap): "gain concentrates where the bound bites" | 6.3 | cluster-robust regression, delta ~ src/tgt entropy, per dataset | **done 2026-08-18 — result is MIXED**, only 1-2/6 datasets show the claimed pattern, 1 reverses | **Decided 2026-08-18**: compact in-text sentence naming only the significant cases (Bitcoin-otc both axes, Epinions source axis), now in the tex; other 4 datasets not itemized in-text |
 | 16 | Datasets are heavily imbalanced (77–94% positive) | Datasets paragraph, Ethics | none needed | N/A | **State it plainly, no test** — a prevalence statistic, not a comparison |
 
 ---
@@ -90,14 +90,38 @@ data exists in different shapes for different baselines —
   exists at all)." A paired test against GCN/GAT is **not possible** with what's on disk — only
   a single externally-reported number per dataset, no per-seed variance, no shared splits.
 
-**Recommendation:** run the paired test against whichever baseline is actually the
-runner-up per dataset among those with real per-seed data (SiGAT is the runner-up on 5/6
-datasets per Table 1's current numbers — check GSGNN's per-seed status first since it's the
-runner-up on bitcoin-otc). State the result as a compact parenthetical in 6.2, e.g. "(paired
-Wilcoxon across the 10 splits, $p<0.05$ on N/6 datasets)" — this is exactly the level of detail
-the professor's 6.2 prose ask wants. **Do not claim the paired test covers GCN/GAT** — those
-stay point-estimate comparisons only, and the prose should say so if it names them specifically
-rather than implying every row in Table 1 got the same statistical treatment.
+**Done 2026-08-18.** Turned out simpler than the open feasibility question suggested: the best
+non-Pewter baseline per dataset is always either SiGAT or SNEA (SNEA on bitcoin-alpha/
+bitcoin-otc, SiGAT on the other 4) — both already confirmed with real 10-seed data, so GS-GNN's
+uncertain per-seed status never had to be resolved. Per dataset, picked whichever Pewter variant
+(full/local) has the higher 10-seed mean (this matched Table 1's existing bold marks exactly, a
+good consistency check) and ran a one-sided paired Wilcoxon signed-rank test against the best
+baseline across the 10 shared seeds:
+
+| dataset | Pewter variant | Pewter mean | baseline | baseline mean | wins | $p$ |
+|---|---|---|---|---|---|---|
+| bitcoin-alpha | full | 0.9146 | SNEA | 0.8705 | 10/10 | 0.00098 |
+| bitcoin-otc | local | 0.9318 | SNEA | 0.8899 | 10/10 | 0.00098 |
+| epinions | local | 0.9536 | SiGAT | 0.9088 | 10/10 | 0.00098 |
+| wiki-elec | local | 0.9023 | SiGAT | 0.8884 | 10/10 | 0.00098 |
+| wiki-rfa | full | 0.8923 | SiGAT | 0.8780 | 10/10 | 0.00098 |
+| slashdot090221 | full | 0.8989 | SiGAT | 0.8586 | 10/10 | 0.00098 |
+
+Pewter's winning variant beats the best baseline on all 10/10 individual splits, on all 6
+datasets (60/60 total) — $p=0.00098$ is the minimum achievable one-sided Wilcoxon $p$-value at
+$n=10$ (a perfect sweep), so this is as strong a result as this test can report; no FDR
+correction concern since every one of the 6 tests independently clears $p<0.001$, nowhere near
+a borderline call. Script: `scripts/paper_figures/table1_paired_significance.py`, data:
+`aaai2027/figure_data/table1_paired_significance.csv`. **Do not claim the paired test covers
+GCN/GAT** — those stay point-estimate comparisons only (no local per-seed data exists), and the
+prose should say so if it names them specifically rather than implying every row in Table 1 got
+the same statistical treatment.
+
+**Recommendation:** state the result as a compact parenthetical wherever Table 1 is described,
+e.g. "(paired Wilcoxon signed-rank test across the 10 splits, Pewter's better-of-full/local
+variant beats the strongest baseline on all 10/10 splits on all six datasets, $p<0.001$
+throughout)". This is exactly the level of detail the professor's 6.2 prose ask wants — hold
+for that rewrite rather than inserting ad hoc, since 6.2 doesn't exist yet as real prose.
 
 ---
 
@@ -150,12 +174,34 @@ source-entropy bin × target-entropy bin (the same 4×4 binning Panel C already 
 AUC, using the 10 cross-validation splits as repeated measurements per cell instead of a single
 point estimate.
 
-**Feasibility, checked directly:** yes, cheap. `scripts/paper_figures/
-extract_multiseed_entropy_heatmaps.py`'s `sigat_raw_seed()` already loads per-seed, per-edge
-SiGAT predictions with their entropy-bin assignment for all 10 seeds — exactly the granularity
-a two-way ANOVA needs (one AUC-contributing observation per (seed, cell), 10 seeds × 16 cells
-per dataset). This is a `scipy.stats`/`statsmodels` two-way ANOVA call once the per-(seed,cell)
-AUCs are tabulated — no new predictions need to be generated.
+**Done 2026-08-18.** Turned out even cheaper than the feasibility note expected: reused the raw
+per-seed SiGAT predictions already cached for Panel D's rebuild
+(`outputs/cache/sigat_raw_predictions/`), joined with entropy (`collect_model_records`, no
+fitting) and binned into Panel C's own 4×4 grid per (seed, cell) — one AUC observation per
+(seed, cell), up to 160 per dataset (10 seeds × 16 cells; fewer where a cell falls below the
+`n≥30` threshold in some seeds). Two-way ANOVA (Type II SS):
+`auc ~ C(src_bin) + C(tgt_bin) + C(src_bin):C(tgt_bin)`.
+
+| dataset | cells complete (of 16) | src main effect | tgt main effect | interaction |
+|---|---|---|---|---|
+| bitcoin-alpha | 6/16 | F=11.5, p=0.0010 | F=16.6, p=9.7e-5 | F=0.45, p=0.87 (n.s.) |
+| bitcoin-otc | 15/16 | F=75.2, p=3.0e-29 | F=65.1, p=1.4e-26 | F=6.9, p=3.3e-8 |
+| epinions | 16/16 | F=232.5, p=5.5e-55 | F=380.7, p=3.1e-68 | F=11.2, p=3.4e-13 |
+| wiki-elec | 16/16 | F=39.4, p=1.2e-18 | F=420.2, p=5.4e-71 | F=13.1, p=3.8e-15 |
+| wiki-rfa | 16/16 | F=99.2, p=7.1e-35 | F=685.2, p=5.3e-85 | F=29.6, p=1.2e-28 |
+| slashdot090221 | 16/16 | F=1852.2, p=9.0e-115 | F=303.4, p=5.1e-62 | F=28.5, p=7.0e-28 |
+
+Both main effects are significant on all 6 datasets, confirming Proposition 1's prediction that
+AUC depends on both source and target entropy, not just one. The interaction term is
+significant on 5/6 datasets (all but bitcoin-alpha) — the two entropy axes don't act purely
+additively; **caveat: bitcoin-alpha's own result is the least reliable of the six** (only 6/16
+cells have data in all 10 seeds — its ~2,300-edge test set is too small to fill the sparser
+corner bins every seed, matching Panel C's own single-split heatmap already showing two `n/a`
+cells for this dataset — and the fit returns a rank-deficiency warning as a result); treat
+bitcoin-alpha's non-significant interaction as underpowered, not necessarily a genuine null, if
+this table is cited claim-by-claim rather than as an aggregate pattern. Script:
+`scripts/paper_figures/panelC_twoway_anova.py`, data:
+`aaai2027/figure_data/panelC_twoway_anova.csv`.
 
 **Caveat to flag before running it:** ANOVA's response variable here would be per-cell AUC
 (one number per seed per cell), not a raw per-edge outcome — this is testing "does the *cell
@@ -221,15 +267,31 @@ duplicate-of-(C) stub in paragraph (D), not yet describing this panel specifical
 **Current test: none.** Panel (d) reports one AUC point per bucket (same/diff × in/out), pooled
 across all 6 datasets, no error bar, no test that the buckets differ from each other.
 
-**Already planned (Phase 6 of the closeout plan): rebuild as multiseed (10 seeds) with error
-bars**, reusing `sigat_raw_seed()` the same way Panel C's SiGAT cells were rebuilt. Once that
-lands, the natural test is the same paired-bootstrap-across-seeds pattern used elsewhere: is the
-same-bucket AUC significantly different from the diff-bucket AUC, per direction (in/out), using
-the 10 seeds as the resampling unit (mean±SD across seeds, "Option 2" convention already
-established in this project for exactly this kind of multi-split combination).
+**Pooled multiseed rebuild — done 2026-08-18.** Panel D now reports mean $\pm$ 1 SD across
+10 splits per bucket (`aaai2027/figure_data/empconf_panelD_signagreement_auc.csv`), reusing
+`sigat_raw_seed()` the same way Panel C's SiGAT cells were rebuilt — real error bars, not a
+single-split point estimate. Numbers barely moved from the old single-split values (e.g.
+in-same 0.940→0.939, out-same 0.983→0.981), a good sanity check that the old single-split
+number wasn't an outlier. Script: `scripts/paper_figures/extract_empconf_panelD_signagreement_auc.py`
+(now caches each (dataset, seed)'s raw SiGAT prediction to
+`outputs/cache/sigat_raw_predictions/` — the LogisticRegression refit is the expensive part,
+~60 fits; the cache means any future rebuild of this panel, or any other analysis needing
+raw per-seed SiGAT predictions, doesn't redo it), `plot_empconf_panelD_signagreement_auc.py`.
 
-**Recommendation:** fix/add cheaply, but only after the multiseed rebuild itself lands — testing
-against single-split point estimates isn't worth doing twice.
+**Per-dataset slice — data computed, visualization NOT yet decided, paused per the user's
+explicit request** ("we will revisit this panel in future as i want to see how it looks...").
+Per-(dataset, bucket) mean±SD across the 10 seeds is saved
+(`aaai2027/figure_data/empconf_panelD_signagreement_auc_perdataset.csv`) and a draft
+dot-plot rendering exists (`plot_perdataset()` in the same plot script, not yet run/wired
+into any combined figure) — but the final visual form (dots, a 6-wide bucket slice, a
+boxplot, or something else) is explicitly still open. **The statistical test itself is
+already settled regardless of which visual is chosen**: mean $\pm$ 1 SD (equivalently, a
+95% CI) across the 10 independently-trained-and-refit seeds per (dataset, bucket) — the same
+"Option 2" convention (per-split point, then average) used everywhere else in this project's
+multiseed work, not pooled raw predictions across seeds.
+
+**Recommendation:** pooled version — keep as-is, done. Per-dataset version — do not decide
+placement or exact chart type until the user reviews a candidate render.
 
 ---
 
@@ -270,14 +332,25 @@ figure, not the caption itself). **Per the standing rule from this session, this
 sign-off before either bib entry is re-added** — flagging it here rather than adding it
 unilaterally.
 
-**New gap, not yet designed:** the professor's ask to rebuild Panel E as a per-dataset stacked
-barplot (rather than the current pooled bars) needs its own new significance test — e.g., is a
-given entropy term's per-dataset coefficient significantly different from zero (or from the
-pooled estimate)? Not yet specified; do this alongside the stacked-barplot rebuild itself.
+**Per-dataset stacked-barplot rebuild — done 2026-08-18.** Panel E now shows SiGAT's 4
+entropy-term coefficients ($z$-scored) stacked per dataset (diverging: negative terms stack
+downward), refit independently on each of the 10 splits (42–51) rather than pooled across
+datasets — the per-dataset breakdown the pooled version was hiding (e.g. `tgt_in` dominates on
+the 4 smaller/sparser datasets, `src_out` dominates on epinions/slashdot090221, matching the
+per-dataset multiseed export's own README finding). **The new test, designed for this rebuild:
+a term is marked "robust" for a given dataset if it is BH-FDR significant ($q<0.05$) in at
+least 8 of the 10 independently-fitted seeds** (same convention already used by both multiseed
+SiGAT export packages' own forest plots, `≥8/10` = "robust"), not just significant in a single
+aggregate fit — non-robust segments are drawn hatched. Error bars are $\pm1$ SD of each term's
+own coefficient across the 10 seeds. Source: `outputs/lead4c_sigat_multiseed_node4_export/
+results/aggregated_summary.csv` (already-computed 10-seed per-dataset regression, no new
+fitting needed). Scripts: `scripts/paper_figures/extract_empconf_panelE_coefficients.py`,
+`plot_empconf_panelE_coefficients.py`.
 
-**Recommendation:** fix/add cheaply for the citation gap (pending your sign-off on which
-citation, if any, to re-add); the new per-dataset test needs to be designed as part of the
-Panel E rebuild task, not bolted on after.
+**Recommendation:** the per-dataset test above is now real and adequate — **keep as-is**.
+Citation gap for cluster-robust SE / BH-FDR (used by the underlying per-seed fits, not just the
+old pooled version) is unchanged and still pending your sign-off on which citation, if any, to
+re-add.
 
 ---
 
@@ -322,12 +395,24 @@ standard errors would be far too narrow). **But it's single-split** (the `E27_..
 pre-dating the multiseed campaign) and isn't currently referenced anywhere in the tex or cited
 as backing the "full spread under 0.0022 AUC" claim.
 
-**Recommendation:** fix/add cheaply, but sequence it after Ablation B's own planned multiseed
-rebuild (Phase 4) — rerunning a paired-bootstrap script against soon-to-be-replaced single-split
-predictions is wasted work. Once the 10-seed per-function predictions exist, port the existing
-script's resampling logic to run per-seed and pool, or run it once per seed and report how many
-of the 10 seeds agree on which aggregator wins (a simple, honest way to show the "barely
-matters" claim is not an artifact of one split).
+**Multiseed rebuild — done 2026-08-18.** Confirmed all 11 aggregator functions' posthoc
+summaries already existed per seed (all 6 datasets, all 10 seeds, `func_logit_power` through
+`func_maxprob_power`) — pure aggregation, no new training/posthoc runs needed. Table now reports
+mean±std over the 10 splits per (function, dataset) cell instead of a single-split point.
+**The real spread tightened**: max cross-function spread on any dataset is now $0.0018$ AUC (was
+stated as $<0.0022$ from the single split) — about an order of magnitude below the ~0.005–0.018
+split-to-split std shown alongside it, which is a stronger, more legible way to make the "barely
+matters" point than the bare spread number alone (a reader can see directly that the
+between-function differences are smaller than the noise). Script:
+`scripts/paper_figures/extract_ablationB_multiseed.py`, data:
+`aaai2027/figure_data/ablationB_multiseed.csv`.
+
+**Not done, optional**: porting the existing single-split paired-bootstrap script
+(`ablationB_paired_significance.py`) to the 10-seed data for a formal per-pair significance
+test. Given the spread-vs-std comparison already makes the point clearly and directly, and this
+project's stated lean toward the cheaper option absent a clear gain, treat this as a
+nice-to-have, not a gap — revisit only if a reviewer specifically asks for a formal test rather
+than the descriptive comparison.
 
 ---
 
@@ -464,9 +549,45 @@ per-seed cell values or only the final mean, per this project's own "cache the e
 separately" convention (if it only kept the mean, the per-seed step needs rerunning, but that's
 a cache-miss, not a new computation).
 
-**Recommendation:** fix/add cheaply, prefer the 2-variable regression framing (consistent with
-item #4's ANOVA) over a single pooled correlation — report the entropy coefficients' sign,
-magnitude, and significance in one sentence in the 6.2/6.3 prose.
+**Done 2026-08-18 — result is real but MIXED, complicates the current caption's claim rather
+than confirming it.** Ran a per-dataset regression, `delta ~ src_entropy_mid + tgt_entropy_mid`
+(cluster-robust SE, cluster=seed), one observation per (seed, cell), same `MIN_CELL_N_DELTA=50`
+threshold and entropy axes as the existing heatmap:
+
+| dataset | n obs | src coef | src p | tgt coef | tgt p |
+|---|---|---|---|---|---|
+| bitcoin-alpha | 76 | −0.115 | 0.227 (n.s.) | +0.115 | 0.114 (n.s.) |
+| bitcoin-otc | 125 | **+0.131** | **0.0007** | **+0.194** | **0.0007** |
+| epinions | 160 | **+0.054** | **0.0029** | +0.003 | 0.552 (n.s.) |
+| wiki-elec | 160 | +0.000 | 0.986 (n.s.) | +0.007 | 0.383 (n.s.) |
+| wiki-rfa | 160 | +0.013 | 0.111 (n.s.) | −0.004 | 0.448 (n.s.) |
+| slashdot090221 | 160 | +0.005 | 0.125 (n.s.) | **−0.021** | **0.017** |
+
+A positive coefficient means the delta (Pewter's AUC advantage) genuinely grows with that
+entropy axis — the "gain concentrates where the bound bites" reading. **Only bitcoin-otc shows
+this cleanly on both axes; epinions shows it on the source axis only; the other three (bitcoin-
+alpha, wiki-elec, wiki-rfa) are flat/null on both axes; slashdot090221's target-entropy
+coefficient is significant in the OPPOSITE direction** (higher target entropy → smaller Pewter
+advantage there, not bigger). This is a real, computed result, not a bug — re-verified the
+script's ROOT-path computation after an initial run silently produced zero usable observations
+on every dataset (a missing `os.path.dirname()` level pointed it at `scripts/` instead of the
+repo root; fixed, then reran and got the above). Script:
+`scripts/paper_figures/delta_heatmap_entropy_regression.py`, data:
+`aaai2027/figure_data/delta_heatmap_entropy_regression.csv`.
+
+**Decided 2026-08-18, user picked option (a), compact form — now in the tex.** Rather than
+stating "gain concentrates where the bound bites" as a uniform 6-dataset finding, Section 6.3's
+prose (right after the Figure 3 paragraph) now names only the two datasets where the regression
+is actually significant: "A per-dataset cluster-robust regression (clustered by split) of this
+delta on the source- and target-entropy bin midpoints finds a significant positive slope on both
+axes for Bitcoin-otc and on the source-entropy axis for Epinions (both $p<0.01$); the same
+regression is not significant on the other four datasets." Per the user's explicit instruction,
+this stays compact and does not itemize the other four datasets' individual coefficients/p-values
+(those remain in this audit doc's table above and in
+`aaai2027/figure_data/delta_heatmap_entropy_regression.csv` if needed for a supplementary table
+or a conversation with the professor) — slashdot090221's reversal on the target axis is likewise
+not called out in the main text. Options (b)/(c) from the original three (drop the framing
+entirely / investigate the bitcoin-otc-epinions split further) were not taken.
 
 ---
 

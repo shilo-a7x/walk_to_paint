@@ -20,23 +20,23 @@ uncertainty explained by context" scale.
 """
 import csv
 import os
+import sys
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from dataset_style import DATASET_ORDER, DATASET_COLORS, DATASET_MARKERS, DATASET_DISPLAY
+
 UNDIRECTED_CSV = "aaai2027/figure_data/empconf_panelB_mi_decay_linegraph.csv"
 DIRECTED_CSV = "aaai2027/figure_data/empconf_panelB_mi_decay_linegraph_directed.csv"
 OUT_PNG = "aaai2027/figures/empconf_panelB_mi_decay_linegraph.png"
 
-DATASET_ORDER = ["bitcoin-alpha", "bitcoin-otc", "epinions", "slashdot090221", "wiki-elec", "wiki-rfa"]
-COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300"]
-MARKERS = ["o", "s", "^", "D", "v", "P"]
-DISPLAY_LABEL = {
-    "bitcoin-alpha": "Bitcoin-alpha", "bitcoin-otc": "Bitcoin-otc", "epinions": "Epinions",
-    "slashdot090221": "Slashdot", "wiki-elec": "Wiki-elec", "wiki-rfa": "Wiki-RfA",
-}  # legend label only, internal key unchanged
+COLORS = [DATASET_COLORS[ds] for ds in DATASET_ORDER]
+MARKERS = [DATASET_MARKERS[ds] for ds in DATASET_ORDER]
+DISPLAY_LABEL = DATASET_DISPLAY  # legend label only, internal key unchanged
 
 DATASET_RENAME = {"slashdot": "slashdot090221"}  # DATASET_CONFIGS key vs. paper name
 

@@ -1,0 +1,67 @@
+dataset,func,display,mean_auc,std_auc,n_seeds,rank
+bitcoin-alpha,func_uniform,Uniform (mean),0.91334,0.017202725882190233,10,
+bitcoin-alpha,func_conf_power,$q^b$,0.91384,0.01744752131392881,10,best
+bitcoin-alpha,func_conf_exp,$\exp(bq)$,0.91304,0.017557663727146497,10,
+bitcoin-alpha,func_conf_cert,$|q-0.5|^b$,0.91345,0.01713172819977923,10,
+bitcoin-alpha,func_conf_logit,$\mathrm{sig}(b(q-0.5))$,0.91354,0.017422284580387252,10,second
+bitcoin-alpha,func_logq_power,$(-\log q)^b$,0.91201,0.017160124967169944,10,
+bitcoin-alpha,func_logit_power,$|\mathrm{logit}(q)|^b$ (default),0.91343,0.017279084980917753,10,
+bitcoin-alpha,func_entropy_power,$(\ln2-H(q))^b$,0.91338,0.01711586658305352,10,
+bitcoin-alpha,func_entropy_exp,$\exp(-aH(q))$,0.91326,0.016875965815982868,10,
+bitcoin-alpha,func_fisher_power,$(q(1-q))^{-b}$ (Fisher-info),0.9125300000000001,0.01704341189107653,10,
+bitcoin-alpha,func_maxprob_power,"$\max(q,1-q)^b$",0.91348,0.017177750467133684,10,
+bitcoin-otc,func_uniform,Uniform (mean),0.93173,0.006483491857530695,10,
+bitcoin-otc,func_conf_power,$q^b$,0.93168,0.006589351679456458,10,
+bitcoin-otc,func_conf_exp,$\exp(bq)$,0.93186,0.0065943073092545905,10,best
+bitcoin-otc,func_conf_cert,$|q-0.5|^b$,0.9318299999999999,0.006511707405384031,10,second
+bitcoin-otc,func_conf_logit,$\mathrm{sig}(b(q-0.5))$,0.93181,0.0065678425343148675,10,
+bitcoin-otc,func_logq_power,$(-\log q)^b$,0.93175,0.006818642745362797,10,
+bitcoin-otc,func_logit_power,$|\mathrm{logit}(q)|^b$ (default),0.93175,0.006503546041284777,10,
+bitcoin-otc,func_entropy_power,$(\ln2-H(q))^b$,0.93177,0.006537762104369751,10,
+bitcoin-otc,func_entropy_exp,$\exp(-aH(q))$,0.93173,0.006494108441075206,10,
+bitcoin-otc,func_fisher_power,$(q(1-q))^{-b}$ (Fisher-info),0.93179,0.00659738163550089,10,
+bitcoin-otc,func_maxprob_power,"$\max(q,1-q)^b$",0.9318,0.00647833997941516,10,
+epinions,func_uniform,Uniform (mean),0.95282,0.0013489090241953193,10,
+epinions,func_conf_power,$q^b$,0.95304,0.0014151560573543354,10,
+epinions,func_conf_exp,$\exp(bq)$,0.95283,0.0013482910994621678,10,
+epinions,func_conf_cert,$|q-0.5|^b$,0.95338,0.001510555453393817,10,
+epinions,func_conf_logit,$\mathrm{sig}(b(q-0.5))$,0.95282,0.0013489090241953193,10,
+epinions,func_logq_power,$(-\log q)^b$,0.9531,0.0013767917618708865,10,
+epinions,func_logit_power,$|\mathrm{logit}(q)|^b$ (default),0.95365,0.001534238863048681,10,
+epinions,func_entropy_power,$(\ln2-H(q))^b$,0.95343,0.0015290156601189236,10,
+epinions,func_entropy_exp,$\exp(-aH(q))$,0.95367,0.0015114746294779794,10,second
+epinions,func_fisher_power,$(q(1-q))^{-b}$ (Fisher-info),0.95372,0.0015425808100568263,10,best
+epinions,func_maxprob_power,"$\max(q,1-q)^b$",0.95349,0.001502183595821623,10,
+wiki-elec,func_uniform,Uniform (mean),0.90221,0.003228845682971611,10,
+wiki-elec,func_conf_power,$q^b$,0.9025,0.003191655787622885,10,best
+wiki-elec,func_conf_exp,$\exp(bq)$,0.90238,0.003248178977006442,10,
+wiki-elec,func_conf_cert,$|q-0.5|^b$,0.90229,0.0031532875260943494,10,
+wiki-elec,func_conf_logit,$\mathrm{sig}(b(q-0.5))$,0.90234,0.0032438660062750154,10,
+wiki-elec,func_logq_power,$(-\log q)^b$,0.9023100000000001,0.003230221870604757,10,
+wiki-elec,func_logit_power,$|\mathrm{logit}(q)|^b$ (default),0.90233,0.003126250860766689,10,
+wiki-elec,func_entropy_power,$(\ln2-H(q))^b$,0.90229,0.003156105194698047,10,
+wiki-elec,func_entropy_exp,$\exp(-aH(q))$,0.90238,0.0031054790290710437,10,
+wiki-elec,func_fisher_power,$(q(1-q))^{-b}$ (Fisher-info),0.9024,0.003138647975022226,10,second
+wiki-elec,func_maxprob_power,"$\max(q,1-q)^b$",0.90236,0.0031510844694062606,10,
+wiki-rfa,func_uniform,Uniform (mean),0.89136,0.004545620603027331,10,
+wiki-rfa,func_conf_power,$q^b$,0.89142,0.004529851604142844,10,
+wiki-rfa,func_conf_exp,$\exp(bq)$,0.8913800000000001,0.004531568283840712,10,
+wiki-rfa,func_conf_cert,$|q-0.5|^b$,0.89141,0.004585108747044295,10,
+wiki-rfa,func_conf_logit,$\mathrm{sig}(b(q-0.5))$,0.89137,0.004526232183370372,10,
+wiki-rfa,func_logq_power,$(-\log q)^b$,0.89138,0.004539407695087777,10,
+wiki-rfa,func_logit_power,$|\mathrm{logit}(q)|^b$ (default),0.89143,0.004578949418565101,10,
+wiki-rfa,func_entropy_power,$(\ln2-H(q))^b$,0.89141,0.004585108747044295,10,
+wiki-rfa,func_entropy_exp,$\exp(-aH(q))$,0.89145,0.004566605839010944,10,best
+wiki-rfa,func_fisher_power,$(q(1-q))^{-b}$ (Fisher-info),0.89144,0.004530440253318532,10,second
+wiki-rfa,func_maxprob_power,"$\max(q,1-q)^b$",0.89143,0.004576279420373414,10,
+slashdot090221,func_uniform,Uniform (mean),0.89673,0.0015944696087832383,10,
+slashdot090221,func_conf_power,$q^b$,0.89676,0.0015629032812898933,10,
+slashdot090221,func_conf_exp,$\exp(bq)$,0.89671,0.001605165273595087,10,
+slashdot090221,func_conf_cert,$|q-0.5|^b$,0.8967700000000001,0.0015937726033255657,10,
+slashdot090221,func_conf_logit,$\mathrm{sig}(b(q-0.5))$,0.89671,0.001605165273595087,10,
+slashdot090221,func_logq_power,$(-\log q)^b$,0.89673,0.00161386354923692,10,
+slashdot090221,func_logit_power,$|\mathrm{logit}(q)|^b$ (default),0.89681,0.0015996180099566949,10,
+slashdot090221,func_entropy_power,$(\ln2-H(q))^b$,0.8967700000000001,0.001593075292912714,10,
+slashdot090221,func_entropy_exp,$\exp(-aH(q))$,0.89686,0.0016036070452438132,10,second
+slashdot090221,func_fisher_power,$(q(1-q))^{-b}$ (Fisher-info),0.8968700000000001,0.0016445532997004322,10,best
+slashdot090221,func_maxprob_power,"$\max(q,1-q)^b$",0.8968,0.0015902480589168883,10,

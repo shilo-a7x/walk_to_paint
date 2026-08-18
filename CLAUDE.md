@@ -979,6 +979,148 @@ OPEN WORKSTREAMS — audited 2026-07-19 (see plan files in ~/.claude/plans/):
     confirmed clean (pooled across datasets, no per-dataset labels currently — will
     need the same treatment if/when Panel E's planned per-dataset stacked-bar rebuild
     lands). All 4 figures regenerated; verified visually consistent.
+- **2026-08-18: Panel E (`fig:empconf-panels`) rebuilt as a per-dataset, 10-seed stacked
+  bar chart, and figure panel labels canonicalized to uppercase (A)/(B)/(C)/... across the
+  whole paper.** Panel E previously showed one pooled grouped-bar (SiGAT's 4 entropy-term
+  coefficients averaged across all 6 datasets), which hid the per-dataset pattern that's
+  the actual point of the panel (`tgt_in` dominates on the 4 smaller/sparser datasets,
+  `src_out` dominates on epinions/slashdot090221 — see
+  `outputs/lead4c_sigat_multiseed_node4_export/README.md` §4.3). Rebuilt as a diverging
+  stacked bar (one stack per dataset, one segment per term), sourced directly from that
+  already-computed 10-seed per-dataset export (`results/aggregated_summary.csv`) — no new
+  model fitting. New significance convention for this panel: a term is "robust" for a
+  given dataset if BH-FDR significant in ≥8/10 seeds (matches the export package's own
+  forest-plot convention), non-robust segments drawn hatched; error bars are ±1 SD across
+  seeds per term. Scripts: `scripts/paper_figures/extract_empconf_panelE_coefficients.py`,
+  `plot_empconf_panelE_coefficients.py`. Audit updated: `STATISTICAL_TESTS_AUDIT.md` item
+  #7 now done. **Separately, per the professor's C-ter instruction ("please have A,B,C,D,...
+  in capital") plus an explicit user follow-up to apply it paper-wide**: every panel-letter
+  reference — both figure captions (`fig:empconf-panels` (A)-(E), `fig:attndir` (A)-(D)) and
+  every in-prose cross-reference (`Figure~\ref{fig:empconf-panels}A`, `Panel (D)`, etc.) —
+  was swapped from lowercase to uppercase, and both combine scripts
+  (`combine_empconf_panels_abcde.py`, `combine_attndir_panels.py`) now overlay uppercase
+  labels on the rendered PNGs to match. Verified via grep: zero lowercase `(a)`-`(e)` panel
+  refs remain (the one surviving `(e)` match, line 109, is the math variable for "edge $e$",
+  unrelated). **Note, not yet resolved**: Section 6.1's prose paragraph headers
+  (`\paragraph{(A) Information decays...}`, etc.) already used uppercase letters before this
+  change, for an unrelated numbering scheme (4 prose subsections, not the 5 image panels) —
+  the two schemes can now both show "(A)"/"(B)" for different things in the same section;
+  flagged to the user, not unified (paragraph (D) is still an unfinished stub pending the
+  edge-vs-vertex investigation, so touching that scheme now would be premature). **New
+  shared module**: `scripts/paper_figures/dataset_style.py` — one canonical
+  `DATASET_ORDER`/`DATASET_DISPLAY`/`DATASET_COLORS`/`DATASET_MARKERS` mapping, reusing the
+  colors `plot_empconf_panelB_mi_decay_linegraph.py` already picked (values unchanged, now
+  imported rather than redefined) so any script needing per-dataset colors has one place to
+  get them from. **Two corrections, same day, per direct user feedback on the first Panel E
+  render:** (1) Panel E's x-axis tick labels were initially colored/bolded per dataset via
+  this module; reverted to default (no color, no bold) -- coloring the axis text read as
+  messy for a panel whose bar segments are already colored by *term*, not dataset, so Panel E
+  now imports only `DATASET_ORDER`/`DATASET_DISPLAY` (name/order, no color) from the shared
+  module. (2) the 4 entropy terms' stacking/legend order, initially sorted by coefficient
+  magnitude (`tgt_in, src_out, src_in, tgt_out`), was reverted to the standard position-based
+  order matching Panel A's schematic (`src_out, src_in, tgt_out, tgt_in` = H_out(-1),
+  H_in(-1), H_out(1), H_in(1) -- source position first, target position second, out before in
+  within each) -- the magnitude order was confusing to read against Panel A. `DATASET_COLORS`
+  is still the intended source for Panel D's planned per-dataset dot colors (see the K-ablation/
+  Panel D item below) -- the tick-label revert is Panel-E-specific, not a retraction of the
+  shared-module idea. **Third correction, same day, layout-level (not just styling)**: the
+  very first stacked-bar rebuild put datasets on the x-axis (6 bars, one per dataset, each
+  stacked by term) -- the user caught this as wrong ("i thought that stacked barplot still
+  need to show same bars like before but devided to the datasets. aint it? not 6 bars"). Fixed
+  to keep the SAME 4-term x-axis as the pre-rebuild panel, with each term's single bar now
+  stacked into 6 dataset segments instead of one pooled bar -- this is also what finally gives
+  `DATASET_COLORS` a real purpose (segment fill color = dataset), which is what "keep dataset
+  colors consistent" was about from the start; the axis-tick-coloring revert above was a
+  symptom of the same underlying layout mistake, not an unrelated styling call.
+- **2026-08-18, later same day: Panel E's real "gap" bug found and fixed (an earlier
+  border-seam theory was wrong).** The user reported the first gap fix didn't work. Printing
+  the actual computed bar boundaries found the true cause: `plot_empconf_panelE_coefficients.py`
+  computed `bottoms = np.where(betas >= 0, cum_pos, cum_neg + betas)` for the stacked segments
+  -- but matplotlib's `bar(bottom=B, height=H)` already spans `[B, B+H]`, so adding `betas` to
+  `bottom` on top of using it as `height` double-counted it, shifting every negative segment
+  down by its own value. Verified numerically before/after: Bitcoin-alpha's `H_out(-1)`
+  segment rendered as `[-1.96, -0.98]` instead of the correct `[-0.98, 0.00]`; downstream
+  segments then landed at essentially arbitrary overlaps (invisible, since the later segment
+  just paints over the earlier one) or gaps (visible) depending on each pair's specific
+  magnitude -- explaining why only one gap was visible in the first render even though the bug
+  affected every segment. Fixed by removing the erroneous `+ betas`; re-verified by cropping
+  and 4x-zooming the rendered PNG at the actual segment boundaries, not just eyeballing the
+  full figure. **Also added, same pass**: an explicit legend entry (hatch-pattern proxy patch)
+  stating what the hatched/white-fill segments mean (not robust: BH-FDR significant in fewer
+  than 8/10 seeds) -- previously only in the docstring/caption, not the figure itself.
+- **2026-08-18, later same day: Panel D (Fig. 2) rebuilt as multiseed; per-dataset
+  visualization candidates generated, not yet chosen.** Pooled bars (the panel already in the
+  paper) now show real mean ± 1 SD over 10 splits instead of a single-split point estimate,
+  reusing `sigat_raw_seed()` -- numbers barely moved from the old single-split values (e.g.
+  in-same 0.940→0.939), a good sanity check. **Added a raw-prediction cache**
+  (`outputs/cache/sigat_raw_predictions/<ds>__seed<N>.pkl`, 60 files) since SiGAT only ever
+  saves node embeddings, never a final per-edge prediction array -- getting an actual
+  probability requires a fresh `LogisticRegression` refit per (dataset, seed), which is genuinely
+  slow (~a few minutes for all 60) and was previously being redone from scratch by every
+  separate analysis that needed it (Table 1's SiGAT row, the entropy heatmaps, and now this
+  panel). The cache decouples that one-time cost from any downstream analysis; it's now
+  populated, so future work needing raw per-seed SiGAT predictions is instant. **Per-dataset
+  breakdown**: data computed (`aaai2027/figure_data/empconf_panelD_signagreement_auc_perdataset.csv`)
+  and 4 candidate visualizations rendered to `aaai2027/figures/panelD_candidates/`
+  (`panelD_candidate_{dots,groupedbar,boxstrip,heatmap}.png`, script
+  `scripts/paper_figures/panelD_perdataset_candidates.py`) -- same "generate options, let the
+  user pick" pattern as the existing `aaai2027/figures/panelA_candidates/`. **Not yet decided
+  which one (or none) goes in the paper** -- explicitly paused pending the user's review.
+- **2026-08-18, later same day: Table 1's "Pewter beats every baseline" claim now has a real
+  paired test (`STATISTICAL_TESTS_AUDIT.md` item #1, done).** Best non-Pewter baseline per
+  dataset is always SiGAT or SNEA (never GS-GNN/SGCN, so their uncertain per-seed-data status
+  never needed resolving); per dataset, picked whichever Pewter variant (full/local) has the
+  higher 10-seed mean (matched Table 1's existing bold marks exactly, a good consistency
+  check) and ran a one-sided paired Wilcoxon signed-rank test across the 10 shared seeds.
+  Result: Pewter's winning variant beats the best baseline on all 10/10 splits, on all 6
+  datasets (60/60 total), $p=0.00098$ throughout (the minimum achievable one-sided Wilcoxon
+  $p$ at $n{=}10$ -- a perfect sweep). Script:
+  `scripts/paper_figures/table1_paired_significance.py`, data:
+  `aaai2027/figure_data/table1_paired_significance.csv`. Not yet inserted into the tex --
+  the natural home is Section 6.2's still-unwritten prose rewrite (professor's C-ter ask),
+  not a standalone edit.
+- **2026-08-18, later same day: Panel C's per-dataset two-way ANOVA done (professor's
+  C-ter ask, `STATISTICAL_TESTS_AUDIT.md` item #4).** Factors = source-entropy bin ×
+  target-entropy bin (Panel C's existing 4x4 grid), response = AUC, one observation per
+  (seed, cell) using the 10 splits as repeated measurements, exactly as the professor
+  specified. Ran off already-cached data (Panel D's raw SiGAT prediction cache +
+  `collect_model_records`'s entropy join, no refit) -- essentially free given the Panel D
+  cache already existed. Both main effects significant on all 6 datasets; the interaction
+  term significant on 5/6 (all but bitcoin-alpha, whose ~2,300-edge test set leaves only
+  6/16 entropy-bin cells with data in all 10 seeds -- a rank-deficiency warning flags this,
+  so its non-significant interaction should be read as underpowered, not a clean null, if
+  ever cited on its own). Script: `scripts/paper_figures/panelC_twoway_anova.py`, data:
+  `aaai2027/figure_data/panelC_twoway_anova.csv`.
+- **2026-08-18, later same day: Figure 3 delta-heatmap "gain concentrates where the bound
+  bites" claim tested (`STATISTICAL_TESTS_AUDIT.md` item #15) -- result is MIXED, does NOT
+  cleanly confirm the current caption.** Per-dataset cluster-robust regression (delta ~
+  source-entropy midpoint + target-entropy midpoint, cluster=seed, one observation per
+  (seed, cell)): only bitcoin-otc shows the claimed pattern on both axes and epinions on
+  the source axis only; bitcoin-alpha/wiki-elec/wiki-rfa are flat/null on both axes; and
+  slashdot090221's target-entropy coefficient is significant in the OPPOSITE direction
+  (higher target entropy -> smaller Pewter advantage there). **Not yet stated anywhere in
+  the paper** -- flagged in the audit doc as needing the user's decision (soften the claim
+  / drop it / investigate the bitcoin-otc-epinions split further) before any tex edit,
+  since this changes what's claimed, not just how it's phrased. Script:
+  `scripts/paper_figures/delta_heatmap_entropy_regression.py` (note: first run silently
+  produced zero usable observations on every dataset due to a missing `os.path.dirname()`
+  level in its `ROOT` computation pointing it at `scripts/` instead of the repo root --
+  fixed before trusting the numbers above), data:
+  `aaai2027/figure_data/delta_heatmap_entropy_regression.csv`.
+- **2026-08-18, later same day: Ablation B (`tab:ablationB`) rebuilt multiseed --
+  `STATISTICAL_TESTS_AUDIT.md` item #9, done.** Confirmed all 11 aggregator functions'
+  posthoc summaries already existed per seed (all 6 datasets x 10 seeds, per
+  `run_multiseed_pewter.py`'s own docstring claim, verified directly on disk) -- pure
+  aggregation, no new runs. Table now shows mean±std over the 10 splits per cell instead
+  of a single-split point; the real cross-function spread tightened to $0.0018$ AUC (from
+  the old single-split $<0.0022$ claim), about an order of magnitude below the ~0.005-0.018
+  split-to-split std shown alongside it in the same table -- a stronger way to state
+  "barely matters" than the bare spread number, since the reader can see the between-
+  function gaps are smaller than the noise directly. Also updated 6.5(B)'s prose sentence
+  to match. Script: `scripts/paper_figures/extract_ablationB_multiseed.py`, data:
+  `aaai2027/figure_data/ablationB_multiseed.csv`. A formal per-pair paired-bootstrap test
+  (porting the existing single-split `ablationB_paired_significance.py`) was scoped but not
+  run -- treated as a nice-to-have per the project's cheap-unless-real-gain lean, not a gap.
 - **LocalAttn4 H/no-H re-ablation — CLOSED 2026-07-19.** `HARDNESS_MINER_ROADMAP.md` items
   13/14 (`E27`/`E28`/`E29`, current sampler+masking, all 6 datasets + the asymmetric
   source/target weight probe on bitcoin-alpha/otc) all complete. Final verdict: **H
@@ -1113,6 +1255,38 @@ framing as the leading candidate mechanism (degree collapse is real but not suff
 itself). The current `pewter_aaai.tex` Panel B paragraph's inline `%%` comment still
 describes the superseded degree-confound framing and needs a follow-up edit once the
 clustering fix is implemented or a final presentation decision is made.
+
+**2026-08-18, later same day: Panel D wired in as per-dataset dots (professor's C-ter ask,
+resolved), and Figure 3's delta-heatmap regression given a compact in-text statement (user's
+final call on the item #15 audit finding).** Panel D: of the 4 candidate visualizations in
+`aaai2027/figures/panelD_candidates/`, the user picked "dots" (one colored dot per dataset per
+bucket, dodged, consistent `dataset_style.py` colors) — this was already implemented as
+`plot_empconf_panelD_signagreement_auc.py::plot_perdataset()`, so no new plotting code was
+needed. `combine_empconf_panels_abcde.py`'s `PANEL_D` constant now points at
+`empconf_panelD_signagreement_auc_perdataset.png` instead of the old pooled-bar PNG; the figure
+recombined. `fig:empconf-panels`'s caption (D) sentence updated from "pooled" to "one dot per
+dataset (colors consistent with the rest of the paper)." No new statistical test was attached to
+Panel D itself in this pass (distinct from the two-way ANOVA already on Panel B/C) — still open
+if the professor wants one. Figure 3: rather than stating "gain concentrates where the bound
+bites" as a uniform 6-dataset finding (the STATISTICAL_TESTS_AUDIT.md item #15 regression only
+supports it cleanly on 1-2 of 6), the user chose the compact option — one sentence naming only
+the significant cases: "A per-dataset cluster-robust regression (clustered by split) of this
+delta on the source- and target-entropy bin midpoints finds a significant positive slope on both
+axes for Bitcoin-otc and on the source-entropy axis for Epinions (both $p<0.01$); the same
+regression is not significant on the other four datasets." Explicitly does not itemize the other
+four datasets (including slashdot090221's target-axis reversal) in the main text — that detail
+stays in the audit doc and `aaai2027/figure_data/delta_heatmap_entropy_regression.csv` for a
+supplementary table or conversation with the professor if needed later. Both changes verified:
+braces 626/626 balanced. **Also fixed, same pass, unrelated small items**: Assumption 1's
+dangling-parenthesis sentence (line ~129) rewritten as one clean formal statement; the "Per-walk
+classifier" paragraph's target-selection sentence now states the real number (verified against
+`src/model/lit_model.py::_sample_epoch_targets` — default `target_ratio =
+mask_ratio/(train_ratio+mask_ratio) = 0.4`, identical across all 6 datasets, resampled once per
+**epoch** not per training step) instead of an `XXX HOW MUCH XXX` placeholder; the 48%/32%
+context/mask-pool sentence now explicitly reconciles the fixed pool sizes with the dynamic
+per-epoch resampling instead of carrying an unresolved contradiction flag. **Explicitly not
+touched, per direct user instruction**: the pipeline schematic figure (`fig:pipeline-schematic`,
+line ~185's font-size TODO) — the user is editing it in a separate session, leave it alone.
 
 ## Session management tips
 

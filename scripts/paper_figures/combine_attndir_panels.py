@@ -71,13 +71,13 @@ def main():
     fig = plt.figure(figsize=(WIDTH_IN, total_h))
     gs = fig.add_gridspec(3, 1, height_ratios=[row1_h, row2_h, row3_h], hspace=0.05)
 
-    _add_panel(fig, gs[0], PANEL_A, "(a)")
+    _add_panel(fig, gs[0], PANEL_A, "(A)")
 
     gs_row2 = gs[1].subgridspec(1, 2, width_ratios=[0.5, 0.5], wspace=0.03)
-    _add_panel(fig, gs_row2[0], PANEL_B, "(b)")
-    _add_panel(fig, gs_row2[1], PANEL_C, "(c)")
+    _add_panel(fig, gs_row2[0], PANEL_B, "(B)")
+    _add_panel(fig, gs_row2[1], PANEL_C, "(C)")
 
-    _add_panel(fig, gs[2], PANEL_D, "(d)")
+    _add_panel(fig, gs[2], PANEL_D, "(D)")
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
     fig.savefig(OUT_PNG, dpi=200, bbox_inches="tight", pad_inches=0.05)
