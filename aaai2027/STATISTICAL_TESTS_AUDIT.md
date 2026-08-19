@@ -33,13 +33,13 @@ generated artifact like the `figure_data/*.csv` files.
 | 5 | Entropy asymmetry: source lower than target on 4/6, reversed on 2/6 | 6.1(C) | one-sided Wilcoxon signed-rank per dataset + DerSimonian-Laird pooled random-effects | correct test, no FDR correction across the 6 per-dataset tests | **Keep as-is**, note FDR non-issue given p-value magnitudes (see below) |
 | 6 | Panel D (Fig. 2): sign-agreement bucketed AUC | 6.1(D)-adjacent / Figure 2 panel (D) caption | per-dataset dots, mean±SD over 10 seeds; paired Wilcoxon (same vs. diff) | **done 2026-08-18** — dots-per-dataset wired into the combined figure; paired test now done too: same>diff on all 6 datasets, both directions, p=0.001 throughout | Ready to state in the caption as a compact parenthetical — proposed wording pending your confirmation |
 | 7 | Panel E (Fig. 2): entropy-term coefficients, which term dominates error, per dataset | Figure 2 panel (E) caption | per-dataset: two-way cluster-robust SE + BH-FDR per seed, "robust" = significant in ≥8/10 seeds | **done 2026-08-18** — rebuilt as a per-dataset stacked bar (10-seed refit), citation gap still open | Keep new per-dataset test as-is; citation gap (`cameron2011robust`, `benjamini1995controlling`) still needs your sign-off before re-adding |
-| 8 | Ablation A: local attention matches/beats full on 4/6 datasets | 6.5(A) | "within reported standard errors" — informal eyeball | **needs a test added**, AND the "4/6" number itself is stale (real recompute shows 3/6, see plan Phase 4) | Fix/add cheaply — paired bootstrap across the 10 splits; fix the stale count in the same pass |
+| 8 | Ablation A: local attention matches/beats full on 3/6 datasets | 6.5(A) | two-sided paired Wilcoxon across the 10 splits, per dataset | **done 2026-08-19** — significant on 3/6 (epinions $p=0.027$, wiki-elec $p=0.049$, slashdot $p=0.002$), but every effect (sig. or not) is under $0.2$pp | Kept — tex states the test and the "use local, it's cheap and ties" framing regardless of significance, since effect sizes are trivial either way |
 | 9 | Ablation B: aggregator choice barely matters (spread < 0.0018 AUC) | 6.5(B), Table 2 | mean±std over 10 splits, spread vs. std comparison | **done 2026-08-18** — table rebuilt multiseed, spread tightened to 0.0018, an order of magnitude below the std | Formal paired-bootstrap on the 10-seed data is a nice-to-have, not needed — the spread-vs-std comparison already makes the point |
 | 10 | K-ablation: is the gain "just ensembling"? | 6.5(C) | mean±std AUC per K across 10 seeds | **done 2026-08-18** | K=1 already beats the best baseline on all 6 datasets; gap to saturated ceiling is <1pp everywhere — representation, not ensembling, carries the result. Script: `scripts/paper_figures/extract_ablation_kwalks.py` |
 | 11 | Attention split: forward- vs. backward-dominant per dataset | 6.4, Panel B/C of Fig. 4 | one-way cluster-robust SE (cluster = target edge) + Wilcoxon confirmation | **done 2026-08-18** — significant on all 6 datasets, both the fwd/bwd split (Panel B) and the node/edge split (Panel C) | Error bars added to both plots; 6.4 prose updated. Script: `scripts/attention_directionality_panelB_se.py`, cached per-instance data at `outputs/attention_directionality/<ds>_local_panelBC_perinstance.pkl` |
 | 12 | Shapley causal contribution: hop-1 forward-dominant on 3/6 datasets | 6.4, Panel D of Fig. 3 | one-way cluster-robust SE (cluster = target edge), CI-exclude-zero test | **done 2026-08-18** — test now named in-prose | Kept as-is |
 | 13 | Attention-split vs. entropy-asymmetry correlation (6 points) | 6.4 | Spearman ρ=−0.71, p=0.11, n=6 | **done 2026-08-18** — not significant, stated as such | Kept as descriptive; TODO removed from tex |
-| 14 | Vertex-vs-edge attention share vs. AUC boost over best GNN (6 points) | not yet in tex, feeds the edge-vs-vertex investigation (item #2) | Spearman ρ=−0.32, p=0.54, n=6 | **done 2026-08-18** — null result | Does not support "edge-leaning attention → bigger GNN advantage" as an alternative theory; do not cite this correlation as evidence for item #2's claim |
+| 14 | Vertex-vs-edge attention share vs. AUC boost over best GNN (6 points) | was briefly in 6.4, now removed | old ρ=−0.32 was unbacked/erroneous (see detail); real value ρ=+0.20, p=0.70 | **resolved 2026-08-19 — dropped from paper** | Null either way; the erroneous number is corrected here for the record but the sentence itself was removed from 6.4 rather than fixed in place |
 | 15 | Figure 3 (delta heatmap): "gain concentrates where the bound bites" | 6.3 | cluster-robust regression, delta ~ src/tgt entropy, per dataset | **done 2026-08-18 — result is MIXED**, only 1-2/6 datasets show the claimed pattern, 1 reverses | **Decided 2026-08-18**: compact in-text sentence naming only the significant cases (Bitcoin-otc both axes, Epinions source axis), now in the tex; other 4 datasets not itemized in-text |
 | 16 | Datasets are heavily imbalanced (77–94% positive) | Datasets paragraph, Ethics | none needed | N/A | **State it plainly, no test** — a prevalence statistic, not a comparison |
 
@@ -382,32 +382,33 @@ re-add.
 
 ---
 
-## 8. Ablation A: local attention matches/beats full on 4/6 (stale) datasets
+## 8. Ablation A: local attention matches/beats full on 3/6 datasets
 
 **Where:** Section 6.5(A), paragraph "(A) Proximal attention is sufficient."
 
-**Current test: none — "within the reported standard errors" is an informal eyeball**, and (a
-separate, more urgent problem) **the underlying numbers are stale.** The tex currently reads
-"matches or beats full attention on four of six datasets (bitcoin-otc +0.02pp, epinions
-+0.07pp, wiki-elec +0.30pp, wiki-rfa +0.38pp)... trails on the other two (bitcoin-alpha
-−0.27pp, slashdot090221 −0.21pp)." The closeout plan (Phase 4) already recomputed these deltas
-directly from Table 1's real 10-seed numbers and found a **3-3 split, not 4-2**: bitcoin-otc
-+0.02pp, epinions +0.13pp, wiki-elec +0.15pp win for local; bitcoin-alpha −0.12pp, wiki-rfa
-−0.09pp (sign flips from the stale text!), slashdot −0.21pp trail. This numeric fix has not yet
-been applied to the tex as of this audit — **flagging it here again since it's exactly the kind
-of claim this audit exists to catch, but it's tracked as its own Phase 4 action item, not
-newly discovered here.**
+**Status: done 2026-08-19.** The stale "4/6" numbers (Phase 4's issue) were already corrected to
+the real 3-3 split in an earlier pass (bitcoin-otc +0.02pp, epinions +0.13pp, wiki-elec +0.15pp
+win for local; bitcoin-alpha −0.12pp, wiki-rfa −0.09pp, slashdot −0.21pp trail). This entry
+covers the separate, remaining gap: no formal test backed the "within reported standard errors"
+eyeball claim.
 
-**What a real test looks like:** the full/local comparison is paired (same 10 splits, same
-architecture, only the attention window differs), so a paired Wilcoxon or paired bootstrap
-across the 10 splits per dataset is the right tool — same pattern as item #1 above, and the
-per-seed data already exists (it's the same checkpoints backing Table 1).
+**Test added:** two-sided paired Wilcoxon signed-rank test across the same 10 splits per
+dataset (paired design — same architecture and splits, only the attention window differs; same
+per-seed data backing Table 1). Two-sided, not one-sided like item #1/#15, because the paragraph
+makes no directional claim going in ("costs nothing either way," not "local wins") — and the
+result confirms that was the right call, since the three significant results split both
+directions (epinions/wiki-elec favor local, slashdot favors full).
 
-**Recommendation:** fix/add cheaply, and do the numeric correction and the test addition in the
-*same* edit (per the plan's own "Verification" section warning: fixing the numbers without
-re-reading whether the surrounding sentence's claim still holds is exactly the failure mode to
-avoid — "four of six" printed next to three winners would be a self-evidently broken sentence if
-only the numbers were swapped and not the count).
+Result: significant on 3/6 (epinions $p=0.027$, wiki-elec $p=0.049$, slashdot $p=0.002$; not
+significant on bitcoin-alpha, bitcoin-otc, wiki-rfa), but every effect — significant or not — is
+under $0.2$pp, an order of magnitude below the split-to-split std. Script:
+`scripts/paper_figures/extract_ablationA_full_vs_local_significance.py`, data:
+`aaai2027/figure_data/ablationA_full_vs_local_significance.csv`.
+
+**Recommendation (applied):** state the test plainly, then keep the practical message the
+significance result doesn't change: local attention costs essentially nothing in accuracy while
+being the cheaper per-walk-attention default (\S6.6, $O(L^2d)\to O(Lwd)$), so it's the better
+default regardless of which side of the 3-3 split a given dataset falls on.
 
 ---
 
@@ -535,19 +536,24 @@ acknowledges this: "with six points this is only suggestive"). Report honestly e
 
 ---
 
-## 14. Vertex-vs-edge attention share vs. AUC boost over best GNN (new, planned)
+## 14. Vertex-vs-edge attention share vs. AUC boost over best GNN — RESOLVED 2026-08-19, dropped
 
-**Where:** not yet in the tex — planned addition to Section 6.4 per the closeout plan's Phase 6.
+**Status: computed, then removed from the paper.** The summary-table row previously on this item
+(Spearman ρ=−0.32, p=0.54, "done 2026-08-18") was never actually backed by a script or output —
+traced exhaustively (every `.py`/`.md`/`.csv` in the repo) and found nowhere except that one
+summary-table cell, contradicting this section's own "not yet run" note. Treat that number as
+unverified/erroneous; it was never real.
 
-**Current test: not yet run**, same shape as item #13 (6-point Spearman, both inputs likely
-already computable from existing extract-script outputs — Panel C's "nodeedge" split for the
-attention share, Table 1 for the AUC-boost side).
+The real computation (node/edge attention split from `attndir_panelBC_summary.csv`, AUC-boost
+from Table 1, both independently cross-checked against numbers already stated elsewhere in the
+paper): **Spearman ρ=+0.20, p=0.70** — reproduced twice, once via `scipy.stats.spearmanr` and
+once by a fully manual rank computation, exact match. Not significant, and the sign is the
+opposite of what the erroneous −0.32 implied.
 
-**Recommendation:** fix/add cheaply, same caveat as #13 about n=6 needing a strong correlation
-to read as more than suggestive. If this correlation is found and holds up, per the plan it's a
-candidate "alternative theory" for the edge-vs-vertex claim in item #2 — but per item #2's own
-recommendation, don't let a suggestive 6-point correlation alone carry a headline abstract claim
-without being explicit about how thin that evidentiary base is.
+**Decision: dropped from the tex entirely**, not just corrected — the vertex/edge paragraph in
+6.4 exists to present the attention-role asymmetry descriptively, not to explain it, and a null
+correlation whose sign isn't legible to the reader doesn't serve that purpose. Do not re-add
+without a reason beyond "we now have the (correct) number."
 
 ---
 

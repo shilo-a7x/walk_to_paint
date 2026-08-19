@@ -45,13 +45,13 @@ def _aspect(path):
     return im, im.shape[0] / im.shape[1]  # height/width
 
 
-def _add_panel(fig, gs_cell, path, label):
+def _add_panel(fig, gs_cell, path, label, label_y=1.0, label_va="top"):
     img, _ = _aspect(path)
     ax = fig.add_subplot(gs_cell)
     ax.imshow(img)
     ax.axis("off")
-    ax.text(0.0, 1.0, label, transform=ax.transAxes, fontsize=11, fontweight="bold",
-             va="top", ha="left")
+    ax.text(0.0, label_y, label, transform=ax.transAxes, fontsize=11, fontweight="bold",
+             va=label_va, ha="left")
     return ax
 
 
@@ -82,8 +82,8 @@ def main():
     _add_panel(fig, gs[1], PANEL_C, "(C)")
 
     gs_row3 = gs[2].subgridspec(1, 2, width_ratios=[ROW3_D_FRAC, 1 - ROW3_D_FRAC], wspace=0.03)
-    _add_panel(fig, gs_row3[0], PANEL_D, "(D)")
-    _add_panel(fig, gs_row3[1], PANEL_E, "(E)")
+    _add_panel(fig, gs_row3[0], PANEL_D, "(D)", label_y=1.03, label_va="bottom")
+    _add_panel(fig, gs_row3[1], PANEL_E, "(E)", label_y=1.03, label_va="bottom")
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
     fig.savefig(OUT_PNG, dpi=200, bbox_inches="tight", pad_inches=0.02)

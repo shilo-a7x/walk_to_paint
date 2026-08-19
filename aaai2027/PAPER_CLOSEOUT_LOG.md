@@ -554,3 +554,121 @@ combined PNG, the bold (A)/(B)/(C)/(D)/(E) panel-letter labels (drawn via `_add_
 `combine_empconf_panels_abcde_sidebyside.py`) sit directly on top of each panel's own title
 text in the top-left corner, rather than beside/above it — check and fix next session
 (nudge the label position or the panel's own title margin so they don't visually overlap).
+
+## 2026-08-19/20 — Prop 2 marker, Section 6.2 write-up, global `\method` rename, Ablation A
+test, Section 6 coherence pass, edge-vs-vertex investigation (closed), Section 7/8 reverify
+
+**Math XXX markers.** After the professor's math-verification pass confirmed the bottleneck
+and capacity proof sketches correct, removed the two `XXX NEED TO CHECK CAREFULLY XXXX` /
+`XXXX AGAIN CHEKC XXXXX` markers (lines ~148, ~176). Added a new marker at Proposition 2's
+capacity-form bound instead, flagging (in the professor's own ALL-CAPS style, addressed
+directly to him, no file pointers he doesn't have) that the bound is near-vacuous in
+practice: $\Hh_b^{-1}$ saturates at $\tfrac12$, so the RHS only clears $0$ once
+$\Hh(Y)-2\log_2N$ does, which real embedding widths make unlikely.
+
+**Section 6.2 (`\method\ is more accurate than SOTA`) filled in.** This subsection was
+essentially a stub before this session. Added: a 5-sentence PEWTER recap referencing
+Figure 1's Stage 1/Stage 2 pipeline; a description of all 8 baselines (2 generic
+message-passing GNNs, 4 signed-graph-specific, 1 correlation-modeling, node2vec as
+non-GNN reference); Table 1's results with a real paired-Wilcoxon significance claim
+(\method\ vs. every baseline, $p=0.00098$ throughout, existing script
+`scripts/paper_figures/table1_paired_significance.py`); and Figure 3 (`fig:delta-heatmap`)'s own
+description plus a new significance test specifically against SiGAT (new script
+`scripts/paper_figures/extract_figure3_pewter_vs_sigat_significance.py`, 10/10 wins,
+$p=0.00098$, all 6 datasets — output
+`aaai2027/figure_data/figure3_pewter_vs_sigat_significance.csv`).
+
+**Global rename**: literal "Pewter" → `\method\`/`\method` everywhere except the macro
+definition and the Abstract (per explicit user instruction), respecting the existing
+`\xspace`-based spacing convention (`\method\ ` before a word, bare `\method` before
+punctuation/`'s`).
+
+**Ablation A (`abl:proximal`) got a real test**, not just an eyeballed delta comparison.
+Per the user's own framing ("use local, it's cheap and brings the same result" should be
+the message regardless of significance): added a two-sided paired Wilcoxon signed-rank
+test across the 10 splits (new script
+`scripts/paper_figures/extract_ablationA_full_vs_local_significance.py`, output
+`aaai2027/figure_data/ablationA_full_vs_local_significance.csv`) — significant on 3/6
+datasets (Epinions $p=0.027$, Wiki-elec $p=0.049$, Slashdot $p=0.002$), not on the other
+3, but every delta stays under 0.2pp regardless. `STATISTICAL_TESTS_AUDIT.md` item #8
+updated to match (was the one remaining real gap flagged there — an eyeball claim with no
+test attached).
+
+**Section 6 full coherence pass** (not just fix-what's-flagged — read the whole section as
+an argument). Found and fixed:
+- A duplicate paragraph (D) in 6.1 that was a verbatim copy-paste of paragraph (C)'s
+  entire sentence — removed.
+- Multiple "short walk(s)" phrasing bugs that conflated walk *length* with attention
+  *window* size — a real correctness bug, not just imprecise wording, since this project's
+  own E30 pilot already established these are architecturally different (walks stay up to
+  80 hops; only the attention window is short). Fixed in the Introduction, Abstract,
+  paragraph (A) of 6.1, the Conclusion, and Section 6.2's own recap — all now say "local
+  window"/"restrict attention" rather than "short walks."
+- Figure 2's combined-panel D/E labels were still overlapping the panel titles (the
+  pending item from the prior log entry above) — fixed by raising the panel-letter
+  `label_y`/`label_va` for D and E specifically in
+  `combine_empconf_panels_abcde_sidebyside.py`'s `_add_panel()` calls; re-rendered and
+  visually confirmed (Read tool image view) the overlap is gone.
+
+**Edge-vs-vertex / attention "role" investigation — closed, not going in the paper.**
+Section 6.4 (`Relation between attention and entropy` → renamed `Where \method's attention
+goes`) originally only covered forward/backward attention direction; the Abstract's own
+ending promised a second finding (vertex-token vs. edge-token attention split) that was
+computed (Figure 3 Panel C) but never discussed in prose. Investigated two possible
+"alternative theories" for the split:
+1. **New causal check** — extended the existing direction-only exact-Shapley script
+   (`scripts/shap_edge_directionality.py`) to include vertex tokens as maskable players
+   (new script `scripts/shap_edge_vertex_role.py`, 6 features vs. the original 4, 64
+   forward evaluations/instance vs. 16). First launch (`--batch-size 16`) hit repeated
+   CUDA OOM warnings from an under-corrected batch size relative to the larger feature set
+   (16×64=1024 stacked variants/batch vs. the original script's 32×16=512); fixed by
+   dropping to `--batch-size 8`, ran clean on all 6 datasets. Result: vertex tokens
+   causally dominate edge tokens on every dataset (4.25×-3.25× mean|shap|, z=22-45) —
+   real, massively significant, but **scrapped from the paper per explicit user
+   instruction** ("it doesnt surprise... but it doesnt help with the papers claim").
+2. **Correlation checks** against `DATASET_STATS.md`'s cheap graph stats, AUC-boost over
+   best GNN, and both entropy-asymmetry framings — almost all null. One caught and fixed
+   error along the way: the vertex/edge-vs-AUC-boost correlation already sitting in
+   `STATISTICAL_TESTS_AUDIT.md`'s summary table ($\rho=-0.32$) was traced exhaustively and
+   found to appear nowhere else in the repo, directly contradicting its own detail
+   section's "not yet run" note — essentially a fabricated/unverified number. Recomputed
+   independently twice (scipy + a from-scratch manual rank-correlation implementation):
+   real value is $\rho=+0.20$, $p=0.70$. Spot-checked 2 other audit-doc entries against
+   real scripts/CSVs to confirm this was an isolated slip, not systemic — both checked out
+   exactly. Audit doc item #14 rewritten to document the error/resolution; the
+   correlation itself **dropped from the paper entirely** (not just corrected) since it
+   doesn't serve the section's descriptive purpose.
+
+Final 6.4 text keeps both splits (forward/backward direction, vertex/edge role) as
+descriptive findings only, explicitly declining to claim they're the same phenomenon as
+the entropy asymmetry or as each other. Getting the correlation-sign wording right (does
+positive $\rho$ mean "confirm" or "reverse"?) took many rounds of revision before landing
+on the simplest fix: report the primary continuous test's $\rho$ exactly as it already
+existed in the tex ($\Hh_\outdeg-\Hh_\indeg$ gap vs. forward-minus-backward mass,
+$\rho=-0.71$, $p=0.11$, never touched), and for the secondary categorical/binary version
+report only a $p$-value ($p=0.042$) plus a plain factual sentence, with no second signed
+$\rho$ at all — sidesteps the sign-convention confusion rather than trying to word around
+it.
+
+Also fixed a smaller clarity gap in 6.1(C): "source-side" was used without restating,
+at the point of use, that it maps to $\Hh_\outdeg(v)$ (vs. $\Hh_\indeg(v)$ for
+target-side) — the mapping was only established earlier in Problem Setting. Added an
+inline parenthetical ("its behavior as a source" / "its behavior as a target") right at
+the first use in paragraph (C).
+
+**Section 7/8 reverification (2026-08-20), two findings surfaced, not yet resolved:**
+1. "Per-edge inference aggregates hundreds to thousands of walk evaluations" (Discussion,
+   and echoed in the Ablation~\ref{abl:singlewalk} intro sentence) doesn't match the real
+   per-dataset average $K_{uv}$ computed later in that same ablation: 5.8 (Wiki-elec) to
+   217.6 (Bitcoin-alpha) — never reaches "thousands," and the low end isn't "hundreds"
+   either. Likely survived from before the real K-ablation numbers were computed.
+2. The Discussion's "two Wikipedia vote graphs behave differently from the four trust
+   graphs on the directionality analysis" — this exact 4-vs-2 split matches 6.1(C)'s
+   entropy-asymmetry finding (confirms on Bitcoin-alpha/otc/Epinions/Slashdot, reverses on
+   Wiki-elec/Wiki-RfA) but does *not* match 6.4's attention-direction finding (forward:
+   Bitcoin-alpha+Slashdot; backward: Bitcoin-otc+Epinions+Wiki-elec+Wiki-RfA — genre-mixed,
+   not a clean wiki/trust split). Now that Section 6.4 exists with its own "direction"
+   framing, "the directionality analysis" is genuinely ambiguous about which finding it
+   means — this is likely exactly what the professor's own
+   `XXX MIGHT NOT BE TRUE WITH NEW RESULTS ON DIRECTIONALITY` marker (same sentence) is
+   asking about. Both flagged to the user for a wording decision, not silently patched.

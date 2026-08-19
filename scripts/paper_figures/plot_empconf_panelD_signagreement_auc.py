@@ -109,7 +109,7 @@ def plot_perdataset():
         ax.axvline(xc, color="#e1e0d9", linewidth=0.8, zorder=1)
     ax.tick_params(axis="y", labelsize=14)
     ax.set_ylabel("Test AUC", fontsize=15)
-    ax.set_title("SiGAT AUC by sign agreement, per dataset (mean $\\pm$ 1 SD, 10 splits)", fontsize=16)
+    ax.set_title("SiGAT AUC by sign agreement, per dataset", fontsize=16)
     ax.legend(fontsize=12.5, ncol=3, loc="lower center", bbox_to_anchor=(0.5, -0.36), frameon=False)
     fig.tight_layout()
 
