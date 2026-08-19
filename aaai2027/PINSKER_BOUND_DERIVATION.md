@@ -25,8 +25,12 @@ This is **Lemma 11.6.1** in:
 > the section/lemma number is cross-confirmed by two independent sources, the exact page range
 > is a secondary estimate (see "Sourcing note" at the end of this file).
 
-This is already the paper's own `cover2006elements` bib entry (edition, year, publisher all
-match) — no new citation is needed, just confirmation that it actually contains this lemma.
+The tex cites `yeung2008information` (Raymond W. Yeung, *Information Theory and Network Coding*,
+Springer, 2008) at this bound instead of Cover & Thomas — a different standard textbook that
+also carries Pinsker's inequality, added by the user directly. `cover2006elements` (Cover &
+Thomas) stays in the tex only at its other use, Fano's inequality (line 109) — the two
+citations were previously conflated (both pointed at `cover2006elements`) and have now been
+separated to the right textbook for each inequality.
 
 Equivalent forms seen in the literature, all algebraically identical to (1):
 $D_{KL}(P\|Q)\ge\tfrac12\|P-Q\|_1^2$ (using the $\ell_1$ distance $\|P-Q\|_1=\sum_x|P(x)-Q(x)|=2\delta(P,Q)$,
@@ -83,11 +87,34 @@ that's the same looseness the paper is deliberately trading for a closed form (t
 why the tex calls it a *relaxation* of the inverse-Fano bound rather than a tight
 characterization).
 
-**Recommended fix for line 374:** delete `XXX REF TO PINSKER XXX`. No new citation needed — the
-already-present `\citep{cover2006elements}` a few words later in the same sentence already covers
-this (Cover & Thomas is the standard textbook home for Pinsker's inequality, and citing a
-textbook rather than Pinsker's own 1960s-era original source is the normal convention in ML
-papers).
+**Status: done.** The `XXX REF TO PINSKER XXX` marker was deleted from line 374, and the bound's
+citation is now `\citep{yeung2008information}` (added by the user directly, Section 5 above
+verifies it states the same inequality). `cover2006elements` (Cover & Thomas) remains cited
+elsewhere in the tex for Fano's inequality only (line 109), which is what it was originally
+added for — the two citations were briefly conflated (both pointed at `cover2006elements`) and
+have since been separated to the right textbook for each inequality.
+
+## 5. Cross-check against the cited source's own stated form
+
+`yeung2008information` (Yeung, *Information Theory and Network Coding*, 2008) states Pinsker's
+inequality as:
+
+$$D(P\|Q) = \frac{D_{KL}(P\|Q)}{\ln2} \;\ge\; \frac{1}{2\ln2}\,V^2(p,q)$$
+
+i.e. $D(P\|Q)$ is $D_{KL}$ already converted to bits, and $V(p,q)$ is the **variational
+distance** $V(p,q):=\sum_x|p(x)-q(x)|$ — the discrete $\ell_1$ distance between the two
+distributions, a standard alternate convention to the sup-based total variation distance
+$\delta(P,Q)$ used in Section 1 above. For any two distributions on a finite space,
+$V(p,q)=2\,\delta(P,Q)$ (a standard identity), so substituting $V=2\delta$:
+
+$$\frac{1}{2\ln2}V^2 = \frac{1}{2\ln2}(2\delta)^2 = \frac{4}{2\ln2}\delta^2 = \frac{2}{\ln2}\delta^2$$
+
+which is exactly $(1)$ converted to bits (divide both sides of $D_{KL}\ge2\delta^2$ by $\ln2$).
+Confirmed numerically at $p=0.1,0.3,0.5,0.7,0.9$ — both forms give identical RHS values at every
+point. So Yeung's stated inequality is the same fact as the Cover & Thomas form in Section 1,
+just written in bits with the $\ell_1$/variational-distance convention instead of nats with the
+sup-based total-variation convention; the rest of the derivation (Sections 2–3) is unaffected
+and the paper's bound (5) still follows from it exactly as shown.
 
 ## Sourcing note
 
