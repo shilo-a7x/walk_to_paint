@@ -361,6 +361,65 @@ H is scrapped everywhere — do not enable it on either attention variant. L def
 LocalAttn4, settled (see above) — full-attention+short-walks is not the production
 alternative.
 
+## Ablation campaign — vertex/edge/direction (started 2026-08-21, in progress)
+
+Three new **ablation-only** flags (not production defaults, all default `false`), added to
+answer `aaai2027/WSDM_format_revised.tex`'s own line-331 marker ("randomize the edge
+direction... remove the vertex token... remove the edge token..."). Pilot-validated
+(single-seed, no crashes/NaN, sensible AUC drops) before launching the full campaign.
+
+- **`model.mask_node_tokens`**: every vertex/node token → `<UNK>` (train+eval). Isolates how
+  much signal edge signs alone carry. Implemented in `model.py`/`lit_model.py`
+  (`_maybe_apply_token_masking`).
+- **`model.mask_edge_tokens`**: every edge/sign token → `<MASK>` (train+eval). Isolates how
+  much signal vertex identity alone carries. Same implementation site.
+- **`model.randomize_walk_direction`**: NOT a per-token swap (that fabricates edges between
+  node pairs that were never adjacent — interior walk positions are shared between two
+  edges, so swapping one edge's flanking pair independently corrupts its neighbor into a
+  fictitious edge; verified concretely, see `aaai2027/PAPER_CLOSEOUT_LOG.md`'s 2026-08-21
+  entry). Instead: one **fixed, per-walk_id** coin flip (not per-draw-random, not a single
+  global "always flip" — see the log for why each of those is wrong), computed once and
+  shared by reference across the train/val/test dataset views (`create_stage_dataloaders`
+  in `src/data/stage_dataset.py`), reusing `get_seed(cfg)` + a fixed offset (mirrors
+  `dynamic_train_mask_seed_offset`'s pattern). If flagged, the whole walk is reversed
+  (`input_ids`/`edge_split_mask`/`edge_ids` all flipped together, before any split/label/
+  masking logic runs) — real edges keep their real endpoints and signs, just presented in
+  reversed reading order. Because a single edge appears in many different walks (mean
+  occurrences/edge range ~6 to ~216 depending on dataset — see Ablation~\ref{abl:singlewalk}
+  in the tex), each with its own independent flip decision, the same edge ends up presented
+  forward in some occurrences and reversed in others, genuinely destroying usable
+  directionality at the edge level without ever fabricating an edge within any single walk.
+  No graph-level changes, no new dataset cache, no walk-sampler changes — implemented
+  entirely in `src/data/stage_dataset.py` (`StageViewDataset._getitem_ragged`).
+
+**Campaign**: `scripts/run_ablation_campaign.py`, launched under nohup, logs at
+`logs/ablation_campaign/`. 4-GPU queue-worker pattern (same as `run_multiseed_pewter.py`):
+one worker thread per GPU, each does train→posthoc→next-job with zero idle time. 3
+ablations × 6 datasets × 10 seeds (42-51) = 180 jobs, local attention only, compared against
+the existing Table 1 `Pewter (local attention)` numbers (no new baseline retrain needed).
+Order: `mask_node_tokens` block (60 jobs) → `mask_edge_tokens` block (60) → `randomize_walk_
+direction` block (60), each block ordered easy-to-heavy by *measured* wall-clock time (wiki-
+elec, bitcoin-alpha, bitcoin-otc, wiki-rfa, epinions, slashdot090221 — not the walk-budget
+order used elsewhere, which doesn't track measured time). Posthoc computes `func_logit_power`
+only (not all 11 aggregators — this ablation isn't about aggregator choice). No dataset cache
+is touched by any of the three ablations.
+
+**Live-extendable, no restart needed**: the driver never exits on its own — a background
+thread polls `logs/ablation_campaign/extra_jobs/` every 30s for new `*.json` job-batch files
+and pushes them onto the same live queue. Use `scripts/enqueue_extra_ablation_jobs.py` to add
+a batch to a *running* driver. A `logs/ablation_campaign/STOP` file is the clean-shutdown
+signal. **Caveat, confirmed this session**: killing the driver process does NOT stop an
+in-flight training subprocess (plain `subprocess.run`, no process-group isolation — the
+child is a separate PID, gets orphaned/reparented, keeps running to completion) — but it
+DOES lose the driver's own bookkeeping for that job, since `job_train_and_posthoc` always
+retrains from scratch rather than resuming from a checkpoint, so a restarted driver would
+dispatch a duplicate of whatever was in-flight at kill time. Don't restart the driver
+casually; let it drain or use the STOP file.
+
+**Status as of 2026-08-21 session end**: MASKNODE 43/60 done (0 failures), MASKEDGE and
+DIRFLIP not yet started (queued behind MASKNODE). No numbers written into the tex yet —
+wait for the campaign to finish before filling in the line-331 marker.
+
 ## Performance philosophy — READ BEFORE ADDING ANY NEW FEATURE
 
 Significant engineering time went into making data handling/training fast: bucket batching

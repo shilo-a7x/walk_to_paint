@@ -687,3 +687,134 @@ fresh from the tex, not carried over from stale rows), one missing figure asset
    means — this is likely exactly what the professor's own
    `XXX MIGHT NOT BE TRUE WITH NEW RESULTS ON DIRECTIONALITY` marker (same sentence) is
    asking about. Both flagged to the user for a wording decision, not silently patched.
+
+## 2026-08-21 session — fourth professor resync, Group A/B execution, Discussion section removed, C.9 fixed, PR-AUC/F1 investigated, three new ablations built and launched
+
+**Interaction mode changed this session, standing for the rest of closeout**: after the
+professor's most recent direct-edit pass, the user rejected a blanket-approval plan-mode
+flow ("start implementing and confirm with me on every change/edit you intend to do") —
+every edit below was proposed individually and confirmed before being applied, not batched.
+
+**Group A (mechanical fixes) — all applied:**
+- Dropped the two dangling `\ref{prop:capacity}` references (Related Work, Vertex-centric
+  GNNs + Oversquashing paragraphs) — reworded to reference only `\ref{prop:bottleneck}`,
+  since Prop. 2 was demoted to an unlabeled side-note earlier and no longer has a label.
+- Dropped "including the general-$c$ form" from Proposition 1's proof-sketch sentence
+  (Appendix's general-$c$ section was deleted in the same professor edit that demoted
+  Prop. 2, so the sentence was promising content that no longer exists).
+- Fixed "Note that this it is only a proxy" → "Note that this is only a proxy" (Baselines
+  paragraph).
+- Fixed Figure 4's garbled caption clause ("...for xXXXXXXX dataset:") → reworded into the
+  existing "Bitcoin-alpha" mention earlier in the same sentence, dropping the corrupted
+  duplicate clause.
+- Added `\label{sec:setup}` to `\section{Experimental setup}` (previously unlabeled).
+- Fixed "osberved" → "observed" (Where Pewter's attention goes, while touching that
+  paragraph for C.9 below).
+
+**Group B (headline-number discrepancy) — resolved, real methodology conflation found, not
+an arithmetic error.** The professor's edit changed the Abstract/§6.2 headline AUC gain from
+"mean $+3.3$, range $+1.4$–$4.5$" to "$+3.55$, $+1.4$–$5.4$" while the prose still said "best
+baseline per dataset" — but hand-recomputing from Table 1's live cells only reproduces the
+old numbers under that methodology. Investigated multiple alternative methodologies before
+concluding: the new numbers match a SiGAT-only-comparison almost exactly ($3.54$ vs. $3.55$,
+$5.37$ vs. $5.4$) — the professor likely mixed the two comparison conventions used
+elsewhere in the paper (best-baseline-per-dataset for the headline vs. SiGAT-only for the
+entropy-stratified analysis in §6.3), not made an arithmetic slip. Investigated the cost of
+unifying on SiGAT-only everywhere (would require retraining SNEA to get per-edge predictions
+on bitcoin-alpha/bitcoin-otc, where SNEA beats SiGAT) — user rejected this as "not a good
+comparison" once the cost was clear. **Resolution**: reverted to the original, table-matching
+numbers (mean $+3.3$, range $+1.4$–$4.5$) in both the Abstract and §6.2, and — after several
+rounds of user feedback on exactly how to phrase it — split the Abstract's headline sentence
+into two, so the entropy-stratified gain (still measured against SiGAT only) reads as an
+independent confirmation of the theory's sharper prediction rather than a continuation of the
+"best baseline" claim: "Pewter significantly improves test AUC over the strongest baseline
+per dataset...on all six datasets (mean $+3.3$...). As the theory predicts, the advantage is
+not uniform: it grows with endpoint label entropy, reaching up to $+0.26$ AUC on Bitcoin-otc
+and $+0.11$ on Epinions in the highest joint-entropy bins." No SiGAT mention in the Abstract
+at all, per the user's final call. Same "single representative baseline, SiGAT" framing
+(no "best on 4/6" framing) applied to §6.1(B)'s and §6.3's own justification sentences.
+
+**Discussion, Limitations and conclusions — section removed entirely, not filled in.** This
+reverses my own initial framing: I drafted full replacement content for this section (opening
+paragraph, four audited limitation items (a)-(d), a conclusion paragraph with corrected
+numbers) assuming the professor's edit that emptied the section (see the 2026-08-20 entry
+above) was an oversight to be filled back in. **The user corrected this directly: "the prof
+removed this section content deliberately so we can remove the section header too."** Removed
+`\section{Discussion, Limitations and conclusions}` (and its two blank lines) entirely —
+verified no `\label{sec:limits}` or any other reference to it survives anywhere else in the
+paper (the label itself was already gone from the professor's edit), so this was a clean
+delete, not a dangling-reference risk. The paper now goes straight from the attention-
+directionality figure (end of Results) into Ethical Considerations. Braces re-verified
+balanced (613/613, down one pair from 614 as expected for one deleted `\section{}` command).
+**My four-item limitations draft was never applied — worth remembering if a Limitations
+section is ever reinstated later, but it does not exist in the tex.**
+
+**C.9 (Wiki-RfA attention-vs-Shapley disagreement stub) — resolved, and the real finding is
+bigger than the old deleted paragraph suggested.** The professor's edit had replaced a full
+paragraph on this disagreement with a stub: `XXXXX Just add a short sentence if they agree in
+general, no need for details XXXXX`. Cross-checked Panel B's raw attention direction (already
+in the tex, line ~341) against Panel D's Shapley-significance list (already in the figure
+caption) rather than recomputing anything new:
+
+| dataset | raw attention direction | Shapley significantly forward at hop 1? | agree? |
+|---|---|---|---|
+| Bitcoin-alpha | forward (weak, 0.443 vs 0.411) | no (not significant) | consistent |
+| Bitcoin-otc | backward (0.403 vs 0.445) | no | consistent |
+| Epinions | backward (0.376 vs 0.452) | no | consistent |
+| Wiki-elec | backward (0.311 vs 0.432) | **yes** | **DISAGREE** |
+| Wiki-RfA | backward (0.189 vs 0.557, strongest) | **yes (largest)** | **DISAGREE** |
+| Slashdot | forward (0.417 vs 0.363) | yes | agree |
+
+**Two datasets disagree in direction (Wiki-elec AND Wiki-RfA), not just Wiki-RfA** as the old,
+deleted paragraph implied — the professor's stub request undersold the finding by name-
+checking only one dataset. Filled in with one sentence, matching the "no need for details"
+instruction: "The two measures broadly agree in direction, except on Wiki-elec and Wiki-RfA,
+where Shapley contribution is significantly forward-dominant while raw attention mass is
+backward-dominant."
+
+**New marker found, line ~180, not yet resolved.** The user manually added `XXX This sentence
+is very unclear XXX` mid-sentence in the Walk sampler paragraph's "fill pass" description
+("each one first finds a short directed path leading into a random vertex, XXX ... XXX then
+continues forward..."), separate from the two pre-existing walk-length markers in the same
+paragraph (`BE EXPLICIT HERE ON HOW YOU CHOSE THE LENGTH`, `AGAIN HOW MANY`), which remain
+deferred pending the user's own Methods-section length-disclosure decision (not yet made).
+Not yet decided whether to bundle the "unclear sentence" fix with the deferred length
+markers (same paragraph, would touch the same sentence twice if done separately) or handle
+it now on its own — open going into next session.
+
+**PR-AUC/F1 feasibility (Group D.2) — investigated, real table-wide blocker found, decision
+pending.** Checked what every Table 1 row actually has saved on disk, not assumed:
+
+| Row | Raw per-edge scores saved? | PR-AUC feasible? | F1 feasible? |
+|---|---|---|---|
+| Pewter | yes (full predictions, all datasets/seeds) | free | free |
+| SiGAT | yes (`best_epoch_artifacts.pkl`, all 10 seeds) | free | free |
+| SNEA, CopulaLSP | no — only aggregate `score.csv` (which already has an F1 field) | **no**, needs retraining to save raw scores | free — already computed, just needs extracting |
+| node2vec | no — only aggregate `score.csv` (already has `tst_f1`) | **no**, same gap | free |
+| GCN, GAT, SGCN, GSGNN | **no local reproduction exists at all** — published-only numbers, confirmed via direct `find` (no `baselines/GCN`, `baselines/GAT`, `baselines/SGCN`, `baselines/GSGNN` directories) | **no**, would need a full from-scratch reimplementation+retrain, out of scope | **no**, same |
+
+So PR-AUC is free for only 2 of 9 rows (Pewter, SiGAT), and the marker's implicit "cheap
+column addition" framing doesn't hold table-wide for PR-AUC. **Update, same session, user
+has published F1 numbers for GCN/GAT/SGCN/GSGNN in hand** (from the original papers) — this
+closes the F1 gap entirely: F1 becomes feasible for all 8 baseline rows, 5 recomputed locally
+(Pewter, SiGAT, SNEA, CopulaLSP, node2vec — already have it or free to extract) + 4 from
+literature (GCN/GAT/SGCN/GSGNN), and using published F1 for those 4 is methodologically
+consistent with how their AUC numbers already work in Table 1 (already published-only, not
+recomputed on canonical splits — same convention, not a new inconsistency). PR-AUC remains
+blocked for those same 4 regardless of this update (no raw per-edge scores exist for them at
+all, a single aggregate number isn't enough to derive a PR curve). **Net: F1-for-all-8 is now
+the clean, low-cost option** — full table-design decision (whether to add it, as a new column
+or a footnoted addendum) still open going into next session.
+
+**Three new ablations designed, unit-tested, and launched as a live GPU campaign — see
+`CLAUDE.md`'s "Training feature flags" and "Ablation campaign" sections for the standing
+mechanism description and current status.** These directly answer the paper's own line-331
+marker (`XXXX There are three intereseting ablations needed to be checked A) randomize the
+edge direction... B) remove the vertex token... C) remove the edge token... XXXX`) — not yet
+written into the tex since the campaign was still running at session end (43/60 MASKNODE
+jobs done, MASKEDGE and DIRFLIP not yet started, 0 failures). Full design narrative (why a
+naive per-edge direction swap corrupts neighboring edges into fabricated non-edges, why the
+walk-direction-flip needs to be per-walk-id and shared across the train/val/test dataset
+views rather than per-draw-random or globally-consistent, the test-harness dtype bug found
+and fixed during verification) is in this session's own transcript, not duplicated here —
+CLAUDE.md has the standing summary.
