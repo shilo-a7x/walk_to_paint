@@ -594,6 +594,9 @@ def prepare_data(cfg):
             dynamic_train_masking=bool(
                 getattr(cfg.model, "dynamic_train_masking", False)
             ),
+            randomize_walk_direction=bool(
+                getattr(cfg.model, "randomize_walk_direction", False)
+            ),
             **_dataloader_kwargs(cfg),
         )
     # Profile data creation steps to help diagnose slow preprocessing
@@ -719,5 +722,8 @@ def prepare_data(cfg):
     return create_stage_dataloaders(
         cache_data,
         dynamic_train_masking=bool(getattr(cfg.model, "dynamic_train_masking", False)),
+        randomize_walk_direction=bool(
+            getattr(cfg.model, "randomize_walk_direction", False)
+        ),
         **_dataloader_kwargs(cfg),
     )

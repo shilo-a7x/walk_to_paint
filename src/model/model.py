@@ -104,6 +104,8 @@ class TransformerModel(nn.Module):
         self.node_context_mode = str(getattr(cfg.model, "node_context_mode", "none"))
         self.node_mask_prob = float(getattr(cfg.model, "node_mask_prob", 0.0))
         self.node_noise_sigma = float(getattr(cfg.model, "node_noise_sigma", 0.0))
+        self.zero_node_tokens = bool(getattr(cfg.model, "zero_node_tokens", False))
+        self.zero_edge_tokens = bool(getattr(cfg.model, "zero_edge_tokens", False))
         local_attention_window = getattr(cfg.model, "local_attention_window", None)
         self.local_attention_window = (
             int(local_attention_window) if local_attention_window is not None else None
@@ -136,6 +138,12 @@ class TransformerModel(nn.Module):
 
     def forward(self, input_ids, attention_mask=None, node_mask=None):
         x = self.embed(input_ids)
+
+        if node_mask is not None and (self.zero_node_tokens or self.zero_edge_tokens):
+            # Ablation: zero the content vector of one token role, at both train and eval
+            # time (unlike the regularizers below, this is not training-only noise).
+            keep = (~node_mask) if self.zero_node_tokens else node_mask
+            x = x * keep.unsqueeze(-1).to(x.dtype)
 
         if self.training and node_mask is not None:
             if self.node_context_mode == "mask_unscaled" and self.node_mask_prob > 0.0:

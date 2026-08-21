@@ -236,6 +236,17 @@ def validate_config(cfg, context: str = "train") -> None:
     if dynamic_train_masking is not _MISSING and not isinstance(dynamic_train_masking, bool):
         _invalid("model.dynamic_train_masking", dynamic_train_masking, "boolean")
 
+    for _ablation_flag in (
+        "zero_node_tokens",
+        "zero_edge_tokens",
+        "mask_node_tokens",
+        "mask_edge_tokens",
+        "randomize_walk_direction",
+    ):
+        _val = _get(f"model.{_ablation_flag}", _MISSING)
+        if _val is not _MISSING and not isinstance(_val, bool):
+            _invalid(f"model.{_ablation_flag}", _val, "boolean")
+
     dynamic_train_mask_seed_offset = _get("model.dynamic_train_mask_seed_offset", _MISSING)
     if dynamic_train_mask_seed_offset is not _MISSING and dynamic_train_mask_seed_offset is not None:
         if not _is_int(dynamic_train_mask_seed_offset):

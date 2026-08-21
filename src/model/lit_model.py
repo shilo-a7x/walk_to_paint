@@ -132,6 +132,28 @@ class LitEdgeClassifier(pl.LightningModule):
     def forward(self, input_ids):
         return self.model(input_ids)
 
+    def _maybe_apply_token_masking(self, input_ids, node_mask, edge_mask):
+        """Ablation: replace every node or edge token with a fixed special id.
+
+        Unlike _maybe_apply_node_replacement (a training-only regularizer), this
+        applies at both train and eval time, since it is meant to ablate the
+        model's access to a whole token role, not to regularize training.
+        """
+        x = input_ids
+        if bool(getattr(self.cfg.model, "mask_node_tokens", False)) and node_mask.any():
+            unk_id = int(getattr(self.cfg.model, "unk_id", 2))
+            x = x.clone()
+            x[node_mask] = unk_id
+        if (
+            edge_mask is not None
+            and bool(getattr(self.cfg.model, "mask_edge_tokens", False))
+            and edge_mask.any()
+        ):
+            mask_id = int(getattr(self.cfg.model, "mask_id", 1))
+            x = x.clone()
+            x[edge_mask] = mask_id
+        return x
+
     def _maybe_apply_node_replacement(self, input_ids, node_mask):
         """Apply node-token replacement regularization in training mode only."""
         mode = str(getattr(self.cfg.model, "node_context_mode", "none"))
@@ -343,8 +365,15 @@ class LitEdgeClassifier(pl.LightningModule):
 
         positions = metadata.get("positions")
         node_mask = None
+        edge_mask = None
         if positions is not None:
             node_mask = (positions >= 0) & ((positions % 2) == 0)
+            edge_mask = (positions >= 0) & ((positions % 2) == 1)
+
+        if node_mask is not None:
+            model_input_ids = self._maybe_apply_token_masking(
+                model_input_ids, node_mask, edge_mask
+            )
 
         if stage == "train" and self.training and node_mask is not None:
             model_input_ids = self._maybe_apply_node_replacement(
@@ -354,7 +383,7 @@ class LitEdgeClassifier(pl.LightningModule):
         logits = self.model(
             model_input_ids,
             attention_mask=attention_mask,
-            node_mask=node_mask if stage == "train" else None,
+            node_mask=node_mask,
         )
 
         # Compute loss with MANDATORY class weighting (global train-only weights)

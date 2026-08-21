@@ -656,6 +656,21 @@ target-side) — the mapping was only established earlier in Problem Setting. Ad
 inline parenthetical ("its behavior as a source" / "its behavior as a target") right at
 the first use in paragraph (C).
 
+**Housekeeping, same session:** Leads 5/6 scrapped (Lead 5 superseded by the K-ablation
+already in the paper; Lead 6 dropped with no replacement) and `plan-stats-rigor.md` closed
+(superseded by the 10-seed campaign) — all reflected in `CLAUDE.md`. `optuna_run.py` marked
+stale with an inline top-of-file marker (not fixed, not a priority). Wrote two self-contained
+session-starter prompts for future work (`~/.claude/plans/plan-cleanup-and-local-attention-
+prompts.md`): a production cleanup of this repo into a new double-blind-compliant public repo
+for the paper's anonymous code link, and a genuine sparse/windowed local-attention
+implementation (current `LocalAttentionEncoderLayer` is dense-masked, no real speedup — see
+`MASKING.md`). `aaai2027/PEWTER_ASSETS_CHECKLIST.md` rewritten from scratch (the old version,
+written against the pre-WSDM `pewter_aaai.tex`, had drifted far enough to be actively
+misleading) — now tracks only current, live-verified status: 6 open markers (all grepped
+fresh from the tex, not carried over from stale rows), one missing figure asset
+(`pipeline_schematic.png`, referenced but not exported), and clean mechanical-check results
+(654/654 braces, 38/38 citations resolve).
+
 **Section 7/8 reverification (2026-08-20), two findings surfaced, not yet resolved:**
 1. "Per-edge inference aggregates hundreds to thousands of walk evaluations" (Discussion,
    and echoed in the Ablation~\ref{abl:singlewalk} intro sentence) doesn't match the real

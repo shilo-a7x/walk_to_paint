@@ -150,9 +150,10 @@ used the filter by mistake had to be discarded and redone (corrected
 .venv/bin/python optuna_run.py --dataset <ds> --n-trials 100 --device <N>
 ```
 
-(Note: optuna_run.py is suspected stale — see `plan-stats-rigor.md` (restored
-2026-07-19 after going missing from `~/.claude/plans/`, see OPEN WORKSTREAMS below;
-nothing in it has been executed yet).)
+(Note: optuna_run.py is suspected stale — never re-verified against the current
+pipeline (edge_cover sampler, LocalAttn4 default, current config.yaml schema). Flagged
+with an inline marker at the top of the file itself as of 2026-08-20; not a current
+priority to fix, needs a real rewrite/re-audit when it is picked up.)
 
 ## Canonical splits
 
@@ -539,9 +540,15 @@ Handoff doc: `LEAD4C_HANDOFF.md`.
 
 ### Open threads (not yet started)
 
-- Lead 5 — per-walk prediction variance / ensemble effect (cheapest untested candidate mechanism).
-- Lead 6 — training-regime confound (D/R/H tricks) + capacity mismatch + missing trainable/spectral
-  features in GNN baselines.
+**Leads 5 and 6 — scrapped (2026-08-20), never started.** Lead 5 (per-walk prediction
+variance / ensemble effect) is superseded by the PEWTER paper's own K-ablation
+(`Ablation~\ref{abl:singlewalk}` in `aaai2027/WSDM_format_revised.tex`), which already
+answers the question Lead 5 was going to investigate ("is the gain just ensembling?") —
+a single walk with no aggregation already beats the best baseline on all six datasets.
+Lead 6 (training-regime confound: D/R/H tricks, capacity mismatch, missing
+trainable/spectral features in GNN baselines) is dropped with no replacement, per
+explicit user decision. `plan-lead5-ensemble-effect.md`/`plan-lead6-trainable-
+features.md` are not deleted (left on disk for provenance) but neither is active work.
 
 **PEWTER paper (`aaai2027/`) — ACTIVE, top priority.** Now WSDM-targeted
 (`aaai2027/WSDM_format_revised.tex`), in closeout/punch-list phase. Resume via
@@ -578,14 +585,26 @@ SE work, two-way ANOVA, delta-heatmap regression, Ablation B multiseed rebuild, 
 A/C/D/E rebuild history) — done, full day-by-day log: `aaai2027/PAPER_CLOSEOUT_LOG.md`.
 
 **Other open plans** (not urgent, see `~/.claude/plans/`):
-- `plan-stats-rigor.md` — multi-seed variance / cross-validation / significance testing.
-  Higher priority now the paper needs variance-aware results; `optuna_run.py` still
-  suspected stale.
+- `plan-stats-rigor.md` — **CLOSED 2026-08-20.** Multi-seed variance / cross-validation /
+  significance testing is now the de facto standard throughout the paper (10-seed
+  campaign, paired Wilcoxon tests everywhere a comparison is claimed) — the goal this
+  plan was tracking is done, achieved through the paper closeout work itself rather than
+  by executing this plan file directly. `optuna_run.py` is still stale (see its own
+  top-of-file marker) but that's now tracked as a separate, low-priority item, not
+  gating this closure.
 - `plan-side-quests-misc.md` — docs/config/repo-hygiene/research-follow-up backlog. 3/10
   items done (doc fix, git cleanup, SiGAT+SGA baseline); rest still open, lowest priority.
-- `plan-lead5-ensemble-effect.md` / `plan-lead6-trainable-features.md` — neither started.
+- `plan-lead5-ensemble-effect.md` / `plan-lead6-trainable-features.md` — **scrapped
+  2026-08-20**, see "Open threads" above.
 - `plan-a-fix-for-glimmering-panda.md` — CLOSED 2026-07-19 (walk sampler fix, see "Walk
   sampler" above).
+- `plan-cleanup-and-local-attention-prompts.md` — not a research plan, a pair of
+  self-contained session-starter prompts for two future sessions: (1) production cleanup
+  of this repo into a new, minimal, double-blind-compliant public repo for the paper's
+  anonymous code link, (2) a genuine sparse/windowed local-attention implementation
+  (current `LocalAttentionEncoderLayer` is dense-masked, not actually sub-quadratic —
+  see `MASKING.md`'s benchmark). Neither started; paste either prompt into a fresh
+  session to begin.
 
 ## PEWTER paper (aaai2027/) — file map and conventions
 

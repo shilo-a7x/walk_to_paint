@@ -31,12 +31,23 @@ class StageViewDataset(Dataset):
         cache_data: dict,
         stage: str = "train",
         dynamic_train_masking: bool = False,
+        walk_flip: torch.Tensor = None,
     ):
+        """walk_flip: optional bool tensor [num_walks], one fixed direction-flip
+        decision per walk_id, precomputed ONCE and shared across the train/val/test
+        StageViewDataset instances by the caller (create_stage_dataloaders) -- not
+        computed independently per instance. This matters because a single walk can
+        be visible through more than one stage view (e.g. a walk containing both a
+        TRAIN edge and a VAL edge is read by both train_dataset and val_dataset), so
+        the same walk_id must get the same flip decision everywhere it's read, or the
+        same physical walk would look inconsistently flipped depending on which view
+        happened to access it. None means the ablation is off."""
         enc = cache_data["encoded"]
         tokenizer = cache_data["tokenizer"]
         self.mask_id = tokenizer["MASK_ID"]
         self.ignore_index = tokenizer["UNK_LABEL_ID"]
         self.dynamic_train_masking = bool(dynamic_train_masking)
+        self.walk_flip = walk_flip
         self.stage = stage
 
         self.id2class = torch.full(
@@ -103,6 +114,28 @@ class StageViewDataset(Dataset):
         # Cast to long: dtype change always creates a new tensor (no aliasing into flat storage)
         input_ids = self.flat_input_ids[s:e].to(torch.long)
         split_mask = self.flat_split_mask[s:e].to(torch.long)
+        edge_ids = self.flat_edge_ids[s:e].to(torch.long)
+
+        if self.walk_flip is not None and bool(self.walk_flip[idx]):
+            # Ablation: this walk_id's fixed coin flip says reverse -- read the
+            # whole walk back-to-front, so every real edge's source/target is
+            # uniformly flipped for THIS occurrence (same real endpoints and
+            # signs, just reversed reading order) -- NOT a per-edge local swap,
+            # which would fabricate edges between node pairs that were never
+            # actually adjacent (interior walk positions are shared between two
+            # edges, so swapping one edge's flanking pair independently corrupts
+            # its neighbor into a fictitious edge). Because the flip decision is
+            # per walk_id (not global, not per-edge-token) and a given edge
+            # appears in many different walks, the SAME edge ends up presented
+            # forward in some occurrences and reversed in others -- destroying
+            # usable directionality at the edge level without ever fabricating
+            # an edge within any single walk. Reversing before any of the
+            # split/label/masking logic below keeps every derived tensor
+            # (labels, edge_classes, disallowed-edge masking) self-consistent.
+            input_ids = input_ids.flip(0)
+            split_mask = split_mask.flip(0)
+            edge_ids = edge_ids.flip(0)
+
         attention_mask = torch.ones(L, dtype=torch.long)
 
         is_edge = split_mask != int(SplitID.BAD)
@@ -113,19 +146,20 @@ class StageViewDataset(Dataset):
             allowed_edges |= split_mask == int(split_id)
         disallowed_edges = is_edge & (~allowed_edges)
 
+        # True sign class per position, from the (possibly reversed) raw ids,
+        # before any <MASK> substitution below overwrites input_ids' content.
+        edge_classes = self.id2class[input_ids]
+
         labels = torch.full((L,), self.ignore_index, dtype=torch.long)
         if target_edges.any() and not (
             self.stage == "train" and self.dynamic_train_masking
         ):
-            labels[target_edges] = self.id2class[input_ids[target_edges]]
+            labels[target_edges] = edge_classes[target_edges]
 
         if not (self.stage == "train" and self.dynamic_train_masking):
             input_ids[target_edges] = self.mask_id
         input_ids[disallowed_edges] = self.mask_id
         attention_mask[disallowed_edges] = 0
-
-        edge_ids = self.flat_edge_ids[s:e].to(torch.long)
-        edge_classes = self.id2class[self.flat_input_ids[s:e].to(torch.long)]
 
         metadata = {
             "edge_ids": edge_ids,
@@ -256,6 +290,7 @@ def create_stage_dataloaders(
     persistent_workers: bool = True,
     prefetch_factor: int = 2,
     dynamic_train_masking: bool = False,
+    randomize_walk_direction: bool = False,
     use_bucket_batching: bool = True,
     bucket_width: int = 16,
     seed: int = 0,
@@ -278,12 +313,36 @@ def create_stage_dataloaders(
         dataloader_kwargs["persistent_workers"] = bool(persistent_workers)
         dataloader_kwargs["prefetch_factor"] = int(prefetch_factor)
 
+    # Ablation: one fixed direction-flip decision per walk_id, computed ONCE here
+    # and shared by reference across all three stage views below -- NOT computed
+    # independently per StageViewDataset, since a single walk can be visible
+    # through more than one view (see StageViewDataset's walk_flip docstring).
+    # Seed offset mirrors the dynamic_train_mask_seed_offset pattern (lit_model.py)
+    # so this RNG stream doesn't silently collide with any other seed(seed)-based
+    # randomness elsewhere in the pipeline.
+    walk_flip = None
+    if randomize_walk_direction:
+        n_walks = len(cache_data["encoded"]["offsets"]) - 1
+        gen = torch.Generator(device="cpu").manual_seed(int(seed) + 8_675_309)
+        walk_flip = torch.rand(n_walks, generator=gen) < 0.5
+
     train_dataset = StageViewDataset(
-        cache_data, stage="train", dynamic_train_masking=dynamic_train_masking
+        cache_data,
+        stage="train",
+        dynamic_train_masking=dynamic_train_masking,
+        walk_flip=walk_flip,
     )
-    val_dataset = StageViewDataset(cache_data, stage="val", dynamic_train_masking=False)
+    val_dataset = StageViewDataset(
+        cache_data,
+        stage="val",
+        dynamic_train_masking=False,
+        walk_flip=walk_flip,
+    )
     test_dataset = StageViewDataset(
-        cache_data, stage="test", dynamic_train_masking=False
+        cache_data,
+        stage="test",
+        dynamic_train_masking=False,
+        walk_flip=walk_flip,
     )
 
     tokenizer = cache_data["tokenizer"]

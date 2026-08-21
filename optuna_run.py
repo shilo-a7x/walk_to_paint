@@ -1,3 +1,8 @@
+# XXXXX STALE: never re-verified against the current pipeline (edge_cover walk sampler,
+# LocalAttn4 default, D/R feature flags, current config.yaml schema). Not a priority to
+# fix right now (2026-08-20) -- needs a real rewrite/re-audit before trusting any output
+# from this script, not a quick patch. XXXXX
+
 import os
 import copy
 import argparse

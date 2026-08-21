@@ -1,4 +1,4 @@
-# Panel B Investigation Report — MI/phi vs. line-graph distance on slashdot090221
+# Panel B Investigation Report — MI/phi vs. line-graph distance on slashdot090221 and wiki-rfa
 
 **Status: both threads below are resolved.** This doc consolidates a multi-session investigation
 into two separate questions about Panel B (the "information decays, then bumps back up" MI/phi
@@ -407,6 +407,135 @@ discrepancy report, not discovering anything wrong with production itself.
 
 ---
 
+## 3b. Thread C (2026-08-20) — does a dataset property or a compositional-selection
+mechanism explain the bump, for the two specific instances the user asked about:
+slashdot090221 undirected (hops 4–8) and wiki-rfa directed (hops 7–8)
+
+Threads A and B above establish that the bump is *real* (not a bug, not pure noise) and
+explain one external near-zero *reproduction* failure. Neither one explains *why* the bump
+happens mechanistically. This thread tries several candidate mechanisms for both requested
+instances, honestly reporting what holds up and what doesn't — no forced narrative.
+
+### 3b.1 Is wiki-rfa's directed d7–8 bump real in the first place? (never checked before this thread)
+
+Every check in Threads A/B above was slashdot090221-only. Ran the same shuffle-signs null
+control (`extract_empconf_panelB_mi_decay_linegraph.py --direction directed --shuffle-signs`,
+full production scale, all 177,211 edges as anchors, d_max=7):
+
+| d | real NMI | shuffled-null NMI | real / null |
+|---|---|---|---|
+| 7 | 0.002715 | 0.0000604 | **45×** |
+| 8 | 0.026687 | 0.0000089 | **3003×** |
+
+**Real, by a wide margin at both distances** — same order-of-magnitude-or-more-above-noise
+standard Thread A used for slashdot. This is the first confirmation this specific bump
+(wiki-rfa, directed, tail distances) isn't a sampling/estimator artifact.
+
+### 3b.2 Hub-edge repetition: real for slashdot, NOT the story for wiki-rfa
+
+Thread A found slashdot's outer shell dominated by a small number of repeated hub edges
+(top-10 distinct edges ≈ 40% of all pooled pairs at the farthest distance). Ran the
+equivalent measurement for wiki-rfa directed at d∈{7,8} (new script,
+`scripts/panelb_diagnostics/wikirfa_directed_hub_check.py`, full 177,211-anchor sweep,
+~4.2hr single-threaded — log: `outputs/panelb_diagnostics/wikirfa_directed_hub_check.log`):
+69,288 distinct context edges hit, **top-10 account for only 2.3%** of the 271,341 pooled
+pairs. **Wiki-rfa's tail is not hub-edge-repetition-dominated the way slashdot's is** — a
+real, dataset-specific structural difference, not the same mechanism recurring.
+
+### 3b.3 Sign-composition shift: real in both, opposite direction
+
+New check (not attempted in Threads A/B): does the *sign mix* of outer-shell context edges
+differ from the dataset's overall sign balance?
+
+**Slashdot090221 (undirected), from the cached raw-pair extractor's d=1..6 data**
+(`outputs/panelb_diagnostics/panelb_raw_rows.npy`, reused, no rerun needed):
+
+| d | n_pairs | % positive (pair-weighted) | mean endpoint degree (distinct ctx. edges) |
+|---|---|---|---|
+| 1 | 7,198 | 79.7% | 394.0 |
+| 4 | 2,571,149 | 80.2% | 140.3 |
+| 5 | 161,531 | 87.2% | 89.9 |
+| 6 | 11,303 | **92.2%** | 27.8 |
+
+(dataset-wide baseline: 77.4% positive, mean degree 13.4)
+
+Sign composition trends sharply **more positive** with distance through the bump range, in
+lockstep with a sharp **drop in endpoint degree**.
+
+**Wiki-rfa (directed), from the new full-scale hub-check above:**
+
+| | % positive | mean outdeg(source) | mean indeg(target) |
+|---|---|---|---|
+| context edges at d∈{7,8} | **68.2%** (pair-wt.), 59.5% (distinct) | 177.9 | 75.8 |
+| dataset-wide baseline | 78.4% | 15.7 | 15.7 |
+
+Sign composition trends sharply **more negative** with distance (opposite direction from
+slashdot), in lockstep with a sharp **rise** in source out-degree (opposite direction from
+slashdot's degree trend too).
+
+### 3b.4 Does raw degree alone explain either shift? Checked directly — no, not fully, in either case
+
+The natural next question: is the sign shift just "degree correlates with sign, and the
+outer shell is degree-selected"? Checked with a dataset-wide degree-decile breakdown of
+%positive (`degree_vs_sign_check.py`, one-off, not yet moved into `scripts/`), independent of
+the BFS-shell sampling:
+
+- **Slashdot**: %positive vs. edge endpoint degree is **U-shaped**, not monotonic — 88.5%
+  positive at the lowest-degree decile (mean deg 9.4), dropping to 69.8% at mid-degree (deg
+  121.5), then **rising back to 86.4%** at the highest-degree decile (deg 622). At the outer
+  shell's actual mean degree (~27.8, between decile 1 and 2), the dataset-wide baseline
+  predicts only ~78–81% positive — the observed 92.2% is well above that. **Degree alone
+  under-predicts the shift; something beyond raw degree is selecting for unusually positive
+  edges at the outer shell.**
+- **Wiki-rfa**: %positive vs. source out-degree is **weakly monotonically increasing**
+  (77.7% at the lowest decile → 82.2% at the highest) — the *opposite* direction from the
+  outer shell's actual 68.2%. Degree-matched edges (outdeg≈178, between decile 6 and 7)
+  predict ~79–80% positive; the observed 68.2% is far below that, and on the wrong side of
+  the dataset-wide baseline entirely. **Degree does not explain this shift either — if
+  anything, it points the wrong way.**
+
+This matches and sharpens Thread A's own earlier finding for slashdot ("a direct
+degree-filter pilot on bitcoin-alpha left the bump essentially unchanged... hub effect is a
+correlate, not sufficient by itself") — now confirmed with a cleaner, quantitative decile
+comparison, and shown to hold (differently) for wiki-rfa's directed tail too.
+
+### 3b.5 Honest conclusion for this thread
+
+Both requested bump instances are **real** (not artifacts — confirmed for wiki-rfa here for
+the first time, reconfirmed for slashdot via existing Thread A results) and both show a
+**genuine, measurable sign-composition shift** at the bump distances relative to each
+dataset's overall sign balance. But:
+
+- The shift runs in **opposite directions** (slashdot's outer shell skews positive;
+  wiki-rfa's skews negative) and is accompanied by **opposite degree trends** (slashdot's
+  outer shell is unusually low-degree; wiki-rfa's is unusually high-out-degree) — there is no
+  single shared mechanism across the two instances, only a shared *shape of finding*
+  (distance-selects a compositionally distinct, non-representative sub-population of edges).
+- Neither shift is fully explained by degree alone — both leave a real residual once degree
+  is accounted for (slashdot: more positive than its low degree predicts; wiki-rfa: more
+  negative than its high degree predicts). What that residual selection mechanism actually
+  is (topological role — e.g. "pendant"/tree-like edges vs. cycle-heavy ones — a specific
+  community-structure effect, or something dataset-specific like wiki-rfa's known
+  admin-candidate concentration) is **not pinned down** by this thread.
+- **No forced explanation is offered beyond this.** Per the standing instruction that a
+  clean negative/partial result is an acceptable outcome here: this thread establishes *that*
+  a real, non-degree-reducible compositional selection effect drives both bump instances, and
+  *that* the two datasets' effects point in opposite directions — without claiming to have
+  found the underlying generative mechanism for either.
+
+**Not done / possible follow-ups, no sign-off obtained**: (1) a genuine causal test — filter
+out the top out-degree/low-degree context edges and see whether the residual bump survives
+(the direct analogue of Thread A's bitcoin-alpha degree-filter pilot, not yet run for either
+requested instance); (2) a topological-role check (pendant/bridge edges vs. cycle-embedded
+edges) as a candidate for the unexplained residual; (3) for wiki-rfa specifically, checking
+whether the negative-skewed outer-shell edges concentrate on the known admin-candidate nodes
+(CLAUDE.md's Lead4c section already documents these as unusually high-in-degree, genuinely
+mixed-sign nodes) — plausible given the out/in-degree elevation already found, but not
+directly tested. Any of these would need a fresh sign-off given the ~4hr single-threaded cost
+of the wiki-rfa full-scale sweep already run in this thread (a parallelized version, mirroring
+the production extractor's multiprocessing pattern, would very likely be far cheaper if this
+is picked up again).
+
 ## 4. Consolidated recommendation: how to handle each knob so results stay meaningful
 
 | Knob | Reliable choice | Why |
@@ -427,7 +556,8 @@ discrepancy report, not discovering anything wrong with production itself.
   weakest point d3) under a properly constructed cluster-robust bootstrap on the full,
   undiscarded data. Supersedes and retracts an earlier flawed same-session conclusion.
   Checklist item #12 (`aaai2027/PEWTER_ASSETS_CHECKLIST.md`) should be updated to reflect this —
-  its "fix NOT YET IMPLEMENTED" note is now stale.
+  its "fix NOT YET IMPLEMENTED" note is now stale (checklist item renumbered/rewritten since;
+  see `aaai2027/PEWTER_ASSETS_CHECKLIST.md`'s "Contributions, line 94" row).
 - **Thread B (why did the colleague get near-zero): FULLY RESOLVED, including two follow-up rounds
   after the original 4-gap ablation.** Root-caused to 5 independent gaps total: direction (dominant),
   recording (secondary, still unfixed even in her revised script), anchor sampling (tertiary), an
@@ -450,6 +580,16 @@ discrepancy report, not discovering anything wrong with production itself.
   describing the superseded degree-confound framing, per `CLAUDE.md`'s Figure 1 status note); (3)
   the `imap_unordered` → `imap` reproducibility fix in `load_slashdot_v2_parallel.py` (§3.8), low
   effort, not applied since exact cross-run matching wasn't required for the conclusions drawn.
+- **Thread C (dataset-property / compositional-selection mechanism, both requested bump
+  instances): CLOSED as a partial/honest-negative result, per explicit user permission that "it's
+  ok if we don't find anything."** Both instances (slashdot090221 undirected d4–8, wiki-rfa
+  directed d7–8) confirmed real (the latter for the first time, via shuffle-null, §3b.1); ruled
+  out hub-edge-repetition as wiki-rfa's mechanism (only 2.3% top-10 share, vs. slashdot's ~40%,
+  §3b.2); found real, opposite-direction sign-composition shifts in both (§3b.3) that are **not**
+  fully explained by raw degree in either case (§3b.4) — a genuine residual left unexplained,
+  not forced into a single narrative. See §3b.5 for the three concrete, not-yet-run follow-ups
+  that could sharpen this further, none launched without a fresh sign-off given the ~4hr cost of
+  the wiki-rfa full sweep.
 
 ## 6. File map
 
@@ -459,7 +599,13 @@ discrepancy report, not discovering anything wrong with production itself.
   self-test), `scripts/panelb_diagnostics/demo_slashdot_cap_nondeterminism.py` (the 5-run
   non-determinism proof), `scripts/panelb_diagnostics/verify_distance_definitions.py` (§3.6's
   formal-proof + 41M-edge empirical check), `scripts/panelb_diagnostics/check_reciprocal_edge_handling.py`
-  (§3.7's reciprocal-merge quantification).
+  (§3.7's reciprocal-merge quantification), `scripts/panelb_diagnostics/wikirfa_directed_hub_check.py`
+  (§3b.2/§3b.3's full-scale wiki-rfa directed hub-concentration + sign/degree profile at
+  d∈{7,8}, single-threaded, ~4.2hr — see its own log before rerunning),
+  `scripts/panelb_diagnostics/slashdot_sign_composition_check.py` (§3b.3's slashdot sign/degree
+  profile, reuses the cached `panelb_raw_rows.npy`, seconds to run),
+  `scripts/panelb_diagnostics/degree_vs_sign_check.py` (§3b.4's dataset-wide degree-decile vs.
+  sign check for both datasets, seconds to run).
 - **Her scripts**: repo-root `load_slashdot.py` and `load_slashdot (1).py` (both untouched,
   user-provided originals — v1 and v2 respectively), `scripts/paper_figures/load_slashdot.py`
   (instrumented copy of v1, byte-identical logic), `scripts/paper_figures/load_slashdot_v2.py`
@@ -470,7 +616,8 @@ discrepancy report, not discovering anything wrong with production itself.
   grid), `outputs/panelb_diagnostics/` (raw pair cache `panelb_raw_rows.npy`, cluster-bootstrap
   output, her-original-script run log, the 10k-random-anchor extra runs, `her_v2_seed42_parallel.csv`,
   `her_v2_her_machine_results.csv`, `verify_distance_definitions_output.txt`,
-  `check_reciprocal_edge_handling_output.txt`), repo-root `slashdot_sign_correlation_v2_seed42_parallel.png`.
+  `check_reciprocal_edge_handling_output.txt`, `wikirfa_directed_hub_check.log`,
+  `wikirfa_directed_shuffled_nmi.csv`), repo-root `slashdot_sign_correlation_v2_seed42_parallel.png`.
 - **Prior/background context**: `CLAUDE.md`'s "Panel B's post-minimum 'bump'" note (2026-07-28
   investigation this session's Thread A builds on), `aaai2027/PEWTER_ASSETS_CHECKLIST.md` item
   #12 (Panel B's checklist status — needs updating per §5 above).
