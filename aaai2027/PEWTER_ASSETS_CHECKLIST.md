@@ -13,16 +13,21 @@ tex right now, and a one-line pointer to where the "why"/"how" for everything el
 `aaai2027/STATISTICAL_TESTS_AUDIT.md` for any statistical-test claim, (3) this file, (4)
 `aaai2027/PAPER_CLOSEOUT_LOG.md` for historical narrative only.
 
-## Open markers currently in the tex (verified by direct grep, 2026-08-20 — this list is exhaustive as of that check, not a curated subset)
+## Open markers currently in the tex (verified by direct grep, 2026-08-21 — this list is exhaustive as of that check, not a curated subset; all 6 rows from the 2026-08-20 version of this table are gone — either resolved this session or removed by the professor's own edits, see `PAPER_CLOSEOUT_LOG.md`'s 2026-08-21 entry)
 
 | # | Location | Marker | Status / what's needed |
 |---|---|---|---|
-| 1 | Introduction, line 85 | `XXX WHERE SHOULD WE PRESENT THE MODEL NAME AND ACRONYM? XXX` | **Open, real gap.** The full name ("Proximal Edge-Walk Transformer with Ensemble Read-out") currently exists nowhere in the *rendered* paper — it only appears in a commented-out paragraph immediately above the marker (line 83, `%In directed graphs...`). Needs a decision on where the acronym gets spelled out (Abstract? First use of `\method` in the Introduction? A footnote?), not just uncommenting the old paragraph as-is (that paragraph also contains other content — an entropy-asymmetry summary and a walk-window description — that may or may not still belong there given how much the rest of the Introduction has changed since it was written). |
-| 2 | Contributions, line 93 | `XXX NEW CANDIDATE. SHOULD WE KEEP IT? XXX` | Professor reviewing (2026-08-20) whether to keep the new bullet about the attention direction/vertex-edge-role split (added this session, ties to Figure 3/`fig:attndir`). Awaiting their call. |
-| 3 | Contributions, line 94 | `XXXXX THE STRANGE DISTANT CORRELATIONS RESULTS TO BE REMOVED IF WE FIND MOTHING XXXXXX` | Held per explicit user instruction — this is about Figure 2 Panel B's MI-decay "bump" (slashdot090221 hops 4-8 undirected, wiki-rfa hops 7-8 directed), not the attention-direction/role finding (that's #2 above, a separate bullet). **Investigation done 2026-08-20** (`PANELB_INVESTIGATION_REPORT.md`, Thread C) — both instances confirmed real, but the mechanism behind them was only partially pinned down (real, opposite-direction sign-composition shifts in both, not fully explained by degree alone; no unified mechanism found). Per the marker's own wording ("if we find nothing"), this reads as a genuine partial/mixed result, not a clean "found something" or "found nothing" — still needs your call on whether/how to phrase a bullet around a partial finding, or leave it removed. |
-| 4 | Appendix A (Pinsker relaxation), line 128 | `XXX REF XXX` inside a commented-out sentence (`%The linear form remains valid...`) | **Currently inert** (the whole sentence is commented out, doesn't render) but the underlying question is still open: is $\Hh_b(p)\le 1-\tfrac{2}{\ln 2}(\tfrac12-p)^2$ genuinely attributable to Pinsker, or is "Pinsker-type" a loose borrowed label with no clean citation? Not yet resolved — see the plan file (`~/.claude/plans/adaptive-watching-ember.md`, section B) for the two acceptable outcomes (cite properly, or drop the name and describe it as an unattributed relaxation). Low priority since it's inert either way unless this paragraph gets uncommented. |
-| 5 | Methods, line 242 | `\ph{ANONYMOUS GITHUB LINK}` | Blocked on the new anonymous public repo — see `~/.claude/plans/plan-cleanup-and-local-attention-prompts.md`'s Prompt 1 (production cleanup / open-sourcing), not yet started. Camera-ready-style item, not urgent until submission is imminent. |
-| 6 | Discussion and Limitations, line 353 | `XXX MIGHT NOT BE TRUE WITH NEW RESULTS ON DIRECTIONALITY XXX` | **Actively being reworked (2026-08-20), paused mid-discussion** — the whole Discussion/Limitations paragraph is getting a substantive rewrite, not just this one marker fixed in place (per-item truth audit done: item (a) is fine as-is per the user's own correction — do not tie it to the Ablation~\ref{abl:proximal} context-coverage numbers, they measure a different thing; item (b)'s "hundreds to thousands" is confirmed wrong and needs fixing; item (c) needs consolidating with the newer attention-direction/role findings rather than only citing the entropy-asymmetry one; item (d) is fine). Paused because the professor is reviewing the tex directly right now — resume once they're done, don't silently finish it underneath their review. |
+| 1 | Walk sampler paragraph, line ~180 | `XXXXXX BE EXPLICIT HERE ON HOW YOU CHOSE THE LENGTH XXXXX` (anchor pass) + `XXXX AGAIN HOW MANY XXX` (fill pass) | **Deferred by explicit user instruction**, pending a Methods-section decision (not yet made) on whether/where to state $L=80$ explicitly vs. cross-reference Setup. Don't resolve without that decision first. |
+| 2 | Same paragraph, line ~180 | `XXX This sentence is very unclear XXX` (mid-sentence, on "each one first finds a short directed path leading into a random vertex...") | **New 2026-08-21, not yet resolved.** Separate issue from #1 above (clarity, not a missing number) but in the same sentence — undecided whether to bundle with #1's fix (would touch the sentence twice if done separately) or handle now on its own. |
+| 3 | Datasets/Baselines area, line ~210 | `XXXXX Asked an LLM for more recent methods, and got this two that we should compare...` | This is the EdgeSketch+ / CopulaLSP-adjacent citation candidate — see the plan file's Group E for the full verification (EdgeSketch+ is real, NeurIPS 2025 not 2026 as originally stated; the second candidate is already covered by the existing `sung2026scalable` citation). Not yet acted on. |
+| 4 | Figure 2 area, line ~258 | `XXXXX in figure 2, please combine the labels of D and E...` | Figure-regeneration task (merge Panel D/E legends, reuse Panel E's own legend for both, enlarge). Not yet started. |
+| 5 | Table 1 area, line ~275 | `XXXX ... lets also add Precision Recall AUC or perhaps F1...` | **Investigated 2026-08-21** — PR-AUC is free for only 2/9 rows (Pewter, SiGAT; the other 7 lack raw per-edge scores). F1 is feasible for all 8 baseline rows: 5 already computed/extractable locally (SiGAT, SNEA, CopulaLSP, node2vec + Pewter), and the user has published F1 numbers in hand for the 4 published-only rows (GCN/GAT/SGCN/GSGNN) — consistent with how their AUC numbers already work in Table 1 (published-only, not recomputed on canonical splits). Full table in `PAPER_CLOSEOUT_LOG.md`'s 2026-08-21 entry. **Decision on how to add it (new column vs. footnoted addendum) still open.** |
+| 6 | Ablations subsection, line ~331 | `XXXX There are three intereseting ablations needed to be checked A) randomize the edge direction... B) remove the vertex token... C) remove the edge token... XXXX` | **In progress, real GPU campaign running as of session end** — all three implemented as new config flags (`model.mask_node_tokens`, `model.mask_edge_tokens`, `model.randomize_walk_direction`), pilot-validated, launched as a 180-job (3 ablations × 6 datasets × 10 seeds) campaign via `scripts/run_ablation_campaign.py`. See `CLAUDE.md`'s "Ablation campaign" section for the standing mechanism description and live status. Don't write ablation numbers into the tex until the campaign finishes. |
+| 7 | Where Pewter's attention goes, line ~347 | `XXXX please have larger fonts in all figures... use "Offset" instead of i,j... XXXX` | General figure-polish instructions, stated once but flagged as applying to every figure. Not yet started — needs a pass across every figure script, not just the one it's commented next to. |
+| 8 | Same subsection, line ~350 | `XXXXX HERE PLEASE ALSO REMOVE CAUSAL in the figure itself Shapley is not causal XXXXX` | Checked: "causal" only appears in Python comments/docstrings in the figure-generating scripts, not rendered into the image, and the caption text already says "Shapley contribution" not "causal." Whether the actual Panel-D plotting script bakes the word into a rendered label (not just comments) hasn't been directly checked yet. |
+| 9 | Methods, line ~238 | `\ph{ANONYMOUS GITHUB LINK}` | Blocked on the new anonymous public repo — see `~/.claude/plans/plan-cleanup-and-local-attention-prompts.md`'s Prompt 1 (production cleanup / open-sourcing), not yet started. Camera-ready-style item, not urgent until submission is imminent. |
+
+**Resolved this session, no longer open**: the old row #6 (Discussion/Limitations directionality marker) is moot — per explicit user instruction ("the prof removed this section content deliberately so we can remove the section header too"), `\section{Discussion, Limitations and conclusions}` was deleted entirely, not filled back in. The old rows #1-4 (model name/acronym, Contributions "new candidate", Panel-B-bump, Pinsker `XXX REF XXX`) are all gone from the tex as of this check — either resolved or removed by the professor's own edits since 2026-08-20; not re-verified individually, just confirmed absent by fresh grep.
 
 ## Known non-marker blocker
 
@@ -34,10 +39,11 @@ tex right now, and a one-line pointer to where the "why"/"how" for everything el
   `\includegraphics` target in the whole document that's missing — the other 3 (Figure 2's
   combined empconf panels, Figure 3's delta heatmap, Figure 4's attndir panels) all resolve.
 
-## Mechanical health checks (re-run 2026-08-20, all clean)
+## Mechanical health checks (re-run 2026-08-21, all clean)
 
-- Brace balance: 654/654.
-- Citations: all 38 `\cite`/`\citep` keys used in the tex resolve against
+- Brace balance: 613/613 (down from 654 as of 2026-08-20 — reflects the professor's own
+  edits plus this session's Discussion/Limitations/Conclusion section removal, not a bug).
+- Citations: all `\cite`/`\citep` keys used in the tex resolve against
   `pewter_references.bib`; zero missing. (The old checklist's many `BLOCKED-CITATIONS` rows
   are all resolved — don't resurrect them.)
 - `\appendix` and the section order around it: correct, no stray backslash issues (the
@@ -71,10 +77,11 @@ tex right now, and a one-line pointer to where the "why"/"how" for everything el
   phrasing bugs fixed, `Where \method's attention goes` subsection written and reframed
   around both direction and vertex/edge role). See `PAPER_CLOSEOUT_LOG.md` for the detailed
   narrative.
-- **Sections 7-8 (Discussion/Limitations, Conclusion)**: Conclusion re-verified clean (all
-  headline numbers recomputed by hand and matched exactly: baseline count, mean/range AUC
-  gain). Discussion/Limitations is the one section with real open work — see marker #6
-  above.
+- **Discussion/Limitations/Conclusion**: **section removed entirely, 2026-08-21**, per
+  explicit user instruction (the professor deliberately emptied it; the header itself was
+  deleted too, not filled back in). The paper now goes straight from the attention-
+  directionality figure (end of Results) to Ethical Considerations. No open work here unless
+  the section is reinstated later.
 - **Ethical Considerations**: read for a factual spot-check (positive-edge imbalance
   percentages match `DATASET_STATS.md` exactly); not otherwise in scope for editing without
   explicit request.
