@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 41
+Run ID: ablation_agg
+Model: func_logit_power  (|logit(q)|^b)
+theta* = [0.07499999999999918]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8628 (10369 edges)
+  Test  AUC: 0.8593 (10370 edges)
