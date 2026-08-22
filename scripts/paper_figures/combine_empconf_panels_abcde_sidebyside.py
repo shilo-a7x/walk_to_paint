@@ -86,7 +86,7 @@ def main():
     _add_panel(fig, gs_row3[1], PANEL_E, "(E)", label_y=1.03, label_va="bottom")
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
-    fig.savefig(OUT_PNG, dpi=200, bbox_inches="tight", pad_inches=0.02)
+    fig.savefig(OUT_PNG, dpi=300, bbox_inches="tight", pad_inches=0.02)
     print(f"saved {OUT_PNG}")
 
 

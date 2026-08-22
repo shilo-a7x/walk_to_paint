@@ -209,7 +209,7 @@ def candidate_zero_split(data):
 def _save(fig, name):
     os.makedirs(OUT_DIR, exist_ok=True)
     path = os.path.join(OUT_DIR, name)
-    fig.savefig(path, dpi=180, bbox_inches="tight")
+    fig.savefig(path, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"saved {path}")
 

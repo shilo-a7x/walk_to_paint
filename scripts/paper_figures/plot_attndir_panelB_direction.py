@@ -50,27 +50,27 @@ def main():
     width = 0.35
     fig, ax = plt.subplots(figsize=(7.2, 4.2))
     bars_f = ax.bar(x - width / 2, fwd, width, yerr=fwd_err, capsize=3,
-                     color=FWD_COLOR, label="forward", zorder=3,
+                     color=FWD_COLOR, label="Forward", zorder=3,
                      error_kw={"elinewidth": 1, "zorder": 4})
     bars_b = ax.bar(x + width / 2, bwd, width, yerr=bwd_err, capsize=3,
-                     color=BWD_COLOR, label="backward", zorder=3,
+                     color=BWD_COLOR, label="Backward", zorder=3,
                      error_kw={"elinewidth": 1, "zorder": 4})
 
     for bar in list(bars_f) + list(bars_b):
         ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.008,
-                 f"{bar.get_height():.3f}", ha="center", va="bottom", fontsize=9)
+                 f"{bar.get_height():.3f}", ha="center", va="bottom", fontsize=10)
 
     ax.set_ylim(0, max(fwd + bwd) * 1.2)
     ax.set_xticks(x)
-    ax.set_xticklabels([DISPLAY_LABEL.get(d, d) for d in DATASET_ORDER], fontsize=10)
-    ax.tick_params(axis="y", labelsize=9)
-    ax.set_ylabel("attention mass", fontsize=10)
-    ax.set_title("Forward vs. backward attention mass", fontsize=11)
-    ax.legend(loc="upper right", fontsize=9)
+    ax.set_xticklabels([DISPLAY_LABEL.get(d, d) for d in DATASET_ORDER], fontsize=12)
+    ax.tick_params(axis="y", labelsize=11)
+    ax.set_ylabel("attention mass", fontsize=12)
+    ax.set_title("Forward vs. backward attention mass", fontsize=13)
+    ax.legend(loc="upper right", fontsize=11)
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
-    fig.savefig(OUT_PNG, dpi=150, bbox_inches="tight")
+    fig.savefig(OUT_PNG, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"saved {OUT_PNG}")
 

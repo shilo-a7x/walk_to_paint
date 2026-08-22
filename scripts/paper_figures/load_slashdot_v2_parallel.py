@@ -183,7 +183,7 @@ def main():
     plt.ylabel("Correlation with edge sign (phi)")
     plt.title("Sign correlation vs. BFS distance (Slashdot) -- her v2, undirected,\n"
               "10k random anchors, seed=42, parallelized")
-    plt.savefig(OUT_PNG, dpi=150, bbox_inches="tight")
+    plt.savefig(OUT_PNG, dpi=300, bbox_inches="tight")
     print(f"wrote {OUT_PNG}")
     print(f"total time: {time.time()-t0:.0f}s")
 

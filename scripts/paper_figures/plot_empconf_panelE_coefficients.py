@@ -132,13 +132,13 @@ def main():
 
     dataset_handles, dataset_labels = ax.get_legend_handles_labels()
     hatch_handle = Patch(facecolor="white", edgecolor="#555", hatch="///",
-                          label="not robust ($<$8/10 seeds sig.)")
+                          label="Not robust ($<$8/10 seeds sig.)")
     ax.legend(handles=dataset_handles + [hatch_handle], fontsize=12.5, ncol=3,
                loc="lower center", bbox_to_anchor=(0.5, -0.52), frameon=False)
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
-    fig.savefig(OUT_PNG, dpi=150, bbox_inches="tight")
+    fig.savefig(OUT_PNG, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"saved {OUT_PNG}")
 

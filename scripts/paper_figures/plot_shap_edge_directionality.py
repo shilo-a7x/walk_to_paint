@@ -63,23 +63,23 @@ def main():
                error_kw={"linewidth": 0.8, "ecolor": "#333333"})
 
     ax.set_xticks(x)
-    ax.set_xticklabels([DISPLAY_LABEL.get(d, d) for d in DATASET_ORDER], fontsize=10)
-    ax.tick_params(axis="y", labelsize=9)
-    ax.set_ylabel("mean |SHAP| (probability units)", fontsize=10)
-    ax.set_title("Causal contribution of context edges by hop distance and direction", fontsize=11)
+    ax.set_xticklabels([DISPLAY_LABEL.get(d, d) for d in DATASET_ORDER], fontsize=12)
+    ax.tick_params(axis="y", labelsize=11)
+    ax.set_ylabel("mean |SHAP| (probability units)", fontsize=12)
+    ax.set_title("Shapley contribution of context edges by hop distance and direction", fontsize=13)
     ax.grid(axis="y", alpha=0.25, zorder=0)
 
     legend_handles = [
-        Patch(facecolor=FWD_COLOR, alpha=0.9, edgecolor=FWD_COLOR, label="forward, hop 1"),
-        Patch(facecolor=FWD_COLOR, alpha=0.55, hatch=HATCH, edgecolor=FWD_COLOR, label="forward, hop 2"),
-        Patch(facecolor=BWD_COLOR, alpha=0.9, edgecolor=BWD_COLOR, label="backward, hop 1"),
-        Patch(facecolor=BWD_COLOR, alpha=0.55, hatch=HATCH, edgecolor=BWD_COLOR, label="backward, hop 2"),
+        Patch(facecolor=FWD_COLOR, alpha=0.9, edgecolor=FWD_COLOR, label="Forward, hop 1"),
+        Patch(facecolor=FWD_COLOR, alpha=0.55, hatch=HATCH, edgecolor=FWD_COLOR, label="Forward, hop 2"),
+        Patch(facecolor=BWD_COLOR, alpha=0.9, edgecolor=BWD_COLOR, label="Backward, hop 1"),
+        Patch(facecolor=BWD_COLOR, alpha=0.55, hatch=HATCH, edgecolor=BWD_COLOR, label="Backward, hop 2"),
     ]
-    ax.legend(handles=legend_handles, loc="upper right", fontsize=8.5, ncol=2, frameon=True)
+    ax.legend(handles=legend_handles, loc="upper left", fontsize=10.5, ncol=2, frameon=True)
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
-    fig.savefig(OUT_PNG, dpi=150, bbox_inches="tight")
+    fig.savefig(OUT_PNG, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"saved {OUT_PNG}")
 

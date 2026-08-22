@@ -60,17 +60,17 @@ def main():
         ax.axvline(0, color="k", linewidth=0.8, alpha=0.6, zorder=2)
         ax.set_xlim(-window - 0.5, window + 0.5)
         ax.set_xticks(d_range)
-        ax.set_title(f"head {h}", fontsize=11)
-        ax.set_xlabel("d = j − i", fontsize=9)
-        ax.tick_params(labelsize=8)
-    axes[0].set_ylabel("attention mass", fontsize=10)
+        ax.set_title(f"Head {h}", fontsize=13)
+        ax.set_xlabel("Offset $d$", fontsize=12)
+        ax.tick_params(labelsize=10)
+    axes[0].set_ylabel("attention mass", fontsize=12)
 
     fig.suptitle(f"{dataset}: attention mass per head (orange=edge, blue=vertex offsets)",
-                 fontsize=11)
+                 fontsize=13)
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
-    fig.savefig(OUT_PNG, dpi=150, bbox_inches="tight")
+    fig.savefig(OUT_PNG, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"saved {OUT_PNG}")
 

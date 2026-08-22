@@ -103,7 +103,7 @@ def main():
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
-    fig.savefig(OUT_PNG, dpi=200, bbox_inches="tight")
+    fig.savefig(OUT_PNG, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"saved {OUT_PNG}")
 

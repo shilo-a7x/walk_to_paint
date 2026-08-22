@@ -60,20 +60,20 @@ def _draw_grid(ax, grid, edges, cmap, vmin, vmax, fmt="{:.2f}", text_thresh=None
             v = grid[i, j]
             cx, cy = (edges[i] + edges[i + 1]) / 2, (edges[j] + edges[j + 1]) / 2
             if np.isnan(v):
-                ax.text(cx, cy, "n/a", ha="center", va="center", fontsize=6.5, color="#777")
+                ax.text(cx, cy, "n/a", ha="center", va="center", fontsize=8.5, color="#777")
             else:
                 if text_thresh is not None:
                     lo, hi = text_thresh
                     color = "black" if lo < v < hi else "white"
                 else:
                     color = "black"
-                ax.text(cx, cy, fmt.format(v), ha="center", va="center", fontsize=7, color=color)
+                ax.text(cx, cy, fmt.format(v), ha="center", va="center", fontsize=9, color=color)
     for e in edges:
         ax.axvline(e, color="white", linewidth=0.5)
         ax.axhline(e, color="white", linewidth=0.5)
     ax.set_xticks(edges); ax.set_yticks(edges)
-    ax.set_xticklabels([f"{e:.2f}" for e in edges], fontsize=6)
-    ax.set_yticklabels([f"{e:.2f}" for e in edges], fontsize=6)
+    ax.set_xticklabels([f"{e:.2f}" for e in edges], fontsize=10)
+    ax.set_yticklabels([f"{e:.2f}" for e in edges], fontsize=10)
     return im
 
 
@@ -87,14 +87,14 @@ def plot_sigat_mean():
     for ax, ds in zip(axes.flat, DATASET_ORDER):
         grid, edges = _grid_from_rows(rows, ds, "mean_auc")
         im = _draw_grid(ax, grid, edges, cmap=cmap, vmin=0.5, vmax=1.0, text_thresh=(0.62, 0.92))
-        ax.set_title(DISPLAY_LABEL.get(ds, ds), fontsize=10)
+        ax.set_title(DISPLAY_LABEL.get(ds, ds), fontsize=12)
     for ax in axes[-1, :]:
-        ax.set_xlabel(r"$H_{out}(u)$ (src)", fontsize=8)
+        ax.set_xlabel(r"$H_{out}(u)$ (src)", fontsize=10)
     for ax in axes[:, 0]:
-        ax.set_ylabel(r"$H_{in}(v)$ (tgt)", fontsize=8)
-    fig.suptitle("SiGAT: mean AUC by source/target entropy", fontsize=11)
+        ax.set_ylabel(r"$H_{in}(v)$ (tgt)", fontsize=10)
+    fig.suptitle("SiGAT: mean AUC by source/target entropy", fontsize=13)
     fig.colorbar(im, ax=axes, shrink=0.7, label="mean AUC")
-    fig.savefig(OUT_SIGAT_PNG, dpi=150, bbox_inches="tight")
+    fig.savefig(OUT_SIGAT_PNG, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"saved {OUT_SIGAT_PNG}")
 
@@ -143,31 +143,31 @@ def plot_delta():
                 v = grid[i, j]
                 cx, cy = (edges[i] + edges[i + 1]) / 2, (edges[j] + edges[j + 1]) / 2
                 if np.isnan(v):
-                    ax.text(cx, cy, "n/a", ha="center", va="center", fontsize=6.5, color="#777")
+                    ax.text(cx, cy, "n/a", ha="center", va="center", fontsize=8.5, color="#777")
                 else:
                     light = abs(v) / vmax > 0.55
                     txt_color = "white" if light else "black"
                     n_color = "#e0e0e0" if light else "#3a3a3a"
                     ax.text(cx, cy + 0.028, f"{v:+.2f}", ha="center", va="center",
-                             fontsize=7, color=txt_color, fontweight="medium")
+                             fontsize=9, color=txt_color, fontweight="medium")
                     n = n_grid[i, j]
                     n_str = f"n≈{n:,.0f}" if np.isfinite(n) else ""
                     ax.text(cx, cy - 0.038, n_str, ha="center", va="center",
-                             fontsize=5.5, color=n_color)
+                             fontsize=7.5, color=n_color)
         for e in edges:
             ax.axvline(e, color="white", linewidth=0.5)
             ax.axhline(e, color="white", linewidth=0.5)
         ax.set_xticks(edges); ax.set_yticks(edges)
-        ax.set_xticklabels([f"{e:.2f}" for e in edges], fontsize=6)
-        ax.set_yticklabels([f"{e:.2f}" for e in edges], fontsize=6)
-        ax.set_title(DISPLAY_LABEL.get(ds, ds), fontsize=10)
+        ax.set_xticklabels([f"{e:.2f}" for e in edges], fontsize=10)
+        ax.set_yticklabels([f"{e:.2f}" for e in edges], fontsize=10)
+        ax.set_title(DISPLAY_LABEL.get(ds, ds), fontsize=12)
     for ax in axes[-1, :]:
-        ax.set_xlabel(r"$H_{out}(u)$ (src)", fontsize=8)
+        ax.set_xlabel(r"$H_{out}(u)$ (src)", fontsize=10)
     for ax in axes[:, 0]:
-        ax.set_ylabel(r"$H_{in}(v)$ (tgt)", fontsize=8)
-    fig.suptitle("PEWTER (local) $-$ SiGAT: mean AUC delta by source/target entropy", fontsize=11)
+        ax.set_ylabel(r"$H_{in}(v)$ (tgt)", fontsize=10)
+    fig.suptitle("PEWTER (local) $-$ SiGAT: mean AUC delta by source/target entropy", fontsize=13)
     fig.colorbar(im, ax=axes, shrink=0.7, label="AUC delta (blue = PEWTER higher, red = SiGAT higher)")
-    fig.savefig(OUT_DELTA_PNG, dpi=150, bbox_inches="tight")
+    fig.savefig(OUT_DELTA_PNG, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"saved {OUT_DELTA_PNG}")
 

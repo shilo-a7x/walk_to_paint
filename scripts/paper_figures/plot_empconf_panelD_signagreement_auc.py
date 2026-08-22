@@ -35,8 +35,8 @@ OUT_PERDATASET_PNG = "aaai2027/figures/empconf_panelD_signagreement_auc_perdatas
 
 BUCKET_ORDER = ["in_same", "in_diff", "out_same", "out_diff"]
 BUCKET_LABEL = {
-    "in_same": "in-same", "in_diff": "in-diff",
-    "out_same": "out-same", "out_diff": "out-diff",
+    "in_same": "In-same", "in_diff": "In-diff",
+    "out_same": "Out-same", "out_diff": "Out-diff",
 }
 
 
@@ -80,7 +80,7 @@ def plot_pooled():
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_POOLED_PNG), exist_ok=True)
-    fig.savefig(OUT_POOLED_PNG, dpi=150, bbox_inches="tight")
+    fig.savefig(OUT_POOLED_PNG, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"saved {OUT_POOLED_PNG}")
 
@@ -110,11 +110,15 @@ def plot_perdataset():
     ax.tick_params(axis="y", labelsize=14)
     ax.set_ylabel("Test AUC", fontsize=15)
     ax.set_title("SiGAT AUC by sign agreement, per dataset", fontsize=16)
-    ax.legend(fontsize=12.5, ncol=3, loc="lower center", bbox_to_anchor=(0.5, -0.36), frameon=False)
+    # No legend here by design -- Panel D and Panel E share the same DATASET_COLORS
+    # palette, and the combined figure keeps a single shared legend (Panel E's, which
+    # also carries the "not robust" hatch entry) rather than explaining dataset colors
+    # twice. See plot_empconf_panelE_coefficients.py's legend and combine_empconf_
+    # panels_abcde_sidebyside.py's caption note.
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_PERDATASET_PNG), exist_ok=True)
-    fig.savefig(OUT_PERDATASET_PNG, dpi=150, bbox_inches="tight")
+    fig.savefig(OUT_PERDATASET_PNG, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"saved {OUT_PERDATASET_PNG}")
 

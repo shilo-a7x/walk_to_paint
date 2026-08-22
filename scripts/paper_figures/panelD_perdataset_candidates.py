@@ -147,7 +147,7 @@ def main():
                       ("boxstrip", candidate_boxstrip), ("heatmap", candidate_heatmap)]:
         fig = fn(data)
         out_path = os.path.join(OUT_DIR, f"panelD_candidate_{name}.png")
-        fig.savefig(out_path, dpi=150, bbox_inches="tight")
+        fig.savefig(out_path, dpi=300, bbox_inches="tight")
         plt.close(fig)
         print(f"saved {out_path}")
 

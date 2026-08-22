@@ -79,5 +79,5 @@ fig.suptitle("Bug #2: which edges count as \"distance-1 context\" of anchor edge
 fig.tight_layout(rect=[0, 0.06, 1, 0.94])
 
 os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
-fig.savefig(OUT_PNG, dpi=170, bbox_inches="tight")
+fig.savefig(OUT_PNG, dpi=300, bbox_inches="tight")
 print(f"saved {OUT_PNG}")
