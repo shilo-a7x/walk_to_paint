@@ -99,6 +99,28 @@ class PerEpochPredictionSaver(Callback):
                         input_ids = pl_module._maybe_apply_token_masking(
                             input_ids, node_mask_ablation, edge_mask_ablation
                         )
+                        # Same reapplication requirement for the SIGNSCRAMBLE ablation
+                        # (model.scramble_edge_signs) -- built in from the start this
+                        # time rather than fixed after the fact, since it's a no-op
+                        # unless that cfg flag is set.
+                        if hasattr(pl_module, "_maybe_apply_sign_scramble"):
+                            edge_ids_for_scramble = metadata.get("edge_ids")
+                            edge_classes_for_scramble = metadata.get("edge_classes")
+                            if edge_ids_for_scramble is not None and edge_classes_for_scramble is not None:
+                                # Pass the dataset explicitly -- this callback runs
+                                # with no attached Trainer (posthoc-only calls, e.g.
+                                # run_posthoc.py's standalone path), and
+                                # LightningModule.trainer raises RuntimeError rather
+                                # than returning None when nothing is attached, so
+                                # the lazy table-build inside _maybe_apply_sign_scramble
+                                # can't fall back to self.trainer here.
+                                input_ids = pl_module._maybe_apply_sign_scramble(
+                                    input_ids,
+                                    edge_mask_ablation,
+                                    edge_ids_for_scramble.to(device),
+                                    edge_classes_for_scramble.to(device),
+                                    dataset=dataloader.dataset,
+                                )
 
                 # Forward pass
                 logits = pl_module.model(input_ids, attention_mask=attention_mask)

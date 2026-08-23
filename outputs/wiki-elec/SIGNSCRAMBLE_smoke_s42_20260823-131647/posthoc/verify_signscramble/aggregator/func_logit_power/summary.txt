@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 2
+Run ID: verify_signscramble
+Model: func_logit_power  (|logit(q)|^b)
+theta* = [0.0966796874999992]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.7558 (10369 edges)
+  Test  AUC: 0.7544 (10370 edges)

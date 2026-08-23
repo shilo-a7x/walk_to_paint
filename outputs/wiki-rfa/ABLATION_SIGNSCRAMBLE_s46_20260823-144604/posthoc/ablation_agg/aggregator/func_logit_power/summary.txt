@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 14
+Run ID: ablation_agg
+Model: func_logit_power  (|logit(q)|^b)
+theta* = [0.11953124999999923]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8864 (17721 edges)
+  Test  AUC: 0.8853 (17722 edges)

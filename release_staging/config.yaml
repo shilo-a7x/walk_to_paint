@@ -40,24 +40,10 @@ dataset:
     remove_self_loops: true
     multiedge_handling: keep
 
-    # Walk sampling strategy (coverage-aware options)
-    # uniform         — standard random walks (default, backward-compatible)
-    # guaranteed      — anchor walks that guarantee 100% val/test edge coverage
-    # neg_emphasis    — bias walk starts toward training-negative-edge nodes
-    # inv_degree      — start probability ∝ 1/degree (counteracts degree² visit bias)
-    # node2vec        — biased transitions with return param p and in-out param q
-    # edge_seeded     — online min-heap: always seed from least-traversed edge
-    # neg_traversal   — walks that explicitly traverse a training negative edge
-    # set_cover       — greedy set-cover selection from a large candidate pool
-    # cov_restart     — restart from most-uncovered node instead of uniform
-    # sign_alt        — prefer sign-alternating transitions (train edges only)
-    # smart           — ensemble of guaranteed + neg_emphasis + edge_seeded
-    walk_strategy: uniform
-    walk_neg_emphasis_fraction: 0.5 # fraction of walks seeded near neg-edge nodes
-    walk_set_cover_multiplier: 4 # candidate pool = num_walks × multiplier
-    walk_p: 1.0 # node2vec return param (>1 discourages backtrack)
-    walk_q: 1.0 # node2vec in-out param (>1 = DFS-like)
-    walk_k_min: 1 # k_cover: minimum visits guaranteed per edge
+    # Walk sampling strategy: one forced anchor walk per edge (guarantees 100%
+    # edge coverage), remaining budget filled by genuinely distinct walks.
+    # See src/data/walk_sampler.py::edge_cover_walks.
+    walk_strategy: edge_cover
 
 # Default model architecture (tunable per dataset)
 model:

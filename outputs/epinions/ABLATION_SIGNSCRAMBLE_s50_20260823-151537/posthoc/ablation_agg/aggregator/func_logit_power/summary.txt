@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 20
+Run ID: ablation_agg
+Model: func_logit_power  (|logit(q)|^b)
+theta* = [2.447070312500003]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9521 (84080 edges)
+  Test  AUC: 0.9522 (84080 edges)

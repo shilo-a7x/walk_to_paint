@@ -33,6 +33,25 @@ nvidia-smi --query-gpu=driver_version --format=csv,noheader
 ...then edit the `cu126` in both `[tool.uv.sources]` and `[[tool.uv.index]]` at the
 bottom of `pyproject.toml` to a version at or below that ceiling, and re-run `uv sync`.
 
+### Without uv (pip)
+
+`pyproject.toml`'s `[tool.uv.sources]`/`[[tool.uv.index]]` pinning is uv-specific and
+has no effect under plain pip, so install the CUDA-enabled torch build explicitly
+first, then the rest of the dependencies:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+
+pip install torch --index-url https://download.pytorch.org/whl/cu126  # match your
+                                                                        # driver, see above
+pip install -e .
+```
+
+`pip install -e .` will see the already-installed torch satisfies
+`requires-python`/`torch>=2.6` and leave it alone. Remember to `source
+.venv/bin/activate` in any new shell before running the commands below.
+
 ## Reproducing the headline results
 
 Each of the 6 datasets ships as a small raw edge-list file under `data/<dataset>/`.
@@ -43,6 +62,9 @@ Single run, one dataset:
 
 ```bash
 uv run run.py --device <gpu-id> dataset.name=<dataset> training.exp_name=<tag>
+
+# without uv (venv activated):
+python run.py --device <gpu-id> dataset.name=<dataset> training.exp_name=<tag>
 ```
 
 `<dataset>` is one of: `bitcoin-alpha`, `bitcoin-otc`, `epinions`, `wiki-elec`,
@@ -58,11 +80,18 @@ of the same edge):
 uv run run_posthoc.py --exp-dir outputs/<dataset>/<tag>_<timestamp>/ \
     --artifacts predictions,aggregator --agg-models func_logit_power \
     --device <gpu-id> --run-id <tag>
+
+# without uv (venv activated):
+python run_posthoc.py --exp-dir outputs/<dataset>/<tag>_<timestamp>/ \
+    --artifacts predictions,aggregator --agg-models func_logit_power \
+    --device <gpu-id> --run-id <tag>
 ```
 
 A 10-seed campaign (mean +/- std AUC across seeds) is driven by
 `scripts/run_multiseed.py` (reads/writes under `outputs/` and `logs/multiseed/`;
-edit `GPUS` at the top of the script for your machine).
+edit `GPUS` at the top of the script for your machine) -- run it as `uv run
+scripts/run_multiseed.py` or, without uv, `python scripts/run_multiseed.py` with the
+venv activated.
 
 **Gotcha:** `run.py` always sets `CUDA_VISIBLE_DEVICES` from `--device` (default 0
 if omitted) -- always pass `--device <N>` explicitly on multi-GPU machines, a bare

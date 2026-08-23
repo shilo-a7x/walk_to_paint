@@ -64,6 +64,13 @@ class LitEdgeClassifier(pl.LightningModule):
         self._dynamic_pool_edge_ids_cpu = None
         self._dynamic_pool_edge_classes_cpu = None
 
+        self.scramble_edge_signs = bool(
+            getattr(self.cfg.model, "scramble_edge_signs", False)
+        )
+        self._sign_scramble_ready = False
+        self._sign_scramble_flip_cpu = None
+        self._class2tokid_cpu = None
+
         # Hard-node reweighting (E14; role-aware source/target split added E22 — see
         # HARDNESS_MINER_ROADMAP.md). left token adjacent to a masked edge is always
         # that edge's SOURCE and right token is always its TARGET (walks only traverse
@@ -200,6 +207,116 @@ class LitEdgeClassifier(pl.LightningModule):
             )
             x[rand_positions[:, 0], rand_positions[:, 1]] = node_pool[rand_idx]
 
+        return x
+
+    def _build_sign_scramble_tables(self, dataset=None):
+        """Build the two fixed lookup tables SIGNSCRAMBLE needs, once.
+
+        1. class2tokid: sign class (0/1) -> its token id, by inverting the
+           dataset's id2class map (exactly one token id per sign class).
+        2. flip table: one fixed Bernoulli(0.5) draw per edge id, seeded off
+           cfg.reproducibility.seed with a fixed offset distinct from every
+           other seeded stream in the pipeline (dynamic-mask epoch sampling,
+           DIRFLIP's walk_flip) -- drawn ONCE, not per occurrence or per
+           epoch, so a given edge always shows the same (scrambled) sign
+           everywhere it appears as context, exactly like a real edge would.
+
+        `dataset` lets a caller that already has a StageViewDataset handy
+        (e.g. callbacks.py's posthoc extraction, which has no attached
+        Trainer to read self.trainer.train_dataloader from) pass it in
+        directly. id2class/edge_ids are identical across the train/val/test
+        views of the same cache (same underlying flat arrays, only the
+        stage-specific split logic differs), so any of the three works.
+        Falls back to self.trainer.train_dataloader.dataset when omitted
+        (the normal training-time call path).
+        """
+        if dataset is None:
+            train_loader = self.trainer.train_dataloader
+            dataset = getattr(train_loader, "dataset", None)
+        if dataset is None:
+            raise RuntimeError("scramble_edge_signs requires an accessible dataset")
+
+        edge_ids = getattr(dataset, "edge_ids", None)
+        id2class = getattr(dataset, "id2class", None)
+        if edge_ids is None or id2class is None:
+            raise RuntimeError(
+                "scramble_edge_signs requires edge_ids and id2class metadata"
+            )
+
+        class2tokid = torch.full((self.num_classes,), -1, dtype=torch.long)
+        for tok_id in range(id2class.numel()):
+            c = int(id2class[tok_id])
+            if 0 <= c < self.num_classes:
+                class2tokid[c] = tok_id
+        if (class2tokid < 0).any():
+            raise RuntimeError(
+                "scramble_edge_signs: could not resolve a token id for every sign class"
+            )
+        self._class2tokid_cpu = class2tokid
+
+        valid_ids = edge_ids[edge_ids >= 0]
+        if valid_ids.numel() == 0:
+            raise RuntimeError("scramble_edge_signs: no valid edge ids found")
+        max_edge_id = int(valid_ids.max().item())
+
+        gen = torch.Generator(device="cpu")
+        base_seed = int(self.cfg.reproducibility.seed)
+        gen.manual_seed(base_seed + 2_718_281)
+        self._sign_scramble_flip_cpu = torch.rand(max_edge_id + 1, generator=gen) < 0.5
+        self._sign_scramble_ready = True
+
+    def _maybe_apply_sign_scramble(self, input_ids, edge_mask, edge_ids, edge_classes, dataset=None):
+        """Ablation: every VISIBLE (non-masked, non-split-excluded) edge-sign
+        token shows a fixed, independently-random sign instead of its true
+        one; masked prediction targets and split-excluded edges are untouched
+        (upstream logic already replaced them with <MASK> by this point, so
+        `input_ids != mask_id` excludes them by construction -- this also
+        makes the ablation automatically consistent with dynamic resplit,
+        since a given epoch's freshly-sampled targets are already masked in
+        `model_input_ids` before this runs). The flip decision is fixed per
+        edge id (see _build_sign_scramble_tables), not redrawn per occurrence
+        or per epoch, so this isolates sign CORRECTNESS specifically rather
+        than also destroying presentation consistency.
+
+        `dataset`, if given, is forwarded to _build_sign_scramble_tables (see
+        its docstring) -- needed by callers with no attached Trainer, where
+        self.trainer is not just unset but raises RuntimeError on access.
+        """
+        if not self.scramble_edge_signs or edge_mask is None:
+            return input_ids
+        if not self._sign_scramble_ready:
+            if dataset is None:
+                # Only the real training-time call path (dataset=None) can hit
+                # PL's pre-training sanity-check validation pass, which runs
+                # before on_train_start / before train_dataloader is attached;
+                # that pass's metrics are discarded anyway, so skip scrambling
+                # for it rather than crash. Read _trainer directly (not the
+                # `trainer` property, which raises RuntimeError rather than
+                # returning None when nothing is attached -- exactly the
+                # posthoc-eval case, which always passes its own `dataset`
+                # and never reaches this branch).
+                trainer = getattr(self, "_trainer", None)
+                if trainer is not None and getattr(trainer, "sanity_checking", False):
+                    return input_ids
+            self._build_sign_scramble_tables(dataset=dataset)
+
+        mask_id = int(getattr(self.cfg.model, "mask_id", 1))
+        visible = edge_mask & (input_ids != mask_id)
+        if not visible.any():
+            return input_ids
+
+        flip_table = self._sign_scramble_flip_cpu.to(edge_ids.device)
+        safe_ids = edge_ids.clamp(min=0, max=flip_table.numel() - 1)
+        flip_here = visible & (edge_ids >= 0) & flip_table[safe_ids]
+        if not flip_here.any():
+            return input_ids
+
+        class2tokid = self._class2tokid_cpu.to(input_ids.device)
+        true_class = edge_classes.clamp(min=0, max=self.num_classes - 1)
+        flipped_class = (self.num_classes - 1) - true_class
+
+        x = input_ids.clone()
+        x[flip_here] = class2tokid[flipped_class[flip_here]]
         return x
 
     def _build_dynamic_train_pool(self):
@@ -373,6 +490,9 @@ class LitEdgeClassifier(pl.LightningModule):
         if node_mask is not None:
             model_input_ids = self._maybe_apply_token_masking(
                 model_input_ids, node_mask, edge_mask
+            )
+            model_input_ids = self._maybe_apply_sign_scramble(
+                model_input_ids, edge_mask, metadata["edge_ids"], metadata["edge_classes"]
             )
 
         if stage == "train" and self.training and node_mask is not None:
