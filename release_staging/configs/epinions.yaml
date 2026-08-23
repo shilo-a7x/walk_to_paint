@@ -1,0 +1,27 @@
+# Epinions dataset-specific configuration
+# Merges with base config.yaml - only overrides dataset-specific values
+
+dataset:
+    name: epinions
+    data_dir: data/epinions
+    edge_list_file: soc-sign-epinions.txt.gz
+    remove_self_loops: true
+    multiedge_handling: keep
+    max_walk_length: 80
+    num_walks: 840799 # equal to the edge count; picked via a walk-budget sweep
+    walk_strategy: edge_cover
+
+model:
+    embedding_dim: 32
+    hidden_dim: 32
+    nhead: 8
+    nlayers: 3
+    dropout: 0.000861
+
+training:
+    batch_size: 1024
+    epochs: 75 # raised from 50: convergence curves showed the model still improving at the old cap
+    lr: 0.002936
+    weight_decay: 0.000293
+    gradient_clip_val: 0.1072
+    early_stopping_patience: 15

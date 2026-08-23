@@ -83,6 +83,23 @@ class PerEpochPredictionSaver(Callback):
                 labels = labels.to(device)
                 attention_mask = attention_mask.to(device)
 
+                # Reapply any token-masking ablation (mask_node_tokens/mask_edge_tokens)
+                # the model was actually trained under -- this is a no-op unless one of
+                # those cfg flags is set, matching LitEdgeClassifier._step exactly. Bug
+                # fixed 2026-08-23: this call was previously missing, so ablated
+                # checkpoints were trained blind to a token role but evaluated with it
+                # fully visible -- a real train/eval mismatch, not a leak during
+                # training. See aaai2027/PAPER_CLOSEOUT_LOG.md's 2026-08-23 entry.
+                if hasattr(pl_module, "_maybe_apply_token_masking"):
+                    positions_for_mask = metadata.get("positions")
+                    if positions_for_mask is not None:
+                        positions_for_mask = positions_for_mask.to(device)
+                        node_mask_ablation = (positions_for_mask >= 0) & ((positions_for_mask % 2) == 0)
+                        edge_mask_ablation = (positions_for_mask >= 0) & ((positions_for_mask % 2) == 1)
+                        input_ids = pl_module._maybe_apply_token_masking(
+                            input_ids, node_mask_ablation, edge_mask_ablation
+                        )
+
                 # Forward pass
                 logits = pl_module.model(input_ids, attention_mask=attention_mask)
                 probs = torch.softmax(logits, dim=-1)

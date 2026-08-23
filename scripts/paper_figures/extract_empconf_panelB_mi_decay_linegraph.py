@@ -57,6 +57,11 @@ CHUNK_SIZE = 50           # anchors per work item -- small enough for load balan
 # module-level graph state, set once per dataset by _set_graph() before the pool
 # is created; forked workers see it via copy-on-write, no pickling needed.
 _N = _E = _edge_x = _edge_y = _edge_s = _adj = _D_MAX = None
+_ROOT_MODE = "both"  # "both" (production default, vertex-shell hybrid) or
+                      # "target_only" (root BFS at v alone -- true directed-walk
+                      # locality, i.e. only edges actually forward-reachable by
+                      # continuing a walk past the anchor edge; no vertex-sharing
+                      # shortcut through u's own other out-edges)
 
 
 def mi_from_cont(c):
@@ -102,9 +107,10 @@ def build_graph(raw_edges, direction="undirected"):
     return N, E, edge_x, edge_y, edge_s, adj
 
 
-def _set_graph(N, E, edge_x, edge_y, edge_s, adj, d_max):
-    global _N, _E, _edge_x, _edge_y, _edge_s, _adj, _D_MAX
+def _set_graph(N, E, edge_x, edge_y, edge_s, adj, d_max, root_mode="both"):
+    global _N, _E, _edge_x, _edge_y, _edge_s, _adj, _D_MAX, _ROOT_MODE
     _N, _E, _edge_x, _edge_y, _edge_s, _adj, _D_MAX = N, E, edge_x, edge_y, edge_s, adj, d_max
+    _ROOT_MODE = root_mode
 
 
 def _process_anchor(eid, shell, gen, cur_gen):
@@ -116,7 +122,10 @@ def _process_anchor(eid, shell, gen, cur_gen):
     u, v, y = int(edge_x[eid]), int(edge_y[eid]), int(edge_s[eid])
     yi = 1 if y > 0 else 0
 
-    roots = (u, v) if u != v else (u,)
+    if _ROOT_MODE == "target_only":
+        roots = (v,)
+    else:
+        roots = (u, v) if u != v else (u,)
     reached_nodes = []
     cur_frontier = []
     for w in roots:
@@ -175,7 +184,7 @@ def _worker_chunk(anchor_chunk):
 
 
 def analyse_dataset(ds_name, cfg, d_max, max_anchors, seed=42, workers=None, shuffle_signs=False,
-                     direction="undirected"):
+                     direction="undirected", root_mode="both"):
     t0 = time.time()
     raw_edges = load_edges_canonical(cfg["ds_name"])
     N, E, edge_x, edge_y, edge_s, adj = build_graph(raw_edges, direction=direction)
@@ -196,7 +205,7 @@ def analyse_dataset(ds_name, cfg, d_max, max_anchors, seed=42, workers=None, shu
     else:
         print(f"  using all {E:,} edges as anchors (exact)", flush=True)
 
-    _set_graph(N, E, edge_x, edge_y, edge_s, adj, d_max)
+    _set_graph(N, E, edge_x, edge_y, edge_s, adj, d_max, root_mode=root_mode)
 
     chunks = [anchor_ids[i:i + CHUNK_SIZE] for i in range(0, len(anchor_ids), CHUNK_SIZE)]
     n_workers = workers or mp.cpu_count()
@@ -239,15 +248,24 @@ def main():
     ap.add_argument("--direction", choices=["undirected", "directed"], default="undirected",
                      help="undirected (production default, unchanged) or directed "
                           "(out-neighbors only, u->v -- see build_graph docstring)")
+    ap.add_argument("--root-mode", choices=["both", "target_only"], default="both",
+                     help="both (production default: BFS rooted at BOTH anchor endpoints "
+                          "u and v -- vertex-shell locality, matches the paper's shipped "
+                          "definition) or target_only (BFS rooted at v alone -- true "
+                          "directed-walk locality, no vertex-sharing-through-u shortcut; "
+                          "only meaningful combined with --direction directed)")
     args = ap.parse_args()
 
     datasets = list(DATASET_CONFIGS.keys()) if args.datasets == ["all"] else args.datasets
 
     out_path = args.out
-    if args.direction == "directed" and out_path == OUT_CSV_DEFAULT:
-        # auto-derive the directed output path unless the caller explicitly overrode --out,
-        # so the undirected default stays untouched for any other existing caller.
-        out_path = OUT_CSV_DEFAULT.replace(".csv", "_directed.csv")
+    if out_path == OUT_CSV_DEFAULT:
+        # auto-derive a distinguishing output path unless the caller explicitly overrode
+        # --out, so the undirected/both-root default stays untouched for any other caller.
+        if args.direction == "directed":
+            out_path = out_path.replace(".csv", "_directed.csv")
+        if args.root_mode == "target_only":
+            out_path = out_path.replace(".csv", "_targetonly.csv")
 
     rows = []
     for ds in datasets:
@@ -255,7 +273,7 @@ def main():
             print(f"unknown dataset: {ds}")
             continue
         res = analyse_dataset(ds, DATASET_CONFIGS[ds], args.d_max, args.max_anchors, args.seed, args.workers,
-                               args.shuffle_signs, direction=args.direction)
+                               args.shuffle_signs, direction=args.direction, root_mode=args.root_mode)
         for d, r in res.items():
             rows.append({
                 "dataset": ds, "line_dist": d, "n_pairs": r["n_pairs"],

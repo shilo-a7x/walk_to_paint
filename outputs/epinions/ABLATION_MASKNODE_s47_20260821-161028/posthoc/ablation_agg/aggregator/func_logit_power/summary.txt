@@ -3,8 +3,8 @@ Dataset: epinions
 Epoch: 46
 Run ID: ablation_agg
 Model: func_logit_power  (|logit(q)|^b)
-theta* = [0.7597656249999998]
+theta* = [0.2582031249999993]
 
 Edge-level aggregated AUC:
-  Train AUC: 0.6311 (84080 edges)
-  Test  AUC: 0.6323 (84080 edges)
+  Train AUC: 0.6840 (84080 edges)
+  Test  AUC: 0.6854 (84080 edges)

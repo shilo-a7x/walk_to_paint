@@ -3,8 +3,8 @@ Dataset: wiki-elec
 Epoch: 32
 Run ID: ablation_agg
 Model: func_logit_power  (|logit(q)|^b)
-theta* = [0.14296874999999926]
+theta* = [0.15146484374999925]
 
 Edge-level aggregated AUC:
-  Train AUC: 0.8897 (10369 edges)
-  Test  AUC: 0.8836 (10370 edges)
+  Train AUC: 0.9064 (10369 edges)
+  Test  AUC: 0.9012 (10370 edges)

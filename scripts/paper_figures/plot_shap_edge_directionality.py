@@ -65,7 +65,7 @@ def main():
     ax.set_xticks(x)
     ax.set_xticklabels([DISPLAY_LABEL.get(d, d) for d in DATASET_ORDER], fontsize=12)
     ax.tick_params(axis="y", labelsize=11)
-    ax.set_ylabel("mean |SHAP| (probability units)", fontsize=12)
+    ax.set_ylabel("Mean |SHAP| (probability units)", fontsize=12)
     ax.set_title("Shapley contribution of context edges by hop distance and direction", fontsize=13)
     ax.grid(axis="y", alpha=0.25, zorder=0)
 

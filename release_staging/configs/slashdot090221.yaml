@@ -1,0 +1,27 @@
+# Slashdot090221 dataset-specific configuration
+# Merges with base config.yaml - only overrides dataset-specific values
+
+dataset:
+    name: slashdot090221
+    data_dir: data/slashdot090221
+    edge_list_file: soc-sign-Slashdot090221.txt.gz
+    remove_self_loops: true
+    multiedge_handling: keep
+    max_walk_length: 80
+    num_walks: 1647606 # 3x the edge count; picked via a walk-budget sweep
+    walk_strategy: edge_cover
+
+model:
+    embedding_dim: 128
+    hidden_dim: 256
+    nhead: 4
+    nlayers: 4
+    dropout: 0.005552095028163617
+
+training:
+    batch_size: 1024
+    epochs: 75 # raised from 50: convergence curves showed the model still improving at the old cap
+    lr: 0.0001237270037262604
+    weight_decay: 0.00044649483303964814
+    gradient_clip_val: 0.9500351813165078
+    early_stopping_patience: 15

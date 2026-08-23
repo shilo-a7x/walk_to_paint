@@ -361,7 +361,7 @@ H is scrapped everywhere — do not enable it on either attention variant. L def
 LocalAttn4, settled (see above) — full-attention+short-walks is not the production
 alternative.
 
-## Ablation campaign — vertex/edge/direction (started 2026-08-21, in progress)
+## Ablation campaign — vertex/edge/direction (done 2026-08-23)
 
 Three new **ablation-only** flags (not production defaults, all default `false`), added to
 answer `aaai2027/WSDM_format_revised.tex`'s own line-331 marker ("randomize the edge
@@ -416,9 +416,10 @@ retrains from scratch rather than resuming from a checkpoint, so a restarted dri
 dispatch a duplicate of whatever was in-flight at kill time. Don't restart the driver
 casually; let it drain or use the STOP file.
 
-**Status as of 2026-08-21 session end**: MASKNODE 43/60 done (0 failures), MASKEDGE and
-DIRFLIP not yet started (queued behind MASKNODE). No numbers written into the tex yet —
-wait for the campaign to finish before filling in the line-331 marker.
+**Status: done (2026-08-23).** All 180 jobs completed, 0 failures. Final numbers written into
+`aaai2027/WSDM_format_revised.tex`'s three ablation paragraphs
+(`abl:dirflip`/`abl:masknode`/`abl:maskedge`) — see `aaai2027/PAPER_CLOSEOUT_LOG.md`'s
+2026-08-23 entry for the numbers and a one-line summary of each finding.
 
 ## Performance philosophy — READ BEFORE ADDING ANY NEW FEATURE
 
@@ -635,8 +636,39 @@ paper:
 *theoretical* claim (professor signed off) but not realized by the current
 `LocalAttentionEncoderLayer` implementation — it computes full dense L×L attention and
 applies the window as a post-hoc mask, so no real speedup exists today (see `MASKING.md`'s
-benchmark table). Future-work item, not scheduled: implement genuine sparse/windowed
-attention. Don't start without explicit user go-ahead.
+benchmark table).
+
+**Prototype exists (2026-08-23), NOT adopted, NOT the default.** A genuine sub-quadratic
+implementation was prototyped in an isolated sandbox — `experiments/local_attention_windowed/`
+— per the second prompt in `~/.claude/plans/plan-cleanup-and-local-attention-prompts.md`. Two
+approaches tried, at this project's real shape (L=161 tokens, window=4 → band width 9):
+- **`torch.nn.attention.flex_attention` (PyTorch's built-in block-sparse attention) — tried
+  and rejected.** 4.5–5x *slower*, ~3.5x more memory than the current dense-masked design.
+  Its default block size (128) is far bigger than this project's sequence length (161) and
+  window (9 tokens wide), so per-call BlockMask-construction and kernel-launch overhead
+  swamps any savings from skipping out-of-window blocks — confirmed by sweeping block sizes
+  16/32/64, all similarly slow. Code kept for reference:
+  `experiments/local_attention_windowed/localattn/flex_local_attention.py`.
+- **Manual banded/unfold gather (pure PyTorch) — real win, not yet fully validated.** Gathers
+  only the ±window band of keys/values per query via `Tensor.unfold` instead of materializing
+  an L×L score/mask tensor — genuinely O(L·w). Measured **~33% faster** than both full
+  attention and the current dense-masked local attention (48.65 vs. ~72 ms/iter, production
+  shape, idle GPU) at the cost of **~59% more peak memory** (3468 vs. 2183 MB) — likely from
+  `unfold`'s overlapping-view backward needing contiguous copies for the einsums; in absolute
+  terms this is small against a 44 GB L40S. **Correctness validated to ~1e-6 against the
+  dense-masked reference on synthetic batches only** (incl. boundary cases: padding at
+  position 0/last position, `window=0`, odd head counts, engineered fully-masked rows) — real
+  dataset-cache validation (≥2 datasets) and the full 6-dataset wall-clock/memory benchmark
+  (this project's own "keep the full sweep" convention, see "Cost/performance tradeoff
+  default" above) are **not yet done**. Code:
+  `experiments/local_attention_windowed/localattn/banded_local_attention.py`,
+  `experiments/local_attention_windowed/scripts/test_banded_local_attention.py`.
+
+**Status: paused, not scheduled to resume.** Real production code (`src/model/model.py`,
+`config.yaml`) is untouched — this entire prototype lives under `experiments/` per an explicit
+isolation requirement (no trace in tracked files until/unless the user decides to adopt it).
+Resuming (real-data validation, full benchmark, and only then a real go/no-go on
+adoption) needs explicit user go-ahead, same as starting this did.
 
 **Everything else** (10-seed SiGAT/SNEA/CopulaLSP campaigns, entropy-heatmap methodology,
 SHAP directionality figure, per-figure rebuild/bug-fix history, K-ablation, cluster-robust
@@ -658,12 +690,12 @@ A/C/D/E rebuild history) — done, full day-by-day log: `aaai2027/PAPER_CLOSEOUT
 - `plan-a-fix-for-glimmering-panda.md` — CLOSED 2026-07-19 (walk sampler fix, see "Walk
   sampler" above).
 - `plan-cleanup-and-local-attention-prompts.md` — not a research plan, a pair of
-  self-contained session-starter prompts for two future sessions: (1) production cleanup
-  of this repo into a new, minimal, double-blind-compliant public repo for the paper's
-  anonymous code link, (2) a genuine sparse/windowed local-attention implementation
-  (current `LocalAttentionEncoderLayer` is dense-masked, not actually sub-quadratic —
-  see `MASKING.md`'s benchmark). Neither started; paste either prompt into a fresh
-  session to begin.
+  self-contained session-starter prompts. (1) Production cleanup of this repo into a new,
+  minimal, double-blind-compliant public repo for the paper's anonymous code link — not yet
+  started, now the active item. (2) Genuine sparse/windowed local-attention implementation —
+  started 2026-08-23, prototyped in isolation under `experiments/local_attention_windowed/`,
+  paused pending further validation, not adopted; see "Complexity claim" above for the
+  findings.
 
 ## PEWTER paper (aaai2027/) — file map and conventions
 

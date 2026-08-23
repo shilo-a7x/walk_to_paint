@@ -2,7 +2,7 @@
   "model_name": "func_logit_power",
   "description": "|logit(q)|^b",
   "theta_star": [
-    0.21992187499999932
+    0.23437499999999933
   ],
   "n_iters": 16,
   "n_params": 1,

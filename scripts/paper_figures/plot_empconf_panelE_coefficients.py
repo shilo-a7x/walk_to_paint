@@ -127,7 +127,7 @@ def main():
     ax.set_xticks(x)
     ax.set_xticklabels([TERM_DISPLAY[t] for t in TERM_ORDER], fontsize=15)
     ax.tick_params(axis="y", labelsize=14)
-    ax.set_ylabel("stacked regression coefficients", fontsize=14)
+    ax.set_ylabel("Stacked regression coefficients", fontsize=14)
     ax.set_title("Which entropy term hurts SiGAT, by dataset", fontsize=16)
 
     dataset_handles, dataset_labels = ax.get_legend_handles_labels()

@@ -61,9 +61,9 @@ def main():
         ax.set_xlim(-window - 0.5, window + 0.5)
         ax.set_xticks(d_range)
         ax.set_title(f"Head {h}", fontsize=13)
-        ax.set_xlabel("Offset $d$", fontsize=12)
+        ax.set_xlabel("Offset", fontsize=12)
         ax.tick_params(labelsize=10)
-    axes[0].set_ylabel("attention mass", fontsize=12)
+    axes[0].set_ylabel("Attention mass", fontsize=12)
 
     fig.suptitle(f"{dataset}: attention mass per head (orange=edge, blue=vertex offsets)",
                  fontsize=13)

@@ -63,7 +63,7 @@ def main():
     ax.set_xticks(x)
     ax.set_xticklabels([DISPLAY_LABEL.get(d, d) for d in DATASET_ORDER], fontsize=12)
     ax.tick_params(axis="y", labelsize=11)
-    ax.set_ylabel("attention mass", fontsize=12)
+    ax.set_ylabel("Attention mass", fontsize=12)
     ax.set_title("Vertex- vs. edge-token attention mass", fontsize=13)
     ax.legend(loc="upper right", fontsize=11)
     fig.tight_layout()

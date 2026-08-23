@@ -3,8 +3,8 @@ Dataset: bitcoin-otc
 Epoch: 40
 Run ID: ablation_agg
 Model: func_logit_power  (|logit(q)|^b)
-theta* = [2.587695312500003]
+theta* = [2.1554687500000025]
 
 Edge-level aggregated AUC:
-  Train AUC: 0.7843 (3559 edges)
-  Test  AUC: 0.7836 (3560 edges)
+  Train AUC: 0.8192 (3559 edges)
+  Test  AUC: 0.8109 (3560 edges)

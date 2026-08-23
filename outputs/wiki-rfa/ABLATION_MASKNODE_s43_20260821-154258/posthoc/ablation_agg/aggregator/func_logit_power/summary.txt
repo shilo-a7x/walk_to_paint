@@ -3,8 +3,8 @@ Dataset: wiki-rfa
 Epoch: 1
 Run ID: ablation_agg
 Model: func_logit_power  (|logit(q)|^b)
-theta* = [1.0715820312500002]
+theta* = [1.0500976562500002]
 
 Edge-level aggregated AUC:
-  Train AUC: 0.5630 (17721 edges)
-  Test  AUC: 0.5717 (17722 edges)
+  Train AUC: 0.5696 (17721 edges)
+  Test  AUC: 0.5741 (17722 edges)

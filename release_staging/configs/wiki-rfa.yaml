@@ -1,0 +1,28 @@
+# Wiki-RfA dataset-specific configuration
+# Merges with base config.yaml - only overrides dataset-specific values
+
+dataset:
+    name: wiki-rfa
+    data_dir: data/wiki-RfA
+    edge_list_file: wiki-RfA.txt.gz
+    binary: true
+    remove_self_loops: true
+    multiedge_handling: most_recent
+    max_walk_length: 80
+    num_walks: 265817 # 1.5x the edge count; a budget sweep found AUC peaks here and declines past it
+    walk_strategy: edge_cover
+
+model:
+    embedding_dim: 64
+    hidden_dim: 64
+    nhead: 2
+    nlayers: 5
+    dropout: 0.14736239940786994
+
+training:
+    batch_size: 1024
+    epochs: 50
+    lr: 0.0016135042002810406
+    weight_decay: 2.9866739870000337e-05
+    gradient_clip_val: 0.5394002549968298
+    early_stopping_patience: 15

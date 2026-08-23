@@ -99,9 +99,9 @@ def main():
         ax.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
         ax.tick_params(labelsize=12)
         if r == n_rows - 1:
-            ax.set_xlabel("src out-ent.", fontsize=14)
+            ax.set_xlabel("Source out-entropy", fontsize=14)
         if c == 0:
-            ax.set_ylabel("target in-ent.", fontsize=14)
+            ax.set_ylabel("Target in-entropy", fontsize=14)
 
     fig.suptitle(f"{DISPLAY_LABEL.get(model, model)}: AUC vs. source/target entropy", fontsize=17)
     fig.tight_layout(rect=(0.0, 0, 0.93, 0.97))

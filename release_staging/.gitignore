@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.pyc
+
+# generated at runtime, not part of the release
+outputs/
+logs/
+data/*/dataset_cache__*.pt

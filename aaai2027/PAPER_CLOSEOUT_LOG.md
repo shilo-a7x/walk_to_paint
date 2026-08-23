@@ -818,3 +818,82 @@ walk-direction-flip needs to be per-walk-id and shared across the train/val/test
 views rather than per-draw-random or globally-consistent, the test-harness dtype bug found
 and fixed during verification) is in this session's own transcript, not duplicated here —
 CLAUDE.md has the standing summary.
+
+## 2026-08-23 — Ablation campaign finished, all three ablation paragraphs written into the tex
+
+All 180 jobs (3 ablations × 6 datasets × 10 seeds) completed with 0 failures. Final numbers
+written into `WSDM_format_revised.tex`'s three ablation paragraphs
+(`abl:dirflip`/`abl:masknode`/`abl:maskedge`, right after the K-ablation), each with a
+one-sided paired Wilcoxon significance test across the 10 splits, same standard as every other
+per-dataset claim in the paper:
+- **Removing the vertex token** (`abl:masknode`): by far the largest effect — collapses test
+  AUC by 14.6 to 33.7pp on all six datasets ($p=0.00098$ throughout). Vertex identity carries
+  most of the signal.
+- **Randomizing edge direction** (`abl:dirflip`): moderate, dataset-dependent cost — small on
+  four datasets ($-0.7$ to $-2.2$pp: Bitcoin-alpha, Bitcoin-otc, Epinions, Slashdot), larger on
+  the two Wikipedia vote graphs ($-4.3$pp Wiki-elec, $-5.3$pp Wiki-RfA). All six significant
+  ($p\le0.042$, $p=0.00098$ on five of six).
+- **Removing the edge token** (`abl:maskedge`): smallest and most uniform effect, $-1.0$ to
+  $-1.6$pp on all six datasets, all significant ($p\le0.032$). Edge-sign context is real but
+  secondary next to vertex identity.
+
+`CLAUDE.md`'s "Ablation campaign" section trimmed to a short pointer at the same time (was
+carrying a now-stale mid-campaign status line) — full mechanism/design narrative stays in that
+section since it's still accurate (nothing about *how* the ablations work changed, only their
+completion status), just the "in progress, 43/60" line is gone.
+
+## 2026-08-23 (later same day) — CORRECTION: `abl:masknode`/`abl:maskedge` numbers above were computed under a real posthoc-eval bug, now fixed and re-evaluated
+
+**The `abl:masknode`/`abl:maskedge` numbers recorded in the entry above are wrong** (`abl:dirflip`
+is unaffected — its ablation is implemented entirely at the data-loading level,
+`StageViewDataset._getitem_ragged`, not through the same code path). Root cause: while
+independently investigating why `abl:maskedge`'s reported effect size looked suspiciously small
+(a real concern raised this session — if edge-sign context barely matters, what explains Pewter's
+3-5pp AUC lead over every GNN/SGNN baseline?), a full code trace found that
+`PerEpochPredictionSaver._extract_predictions` (`src/training/callbacks.py`), used by
+`run_posthoc.py`'s "predictions" artifact, called `pl_module.model(...)` directly — bypassing
+`LitEdgeClassifier._maybe_apply_token_masking` entirely. Training was correct (`_step` calls
+`_maybe_apply_token_masking` before every forward pass), but **posthoc evaluation for these two
+ablations fed the model real, unablated tokens** — i.e. `mask_node_tokens`/`mask_edge_tokens`
+checkpoints were trained blind to a token type but evaluated with it fully visible. No other run
+in the paper is affected (every other checkpoint has both flags `false`, where this call is a
+no-op). Verified end-to-end on a real checkpoint (wiki-elec `MASKEDGE` s42: buggy edge-level test
+AUC 0.8957 vs. fixed 0.9083, reproduced independently via `run_posthoc.py --run-id verify_fix` and
+a standalone script, both matching).
+
+**Fix**: added the missing `_maybe_apply_token_masking` reapplication to
+`_extract_predictions` (`src/training/callbacks.py`). **Re-evaluation**: `scripts/
+rerun_ablation_posthoc_fix.py` re-ran posthoc only (no retraining — checkpoints were always
+trained correctly) for all 120 `MASKNODE`/`MASKEDGE` checkpoints (6 datasets × 10 seeds × 2
+ablations), overwriting the buggy `posthoc/ablation_agg/` output in place. 120/120 done, 0
+failures. Corrected numbers extracted via the new
+`scripts/paper_figures/extract_ablation_masknode_maskedge_significance.py`
+(`aaai2027/figure_data/ablation_masknode_maskedge_significance.csv`), same one-sided paired
+Wilcoxon convention as every other per-dataset claim in the paper.
+
+**Corrected `abl:masknode`** (largely the same shape as before, magnitudes shift somewhat since
+several datasets' buggy numbers were not actually negligible, only wiki-elec's single spot-check
+was): collapses test AUC by **13.4 to 33.3pp** on all six datasets (Bitcoin-alpha $-17.5$pp,
+Bitcoin-otc $-13.4$pp, Epinions $-27.2$pp, Wiki-elec $-33.3$pp, Wiki-RfA $-30.1$pp, Slashdot
+$-22.4$pp; $p=0.00098$ throughout, unchanged conclusion).
+
+**Corrected `abl:maskedge` — this is the real finding, not just a decimal-place fix.** The old
+(buggy) numbers claimed a uniform, *significant* $-1.0$ to $-1.6$pp cost on all six datasets. The
+corrected numbers show **no significant effect on any dataset**: Bitcoin-alpha $-0.02$pp
+($p=0.22$), Bitcoin-otc $+0.01$pp ($p=0.24$), Epinions $-0.06$pp ($p=0.24$), Wiki-elec $+0.02$pp
+($p=0.69$), Wiki-RfA $+0.02$pp ($p=0.42$), Slashdot $-0.05$pp ($p=0.07$) — every delta within
+0.06pp, an order of magnitude below split-to-split std, three of six even slightly positive. The
+paragraph's claim changed from "edge-sign context is a real but secondary contribution" to "edge-
+sign context is not detectably load-bearing on any dataset once correctly measured." Both tex
+paragraphs (`abl:masknode`, `abl:maskedge`) updated with the corrected numbers and reframed
+language; brace balance re-verified (734/734).
+
+**This result triggered a broader investigation** (still in progress, see the trivial-baseline
+write-up referenced below) into whether Pewter's win over every GNN/SGNN baseline is more
+explainable by simple vertex-reputation base rates than the paper's edge-conditioning story
+implies — motivated directly by "if edge context barely matters, why do we beat baselines that
+also see vertex identity?". Findings and literature grounding (this ablation-corrected result
+plus the trivial-baseline probe) written up separately in
+`TRIVIAL_BASELINE_INVESTIGATION.md`. That investigation does not change the `abl:maskedge`
+numbers above (those are a direct, verified measurement, not an interpretation) — it's about
+what explanation belongs in the paper's Discussion, a separate open question.

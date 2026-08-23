@@ -1,0 +1,26 @@
+[project]
+name = "signed-walk-transformer"
+version = "0.1.0"
+description = "Edge sign prediction in directed signed graphs via random-walk Transformer"
+requires-python = ">=3.11"
+dependencies = [
+    "torch>=2.6",
+    "pytorch-lightning>=2.4",
+    "omegaconf>=2.3",
+    "scikit-learn>=1.5",
+    "numpy>=2.0",
+    "scipy>=1.13",
+    "matplotlib>=3.9",
+    "torchmetrics>=1.4",
+    "tensorboard>=2.17",
+]
+
+# torch from the CUDA 12.6 wheel index instead of plain PyPI. Change cu126 to match
+# your driver (see README's Install section for how to check).
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true

@@ -3,8 +3,8 @@ Dataset: slashdot090221
 Epoch: 34
 Run ID: ablation_agg
 Model: func_logit_power  (|logit(q)|^b)
-theta* = [0.8609374999999998]
+theta* = [0.1958984374999993]
 
 Edge-level aggregated AUC:
-  Train AUC: 0.8891 (54920 edges)
-  Test  AUC: 0.8870 (54921 edges)
+  Train AUC: 0.8985 (54920 edges)
+  Test  AUC: 0.8960 (54921 edges)

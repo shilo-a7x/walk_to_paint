@@ -1,0 +1,133 @@
+# Base configuration - General defaults for all datasets
+# Dataset-specific configs in configs/<dataset>.yaml will override these
+
+# ============================================================================
+# Reproducibility Configuration
+# ============================================================================
+# Single canonical seed for ALL randomness sources:
+# - PyTorch (model initialization, DataLoader shuffling, dropout)
+# - NumPy (walk sampling, data splitting)
+# - Python random (edge shuffling)
+# - Worker processes (deterministic seeding per worker)
+#
+# CRITICAL: This seed MUST be set. No silent defaults.
+# All scripts (run.py, extract_edge_scores.py, train_aggregator.py, etc.)
+# will fail loudly if this is not present.
+reproducibility:
+    seed: 42
+
+# ============================================================================
+# Preprocessing Configuration
+# ============================================================================
+preprocess:
+    save: true # Save preprocessed data (walks, tokenizer, encodings)
+    use_cache: true # Load from cache if available
+    use_mmap: true # Memory-map tensors on load (faster startup, lower RSS)
+    num_workers: 8 # Number of parallel workers for walk sampling
+
+# Default dataset structure (overridden by dataset-specific configs)
+dataset:
+    name: bitcoin-alpha
+    data_dir: data/bitcoin-alpha
+    edge_list_file: soc-sign-bitcoinalpha.csv.gz
+    # Default split ratios
+    train_ratio: 0.48
+    mask_ratio: 0.32
+    val_ratio: 0.1
+    test_ratio: 0.1
+    # Default data processing
+    binary: true
+    remove_self_loops: true
+    multiedge_handling: keep
+
+    # Walk sampling strategy (coverage-aware options)
+    # uniform         — standard random walks (default, backward-compatible)
+    # guaranteed      — anchor walks that guarantee 100% val/test edge coverage
+    # neg_emphasis    — bias walk starts toward training-negative-edge nodes
+    # inv_degree      — start probability ∝ 1/degree (counteracts degree² visit bias)
+    # node2vec        — biased transitions with return param p and in-out param q
+    # edge_seeded     — online min-heap: always seed from least-traversed edge
+    # neg_traversal   — walks that explicitly traverse a training negative edge
+    # set_cover       — greedy set-cover selection from a large candidate pool
+    # cov_restart     — restart from most-uncovered node instead of uniform
+    # sign_alt        — prefer sign-alternating transitions (train edges only)
+    # smart           — ensemble of guaranteed + neg_emphasis + edge_seeded
+    walk_strategy: uniform
+    walk_neg_emphasis_fraction: 0.5 # fraction of walks seeded near neg-edge nodes
+    walk_set_cover_multiplier: 4 # candidate pool = num_walks × multiplier
+    walk_p: 1.0 # node2vec return param (>1 discourages backtrack)
+    walk_q: 1.0 # node2vec in-out param (>1 = DFS-like)
+    walk_k_min: 1 # k_cover: minimum visits guaranteed per edge
+
+# Default model architecture (tunable per dataset)
+model:
+    embedding_dim: 32
+    hidden_dim: 16
+    dropout: 0.5
+    nhead: 8
+    nlayers: 5
+
+    # ── D: Dynamic resplit ──────────────────────────────────────────────────
+    # Each epoch, re-assign which edges in TRAIN+MASK are the supervised
+    # targets.  Prevents the model memorising which edges to predict.
+    dynamic_train_masking: true
+    dynamic_train_mask_seed_offset: 0
+
+    # ── R: Node token replacement ───────────────────────────────────────────
+    # Replace node tokens with [UNK] or a random node with probability
+    # node_replace_prob.  Reduces reliance on individual node identities.
+    # Set node_context_mode to "none" to disable.
+    node_context_mode: replace # "none" | "replace"
+    node_replace_prob: 0.2 # fraction of node tokens to replace
+    node_replace_unk_ratio: 0.7 # of replaced tokens: fraction set to [UNK]
+
+    # ── Local attention window ──────────────────────────────────────────────
+    # Cap self-attention to |i-j| <= local_attention_window token positions
+    # (banded mask). Set to null for full (unrestricted) attention.
+    local_attention_window: 4
+
+# ============================================================================
+# Training Configuration
+# ============================================================================
+training:
+    # Training hyperparameters
+    batch_size: 1024
+    epochs: 25
+    lr: 0.001
+    weight_decay: 0.001
+    early_stopping_patience: 10
+    early_stopping_min_delta: 0.001 # min val_auc_epoch improvement to reset patience -- was 0 (implicit),
+                                     # letting noise-level upticks reset the counter; see src/training/train.py
+    gradient_clip_val: 0.5
+
+    # Experiment tracking
+    log_dir: logs/
+    exp_name: walk_to_paint_experiment
+    checkpoint_dir: checkpoints/
+    resume_from_checkpoint: null
+    eval_only: false
+    use_cuda: true
+
+    # DataLoader performance configuration
+    # These settings control parallel data loading and GPU transfer
+    num_workers: 16 # Parallel workers for data loading (0 = main process only)
+    pin_memory: true # Pin memory for faster GPU transfer
+    persistent_workers: true # Keep workers alive between epochs (faster with num_workers > 0)
+    prefetch_factor: 2 # Batches prefetched per worker
+    bucket_batching: true # Bucket walks by length for shorter batches (faster transformer)
+    bucket_width: 4 # Bucket granularity in tokens (benchmark: 4 gives 1.2% vs 7.8% padding waste at width=16)
+
+    # Optional non-standard callbacks (disable for faster baseline training)
+    callbacks:
+        enable_prediction_saver: false # Save train/val/test prediction PKLs each epoch
+        enable_per_epoch_test_runner: false # Run test loop at every validation epoch
+        save_every: 0 # 0 = every epoch; N > 0 = every Nth epoch + always last epoch
+
+# Default paths configuration
+paths:
+    base_outputs_dir: outputs
+    use_dataset_outputs: true
+    append_timestamp: true
+
+# GPU optimization
+float32_precision: "medium" # "highest" | "high" | "medium" (for matmul speed)
