@@ -54,7 +54,7 @@ def main():
         current_exp = getattr(cfg.training, "exp_name", None)
     except Exception:
         current_exp = None
-    if not current_exp or current_exp in ("walk_to_paint_experiment", "experiment"):
+    if not current_exp or current_exp in ("default_experiment", "experiment"):
         try:
             note = getattr(cfg.training, "exp_note", None)
         except Exception:

@@ -1,22 +1,34 @@
 """Plot step for Empirical Confirmation Panel B (MI decay with distance) --
 line-graph / endpoint-based distance version.
 
-Pure rendering: reads aaai2027/figure_data/empconf_panelB_mi_decay_linegraph_directed.csv
-(directed, out-neighbors-only BFS -- see extract script's build_graph docstring), built
-by extract_empconf_panelB_mi_decay_linegraph.py. Edit THIS file freely for scale/color/
-style changes -- no recomputation needed.
+Pure rendering: reads aaai2027/figure_data/empconf_panelB_mi_decay_linegraph_directed_targetonly.csv
+(directed BFS, rooted at the anchor edge's own TARGET vertex only -- root_mode=target_only,
+true forward-walk locality, no shortcut through the source vertex's other out-edges -- see
+extract_empconf_panelB_mi_decay_linegraph.py's build_graph/root_mode docstrings), built by
+that same extract script. Edit THIS file freely for scale/color/style changes -- no
+recomputation needed.
 
-**Directed traversal only, capped at line-graph distance 6** (settled 2026-08-23, per
-explicit user decision) -- reported as the paper's canonical distance metric throughout,
-not one of two options. The undirected variant (still available in
-empconf_panelB_mi_decay_linegraph.csv, UNDIRECTED_CSV below, unused by this script) was
-dropped from the figure entirely, not just backgrounded -- an earlier version of this
-script plotted both (directed solid, undirected dashed) for a "does direction matter"
-comparison, but showing an alternative that isn't the paper's own reported metric read as
-confusing rather than informative. The distance cap (>6 excluded) avoids presenting an
-unexplained rebound in NMI at distance 7-8 (e.g. wiki-rfa directed: ~0 at d=6 -> 0.0027 at
-d=7 -> 0.027 at d=8) as a settled part of the decay story -- the mechanism behind that
-rebound isn't understood yet.
+**root_mode=target_only, directed traversal, capped at distance 6 (settled 2026-08-23,
+canon swap from the earlier root_mode=both version, per explicit user decision).** The
+root_mode=both variant (BFS rooted at BOTH of the anchor edge's endpoints -- the true,
+symmetric line-graph adjacency) is still on disk, unused by this script:
+empconf_panelB_mi_decay_linegraph_directed.csv (BOTH_CSV below) and its own rendered PNG,
+empconf_panelB_mi_decay_linegraph_ext_d8.png, both kept for provenance/comparison, not
+deleted. Swap rationale: target_only matches what a sampled walk actually exposes the model
+to (a walk only continues forward past the target vertex, never backtracks through the
+source's other edges), which is the more mechanistically relevant notion for this paper's
+own local-attention-window argument -- see MECHANISM.md-style investigation notes in
+outputs/panelB_targetonly_investigation/. Because target_only is NOT the standard symmetric
+line-graph distance (an edge sharing only the source vertex with the anchor is not "distance
+1" here), axis/title wording says "directed BFS distance" rather than "line-graph distance"
+-- do not call this "line-graph distance" in prose/captions either, see the 2026-08-23 tex
+edit for the corrected wording.
+
+The distance cap (>6 excluded) avoids presenting an unexplained rebound in NMI at distance
+7-8 (present in both root_mode variants, and in the synthetic-fog null-control graph too --
+consistent with the existing estimator-artifact explanation, see PAPER_CLOSEOUT_LOG.md's
+"Panel B's post-minimum bump" entry) as a settled part of the decay story -- the mechanism
+behind that rebound isn't understood yet.
 
 Plots NMI (not raw MI bits): the 6 datasets have different label imbalance,
 so raw MI isn't directly comparable across them (H(Y) differs), while NMI =
@@ -36,8 +48,8 @@ from matplotlib.lines import Line2D
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dataset_style import DATASET_ORDER, DATASET_COLORS, DATASET_MARKERS, DATASET_DISPLAY
 
-UNDIRECTED_CSV = "aaai2027/figure_data/empconf_panelB_mi_decay_linegraph.csv"
-DIRECTED_CSV = "aaai2027/figure_data/empconf_panelB_mi_decay_linegraph_directed.csv"
+BOTH_CSV = "aaai2027/figure_data/empconf_panelB_mi_decay_linegraph_directed.csv"  # superseded, kept for provenance
+TARGETONLY_CSV = "aaai2027/figure_data/empconf_panelB_mi_decay_linegraph_directed_targetonly.csv"  # canonical
 OUT_PNG = "aaai2027/figures/empconf_panelB_mi_decay_linegraph.png"
 
 COLORS = [DATASET_COLORS[ds] for ds in DATASET_ORDER]
@@ -96,13 +108,13 @@ def print_decay_ratio_summary(data, label):
 
 
 def main():
-    directed = load(DIRECTED_CSV)
-    print_decay_ratio_summary(directed, "directed, canonical")
+    data = load(TARGETONLY_CSV)
+    print_decay_ratio_summary(data, "target_only, canonical")
 
     fig, ax = plt.subplots(figsize=(5.6, 3.9))
     all_x = set()
     for ds, color, marker in zip(DATASET_ORDER, COLORS, MARKERS):
-        pts = directed[ds]
+        pts = data[ds]
         if not pts:
             continue
         xs = [p[0] for p in pts]
@@ -111,9 +123,9 @@ def main():
         ax.plot(xs, ys, color=color, marker=marker, markersize=4.5, linewidth=1.6,
                  linestyle="-", zorder=3)
 
-    ax.set_xlabel("Line-graph distance (directed)")
+    ax.set_xlabel("Directed BFS distance (hops)")
     ax.set_ylabel("Normalized mutual information (NMI)")
-    ax.set_title("Sign mutual information vs. line-graph distance", fontsize=11)
+    ax.set_title("Sign mutual information vs. directed BFS distance", fontsize=11)
     ax.set_xticks(sorted(all_x))
     ax.grid(True, which="major", axis="y", color="#e1e0d9", linewidth=0.8, zorder=0)
     ax.grid(True, which="minor", axis="y", color="#e1e0d9", linewidth=0.4, zorder=0)

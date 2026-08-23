@@ -88,7 +88,7 @@ training:
 
     # Experiment tracking
     log_dir: logs/
-    exp_name: walk_to_paint_experiment
+    exp_name: default_experiment
     checkpoint_dir: checkpoints/
     resume_from_checkpoint: null
     eval_only: false
