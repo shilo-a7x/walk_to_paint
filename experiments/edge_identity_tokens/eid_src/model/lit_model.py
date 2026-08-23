@@ -33,10 +33,21 @@ ever accidentally enabled on an EID run):
     pick an arbitrary wrong token rather than crash, so this is flagged here in
     prose rather than caught by an assertion. Keep `model.scramble_edge_signs=false`.
 
-Everything else (`configure_optimizers`, `on_train_epoch_end`/`on_validation_epoch_end`/
-`on_test_epoch_end`, `training_step`/`validation_step`/`test_step`, hardness-reweighting
-plumbing -- unused here, gated off by default same as production, `_maybe_apply_node_replacement`
-for VERTEX tokens, `_maybe_apply_token_masking`) is inherited completely unmodified.
+Everything else (`on_train_epoch_end`/`on_validation_epoch_end`/`on_test_epoch_end`,
+`training_step`/`validation_step`/`test_step`, hardness-reweighting plumbing -- unused
+here, gated off by default same as production, `_maybe_apply_node_replacement` for
+VERTEX tokens, `_maybe_apply_token_masking`) is inherited completely unmodified.
+
+  4. `configure_optimizers` is overridden to optionally put the low-rank edge-identity
+     table (`self.model.edge_embed_low`, only exists when `edge_embed_rank>0`) in its
+     own AdamW param group with a separate weight_decay
+     (`model.edge_embed_weight_decay`, default: fall through to the same
+     `training.weight_decay` every other param uses -- i.e. this is a no-op unless
+     explicitly set). This is a direct capacity-control regularizer (shrinks the
+     embedding vectors themselves via L2 penalty), a different mechanism from
+     `edge_replace_prob`'s train-time identity corruption -- the two are complementary
+     the same way `edge_embed_rank` (capacity) and `edge_replace_prob` (incentive) are
+     complementary per this file's module docstring above.
 """
 
 import torch
@@ -68,6 +79,31 @@ class EIDLitEdgeClassifier(LitEdgeClassifier):
 
     def forward(self, input_ids, sign_ids):
         return self.model(input_ids, sign_ids)
+
+    def configure_optimizers(self):
+        edge_wd = getattr(self.cfg.model, "edge_embed_weight_decay", None)
+        edge_table = getattr(self.model, "edge_embed_low", None)
+        if edge_wd is None or edge_table is None:
+            return super().configure_optimizers()
+
+        edge_param_ids = {id(p) for p in edge_table.parameters()}
+        edge_params = [p for p in edge_table.parameters()]
+        rest_params = [p for p in self.parameters() if id(p) not in edge_param_ids]
+
+        optimizer = torch.optim.AdamW(
+            [
+                {"params": rest_params, "weight_decay": self.cfg.training.weight_decay},
+                {"params": edge_params, "weight_decay": float(edge_wd)},
+            ],
+            lr=self.cfg.training.lr,
+        )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=self.cfg.training.epochs
+        )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {"scheduler": scheduler, "interval": "epoch"},
+        }
 
     def _maybe_apply_edge_identity_replacement(self, input_ids, old_vocab_size):
         """Training-only regularizer: randomly corrupt VISIBLE edge-identity tokens.

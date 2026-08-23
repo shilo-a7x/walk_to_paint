@@ -1,0 +1,258 @@
+<form class="form needs-validation paper-settings-main ng-valid-pattern ng-valid-min ng-valid-max ng-valid-github ng-valid-used ng-valid-format ng-valid-missing ng-valid-access ng-valid-exists ng-valid-activated ng-valid ng-valid-required ng-dirty ng-valid-parse" name="anonymize" novalidate="">
+
+          <section class="paper-settings-section">
+            <div class="paper-section-eyebrow">Source</div>
+
+            <div class="form-group">
+              <label class="paper-field-label" for="sourceUrl">GitHub URL</label>
+              <input type="text" class="form-control ng-pristine ng-untouched ng-valid ng-valid-github ng-valid-used ng-valid-missing ng-valid-access ng-not-empty" name="sourceUrl" id="sourceUrl" ng-class="{'is-invalid': anonymize.sourceUrl.$invalid}" ng-model="sourceUrl" placeholder="Paste a GitHub repo or pull request URL" ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }" ng-change="urlSelected()">
+              <div class="invalid-feedback ng-hide" ng-show="anonymize.sourceUrl.$error.github">
+                Please provide a valid GitHub URL.
+              </div>
+              <div class="invalid-feedback ng-hide" ng-show="anonymize.sourceUrl.$error.access">
+                Not accessible. The organization may restrict access.
+              </div>
+              <div class="invalid-feedback ng-hide" ng-show="anonymize.sourceUrl.$error.missing">
+                Does not exist or is not accessible.
+              </div>
+              <div class="invalid-feedback ng-hide" ng-show="anonymize.sourceUrl.$error.used">
+                Already anonymized.
+              </div>
+            </div>
+
+            <div ng-show="detectedType === 'repo'" class="form-grid-2">
+              <div class="form-group">
+                <label class="paper-field-label" for="branch">Branch</label>
+                <div class="input-group">
+                  <select class="form-control ng-pristine ng-untouched ng-valid ng-not-empty" id="branch" name="branch" ng-model="source.branch">
+                    <!-- ngRepeat: b in branches --><option ng-repeat="b in branches" ng-bind="b.name" value="main" class="ng-binding ng-scope" selected="selected">main</option><!-- end ngRepeat: b in branches -->
+                  </select>
+                  <div class="input-group-append">
+                    <button class="btn" type="button" ng-click="getBranches(true)" title="" data-toggle="tooltip" data-placement="bottom" data-original-title="Refresh">
+                      <i class="fa fa-undo"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="paper-field-label" for="commit">Commit</label>
+                <input class="form-control ng-pristine ng-untouched ng-valid-pattern ng-valid-exists ng-not-empty ng-valid ng-valid-required" id="commit" name="commit" pattern="[a-fA-Z0-9]{6,}" ng-model="source.commit" required="" ng-class="{'is-invalid': anonymize.commit.$invalid}">
+                <div class="invalid-feedback ng-hide" ng-show="anonymize.commit.$error.pattern || anonymize.commit.$error.required">
+                  The commit SHA is not valid.
+                </div>
+                <div class="invalid-feedback ng-hide" ng-show="anonymize.commit.$error.exists">
+                  This commit no longer exists in the repository. Click refresh to get the latest.
+                </div>
+              </div>
+            </div>
+
+            <div class="form-check" ng-show="detectedType">
+              <input class="form-check-input ng-pristine ng-untouched ng-valid ng-empty" type="checkbox" id="update" name="update" ng-model="options.update">
+              <label class="form-check-label" for="update">Auto update</label>
+              <small class="form-text text-muted">Automatically update with the latest changes (hourly max).</small>
+            </div>
+          </section>
+
+          <section class="paper-settings-section" ng-show="detectedType">
+            <div class="paper-section-eyebrow">Identity</div>
+
+            <div class="form-group" ng-show="detectedType === 'repo'">
+              <label class="paper-field-label" for="repoId">Anonymized repository ID</label>
+              <input type="text" class="form-control ng-pristine ng-untouched ng-valid ng-valid-used ng-valid-format ng-not-empty" name="repoId" id="repoId" ng-class="{'is-invalid': anonymize.repoId.$invalid}" ng-model="repoId" ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }">
+              <small class="form-text text-muted">Your share link will be <code class="ng-binding">anonymous.4open.science/r/PEWTER-958B</code>.</small>
+              <div class="invalid-feedback ng-hide" ng-show="anonymize.repoId.$error.format">ID can only contain letters and numbers.</div>
+              <div class="invalid-feedback ng-binding ng-hide" ng-show="anonymize.repoId.$error.used">PEWTER-958B is already used.</div>
+            </div>
+
+            <div class="form-group ng-hide" ng-show="detectedType === 'pr'">
+              <label class="paper-field-label" for="pullRequestId">Anonymized pull request ID</label>
+              <input type="text" class="form-control ng-pristine ng-untouched ng-valid ng-empty ng-valid-used ng-valid-format" name="pullRequestId" id="pullRequestId" ng-class="{'is-invalid': anonymize.pullRequestId.$invalid}" ng-model="pullRequestId" ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }">
+              <small class="form-text text-muted">Your share link will be <code class="ng-binding">anonymous.4open.science/pr/</code>.</small>
+              <div class="invalid-feedback ng-hide" ng-show="anonymize.pullRequestId.$error.format">ID can only contain letters and numbers.</div>
+              <div class="invalid-feedback ng-binding ng-hide" ng-show="anonymize.pullRequestId.$error.used"> is already used.</div>
+            </div>
+
+            <div class="form-group ng-hide" ng-show="detectedType === 'gist'">
+              <label class="paper-field-label" for="gistId">Anonymized gist ID</label>
+              <input type="text" class="form-control ng-pristine ng-untouched ng-valid ng-empty ng-valid-used ng-valid-format" name="gistId" id="gistId" ng-class="{'is-invalid': anonymize.gistId.$invalid}" ng-model="gistId" ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }">
+              <small class="form-text text-muted">Your share link will be <code class="ng-binding">anonymous.4open.science/gist/</code>.</small>
+              <div class="invalid-feedback ng-hide" ng-show="anonymize.gistId.$error.format">ID can only contain letters and numbers.</div>
+              <div class="invalid-feedback ng-binding ng-hide" ng-show="anonymize.gistId.$error.used"> is already used.</div>
+            </div>
+
+            <div class="form-group">
+              <label class="paper-field-label" for="conference">Conference <span class="paper-optional">(optional)</span></label>
+              <input class="form-control ng-valid ng-valid-activated ng-dirty ng-valid-parse ng-empty ng-touched" id="conference" name="conference" ng-model="conference" ng-model-options="{ debounce: { default: 800, blur: 0 }, updateOn: 'default blur' }" ng-class="{'is-invalid': anonymize.conference.$invalid}">
+              <small class="form-text text-muted ng-binding ng-hide" ng-show="conference_data">
+                <a target="_blank" class="ng-binding"></a> expires .
+              </small>
+              <div class="invalid-feedback ng-hide" ng-show="anonymize.conference.$error.activated">The conference is not activated.</div>
+              <small class="form-text text-muted" ng-show="!conference_data">Link to a conference to apply its shared defaults.</small>
+            </div>
+          </section>
+
+          <section class="paper-settings-section" ng-show="detectedType">
+            <div class="paper-section-eyebrow">Anonymization</div>
+
+            <div class="form-group">
+              <label class="paper-field-label" for="terms">Terms to redact</label>
+              <textarea class="form-control ng-pristine ng-untouched ng-valid ng-empty ng-valid-format" id="terms" name="terms" rows="4" ng-model="terms" ng-model-options="{ debounce: 250 }" ng-class="{'is-invalid': anonymize.terms.$invalid}"></textarea>
+              <small class="form-text text-muted">One term per line (regex allowed). Replaced by <code class="ng-binding">XXXX-[N]</code>, or use <code>term=&gt;replacement</code> to pick your own (e.g. <code>Anonymous=&gt;ABC</code>).</small>
+              <div class="warning-feedback ng-hide" ng-show="termsRegexWarning">Regex characters detected. Escape them if unintentional.</div>
+              <div class="invalid-feedback ng-hide" ng-show="anonymize.terms.$error.format">Terms are in an invalid format.</div>
+            </div>
+          </section>
+
+          <section class="paper-settings-section" ng-show="detectedType">
+            <div class="paper-section-eyebrow">Display</div>
+
+            <div ng-show="detectedType === 'repo'" class="">
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-not-empty" type="checkbox" id="link" name="link" ng-model="options.link">
+                <label class="form-check-label" for="link">Keep links</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-not-empty" type="checkbox" id="image" name="image" ng-model="options.image">
+                <label class="form-check-label" for="image">Display images</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-not-empty" type="checkbox" id="pdf" name="pdf" ng-model="options.pdf">
+                <label class="form-check-label" for="pdf">Display PDFs</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-not-empty" type="checkbox" id="notebook" name="notebook" ng-model="options.notebook">
+                <label class="form-check-label" for="notebook">Display Notebooks</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-empty" type="checkbox" id="page" name="page" ng-model="options.page" ng-disabled="!details.hasPage || (details.pageSource &amp;&amp; details.pageSource.branch !== source.branch)" disabled="disabled">
+                <label class="form-check-label" for="page">GitHub Pages</label>
+                <small class="form-text text-muted d-block ng-binding" ng-show="!details.hasPage">
+                  GitHub Pages is not enabled on this repository. Enable it in the repository's Settings → Pages on GitHub, then refresh.
+                </small>
+                <small class="form-text text-muted d-block ng-binding ng-hide" ng-show="details.hasPage &amp;&amp; details.pageSource &amp;&amp; details.pageSource.branch !== source.branch">
+                  GitHub Pages on this repository is served from the '' branch, but you selected 'main'. Switch the branch above to '' to anonymize the Pages site.
+                </small>
+              </div>
+            </div>
+
+            <div ng-show="detectedType === 'gist'" class="ng-hide">
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-not-empty" type="checkbox" id="title-gist" name="title-gist" ng-model="options.title">
+                <label class="form-check-label" for="title-gist">Gist description</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-not-empty" type="checkbox" id="content-gist" name="content-gist" ng-model="options.content">
+                <label class="form-check-label" for="content-gist">File contents</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-not-empty" type="checkbox" id="comments-gist" name="comments-gist" ng-model="options.comments">
+                <label class="form-check-label" for="comments-gist">Comments</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-not-empty" type="checkbox" id="username-gist" name="username-gist" ng-model="options.username">
+                <label class="form-check-label" for="username-gist">Usernames</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-not-empty" type="checkbox" id="date-gist" name="date-gist" ng-model="options.date">
+                <label class="form-check-label" for="date-gist">Dates</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-empty" type="checkbox" id="origin-gist" name="origin-gist" ng-model="options.origin">
+                <label class="form-check-label" for="origin-gist">Source gist ID</label>
+              </div>
+            </div>
+
+            <div ng-show="detectedType === 'pr'" class="ng-hide">
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-not-empty" type="checkbox" id="title" name="title" ng-model="options.title">
+                <label class="form-check-label" for="title">PR title</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-not-empty" type="checkbox" id="body" name="body" ng-model="options.body">
+                <label class="form-check-label" for="body">PR body</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-not-empty" type="checkbox" id="diff" name="diff" ng-model="options.diff">
+                <label class="form-check-label" for="diff">Diff</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-not-empty" type="checkbox" id="comments" name="comments" ng-model="options.comments">
+                <label class="form-check-label" for="comments">Comments</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-not-empty" type="checkbox" id="username" name="username" ng-model="options.username">
+                <label class="form-check-label" for="username">Usernames</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-not-empty" type="checkbox" id="date" name="date" ng-model="options.date">
+                <label class="form-check-label" for="date">Dates</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input ng-pristine ng-untouched ng-valid ng-empty" type="checkbox" id="origin" name="origin" ng-model="options.origin">
+                <label class="form-check-label" for="origin">Project name</label>
+              </div>
+            </div>
+          </section>
+
+          <section class="paper-settings-section" ng-show="detectedType">
+            <div class="paper-section-eyebrow">Expiration</div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="paper-field-label" for="expiration">Strategy</label>
+                <select class="form-control ng-pristine ng-untouched ng-valid ng-not-empty" id="expiration" name="expiration" ng-model="options.expirationMode">
+                  <option value="redirect">Redirect to GitHub when expired</option>
+                  <option value="remove" selected="selected">Remove when expired</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="paper-field-label" for="expirationDate">Expiration date</label>
+                <input class="form-control ng-pristine ng-untouched ng-valid ng-not-empty ng-valid-min ng-valid-max ng-valid-required" type="date" name="expirationDate" id="expirationDate" ng-model="options.expirationDate" ng-class="{'is-invalid': anonymize.expirationDate.$invalid}" min="2026-08-23" max="2027-08-23" required="">
+                <div class="invalid-feedback ng-hide" ng-show="anonymize.expirationDate.$error.min">Pick a date in the future.</div>
+                <div class="invalid-feedback ng-binding ng-hide" ng-show="anonymize.expirationDate.$error.max">Pick a date on or before Aug 23, 2027.</div>
+                <div class="invalid-feedback ng-hide" ng-show="anonymize.expirationDate.$error.required || anonymize.expirationDate.$error.date">Enter a valid expiration date.</div>
+              </div>
+            </div>
+            <small class="form-text text-muted ng-binding" ng-show="options.expirationMode=='remove' &amp;&amp; options.expirationDate">After Feb 23, 2027, the content will be removed.</small>
+            <small class="form-text text-muted ng-binding ng-hide" ng-show="options.expirationMode=='redirect' &amp;&amp; options.expirationDate">After Feb 23, 2027, visitors will be redirected to GitHub.</small>
+          </section>
+
+          <section class="paper-settings-section ng-hide" ng-show="isUpdate &amp;&amp; detectedType === 'repo'">
+            <div class="paper-section-eyebrow">Co-authors</div>
+            <p class="form-text text-muted" style="margin-bottom: 8px;">
+              Co-authors can view and edit these settings. They cannot delete the anonymization or manage co-authors.
+            </p>
+
+            <div class="form-group ng-hide" ng-show="role === 'owner' || role === 'admin'">
+              <label class="paper-field-label" for="coauthorSearch">Add a GitHub user</label>
+              <div style="position: relative;">
+                <input type="text" id="coauthorSearch" class="form-control ng-pristine ng-untouched ng-valid ng-empty" placeholder="Search GitHub username…" ng-model="coauthorSearch" ng-change="searchCoauthors()" ng-model-options="{ debounce: 300 }" autocomplete="off">
+                <div class="dropdown-menu show ng-hide" style="display: block; max-height: 220px; overflow-y: auto; width: 100%;" ng-show="coauthorResults.length &gt; 0">
+                  <!-- ngRepeat: u in coauthorResults -->
+                </div>
+              </div>
+              <small class="form-text text-muted ng-binding ng-hide" ng-show="coauthorError" ng-bind="coauthorError"></small>
+            </div>
+
+            <div class="coauthor-list">
+              <!-- ngRepeat: c in coauthors -->
+              <div class="form-text text-muted" ng-show="!coauthors || coauthors.length === 0">
+                No co-authors yet.
+              </div>
+            </div>
+          </section>
+
+          <!-- ngIf: error -->
+
+          <div class="anonymize-submit-bar" ng-show="detectedType">
+            <!-- ngIf: detectedType === 'repo' && !isUpdate --><button type="submit" class="btn btn-ink ng-scope" ng-click="anonymizeRepo($event)" ng-if="detectedType === 'repo' &amp;&amp; !isUpdate">
+              <i class="fas fa-user-secret mr-1"></i> Anonymize Repository
+            </button><!-- end ngIf: detectedType === 'repo' && !isUpdate -->
+            <!-- ngIf: detectedType === 'repo' && isUpdate -->
+            <!-- ngIf: detectedType === 'pr' && !isUpdate -->
+            <!-- ngIf: detectedType === 'pr' && isUpdate -->
+            <!-- ngIf: detectedType === 'gist' && !isUpdate -->
+            <!-- ngIf: detectedType === 'gist' && isUpdate -->
+          </div>
+        </form>
