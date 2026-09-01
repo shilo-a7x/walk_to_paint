@@ -12,7 +12,6 @@
 \usepackage{xspace}
 \usepackage{algorithm}
 \usepackage{algorithmic}
-\usepackage{placeins} % \FloatBarrier below each section -- stops floats cascading to the last page
 
 %% Convenience macros
 \newcommand{\ph}[1]{\textbf{[#1]}} % placeholder marker -- MUST BE EMPTY AT SUBMISSION
@@ -44,9 +43,7 @@
 \email{anon@email.com}
 
 \begin{abstract}
-Signed networks on the web, such as trust ratings on marketplaces, reviewer endorsements, and adminship votes, carry labels (signs) on edges rather than on vertices. The dominant approach for predicting such signs is vertex-centric: a graph neural network (GNN) embeds the two endpoints and maps the pair of embeddings to an edge sign. We show that this design has an inherent limit. For vertex-centric message-passing GNNs whose edge prediction depends only on endpoint representations, WL equivalence induces a residual uncertainty when edges sharing the same endpoint representations have different signs.  Empirically, baseline GNN accuracy on six public signed networks falls toward chance as this entropy rises. Edge sign is correlated over a short range - the mutual information between an edge sign and a neighboring edge sign drops by roughly three to six orders of magnitude between one and two hops in a BFS from the target vertex, so the usable signal is concentrated in a small signed neighborhood. Interestingly, the signal is not symmetric and depends on the graph family. We thus propose to condition on both the signed edges and the neighboring vertices near the target edge, instead of on only the two vertex summaries. We propose Pewter, which samples walks that pass through the target edge, classifies the masked target sign with a transformer that reads each walk as a token sequence of both vertices and edges, and combines the walks containing an edge by a confidence-weighted vote. 
-Across six public signed networks, PEWTER improves test AUC over the best baseline on every dataset, with a mean gain of 3.3 percentage points. The improvement is largest in settings with high endpoint sign heterogeneity, consistent with the proposed endpoint bottleneck.
-Two further empirical observations are a source/target asymmetry in the model's attention, confirmed by a Shapley-contribution check, and a dataset-specific split in whether attention mass concentrates on vertex or edge tokens. 
+Signed networks on the web, such as trust ratings on marketplaces, reviewer endorsements, and adminship votes, carry labels (signs) on edges rather than on vertices. The dominant approach for predicting such signs is vertex-centric: a graph neural network (GNN) embeds the two endpoints and maps the pair of embeddings to an edge sign. We show that this design has an inherent limit. For vertex-centric message-passing GNNs whose edge prediction depends only on endpoint representations, WL equivalence induces a residual uncertainty when edges sharing the same endpoint representations have different signs. Empirically, baseline GNN accuracy on six public signed networks falls as this entropy rises. Edge sign is correlated over a short range - the mutual information between an edge sign and a neighboring edge sign drops by roughly three to six orders of magnitude between one and two hops in a BFS from the target vertex, so the usable signal is concentrated in a small signed neighborhood. Interestingly, the signal is not symmetric and depends on the graph family. We thus propose to condition on both the signed edges and the neighboring vertices near the target edge, instead of on only the two vertex summaries. We propose Pewter, which samples walks that pass through the target edge, classifies the masked target sign with a transformer that reads each walk as a token sequence of both vertices and edges, and combines the walks containing an edge by a confidence-weighted vote. Across six public signed networks, PEWTER improves test AUC over the best baseline on every dataset, with a mean gain of 3.3 percentage points. The improvement is largest in settings with high endpoint sign heterogeneity, consistent with the proposed endpoint bottleneck. Two further empirical observations are a source/target asymmetry in the model's attention, confirmed by a Shapley-contribution check, and a dataset-specific split in whether attention mass concentrates on vertex or edge tokens.
 \end{abstract}
 
 %% ACM Computing Classification System (CCS) Concepts
@@ -169,12 +166,11 @@ As a side note, a simple corollary of Proposition~\ref{prop:bottleneck} is that:
 \MI\big(Y;h_U,h_V\big)\ \le\ 2\log N, \qquad P_e\ \ge\ \Hh_b^{-1}\big(\Hh(Y)-2\log N\big).
 \end{equation}
 However, this limit is practically empty in practical embeddings that have large values of $N$.
-\FloatBarrier
 \section{Methods and Pewter algorithm description}
 \label{sec:methods}
 The key architectural distinction of PEWTER is that it does not first compress the graph into independent vertex representations and then classify the target edge. Instead, the target edge remains explicitly represented within the sequence used for prediction. Pewter has three parts: a random-walk sampler over the signed graph, a per-walk transformer that classifies a masked target edge from its surrounding walk context, and a validation-tuned weighted vote across the scores of the same edge across walks. Figure~\ref{fig:pipeline-schematic} sketches the pipeline.
 
-\begin{figure*}[!tbp]
+\begin{figure*}[t!]
 \centering
 \includegraphics[width=\linewidth]{figures/pipeline_schematic.png}
 \caption{Pewter trains two separate models for one target edge $(u,v)$. \textbf{Stage 1} (left): walks through $(u,v)$ are sampled, sign-masked (`?'), tokenized, and scored by a frozen Transformer within a $\pm2$-hop window; the three example walks disagree, giving predictions $q_1,q_2$ (positive) and $q_3$ (negative). \textbf{Stage 2} (right, purple): an aggregator combines the $k$ per-walk predictions into one score, $p_{uv}=\frac{\sum_k w_k q_k}{\sum_k w_k}$. Legend: V = vertex, `+'/`-' = edge sign, `?' = the masked target edge.}
@@ -211,7 +207,7 @@ Self-loops are removed everywhere ($573$ edges on Epinions, none on the other fi
 
 \paragraph{Baselines.} We compare against two generic message-passing GNNs that ignore edge sign (GCN~\citep{kipf2017semi}, GAT~\citep{velickovic2018graph}), four signed-graph-specific methods (SGCN~\citep{derr2018signed}, SiGAT~\citep{huang2019signed}, GS-GNN~\citep{liu2021signed}, SNEA~\citep{li2020learning}), and a recent correlation-modeling method (CopulaLSP~\citep{sung2026scalable}). We additionally compare against node2vec~\citep{grover2016node2vec}, a non-signed-aware walk embedding, as a non-GNN reference point. We use the AUC as a ranking metric for consistency with the existing literature. Note that this is only a proxy for the error that is bounded in the theorems above. We also report macro-F1 as a complementary class-balanced measure.
 
-\begin{table}[!htbp]
+\begin{table}[h!]
 \centering
 \scriptsize
 \caption{Per-dataset size and walk budget. $\kappa$ is the walk-budget multiplier, $M=\kappa|E|$, fixed per dataset (Setup below).}
@@ -229,13 +225,11 @@ Slashdot & 82{,}140 & 549{,}202 & $3$ & 1{,}647{,}606 \\
 \bottomrule
 \end{tabular}
 \end{table}
-\FloatBarrier
 \section{Experimental setup}
 \label{sec:setup}
 \paragraph{Setup.} Pewter's per-walk transformer architecture and optimizer are tuned per dataset rather than shared: across the six datasets, embedding dimension $d\in[32,128]$, $n_\text{head}\in[2,8]$, feed-forward dimension $\in[32,256]$, $n_\text{layer}\in[3,5]$, dropout $\in[0.001,0.20]$, and learning rate $\in[1\times10^{-4},3\times10^{-3}]$; batch size is fixed at 1024 for all six, and every run uses early stopping on validation AUC (up to 50--75 epochs depending on dataset). Exact per-dataset values are in the released configuration files rather than enumerated here. Walks have varying length up to a maximum $L=80$ hops; the local-attention window means that even a long walk contributes only a $\pm2$-hop context to each prediction, so the effective receptive field is short even though the sampled sequence need not be. The total walk budget $M$ is fixed per dataset, like the rest of the per-dataset configuration above (Table~\ref{tab:dataset-walks}).
 
 \paragraph{Statistical evaluation and reproducibility.} We evaluate on 10 independent 80/10/10 train/validation/test splits (random seeds 42--51) and report the mean $\pm$ std test AUC across them. The exact splits, the sampled walk corpora, and the configuration files for every number in this paper are available at \url{https://anonymous.4open.science/r/PEWTER-958B}; each individual run uses a single NVIDIA L40S GPU. Paired AUC comparisons across the 10 splits (e.g.\ Pewter against the best baseline, or one bucket against another) use a one-sided paired Wilcoxon signed-rank test~\citep{wilcoxon1945individual}. Where a quantity is tested jointly against two factors, we use a two-way ANOVA with the 10 splits as repeated measurements.  Where many coefficients are fit independently per split, a Benjamini-Hochberg FDR correction~\citep{benjamini1995controlling}. Patterns across the six datasets themselves (rather than across splits within one dataset) are tested with Spearman rank correlation, interpreted cautiously given the small sample ($n=6$).
-\FloatBarrier
 \section{Results}
 
 \subsection{Empirical Evidence for the Endpoint Bottleneck}
@@ -253,10 +247,10 @@ Baseline test AUC drops as a function of source-vertex entropy, as Proposition~\
 \paragraph{(C) Entropy asymmetry is significant within datasets and heterogeneous across them.}
 A per-vertex paired test of a vertex's own out-edge entropy $\Hh_\outdeg(v)$ (its behavior as a source) against its in-edge entropy $\Hh_\indeg(v)$ (its behavior as a target) across all six datasets shows that on four (Bitcoin-alpha, Bitcoin-otc, Epinions, Slashdot) source-side entropy is lower with overwhelming per-dataset significance ($p$ from $5.1\times10^{-4}$ to $3.7\times10^{-244}$, one-sided Wilcoxon signed-rank test), while on two (Wiki-elec, Wiki-RfA) the direction reverses, itself significantly ($p=1.7\times10^{-10}$ and $3.4\times10^{-14}$). A pooled random-effects estimate across the four confirming datasets gives $58.1\%$ of non-tied vertex pairs favoring lower source entropy (95\% CI $[55.3\%, 60.8\%]$); pooled across all six the estimate is not significant.
 
-\begin{figure}[!htbp]
+\begin{figure}[t!]
 \centering
 \includegraphics[width=\linewidth]{figures/empconf_panels_abcde_combined_sidebyside.png}
-\caption{(A) Position-index notation used throughout: target edge = index 0, source $u$ = $-1$, target $v$ = $+1$; each endpoint's other incident edges are indexed $\pm2$, split into out-edges ($\Hh_\outdeg$) and in-edges ($\Hh_\indeg$). (B) Normalized mutual information ($\mathrm{NMI}=\MI/\Hh(Y)$, comparable across datasets with different sign imbalance) between an anchor edge's sign and a context edge's sign vs. directed BFS distance (hops), rooted at the anchor edge's own target vertex (distance 1 = the context edge's source is the anchor edge's target; farther distances follow further forward hops) and capped at distance 6, six datasets. (C) Test AUC (discrete $4\times4$ bins) for SiGAT vs. source out-entropy ($\Hh_\outdeg(-1)$, rater consistency) and target in-entropy ($\Hh_\indeg(1)$, reputation contestedness), six datasets. (D) Test AUC (mean $\pm1$ SD, 10 splits) for SiGAT, one dot per dataset, bucketed by whether a target edge's other in-edges (into $v$) or out-edges (from $u$) agree (\emph{same}) or disagree (\emph{diff}) with it; an edge can appear in multiple buckets since each qualifying neighbor edge contributes one instance. A paired Wilcoxon test (10 splits) confirms AUC is higher for \emph{same} than \emph{diff} on both axes, all six datasets ($p=0.001$ throughout). (E) $z$-scored logistic-regression coefficients (correct $\sim \Hh_\outdeg(-1)+\Hh_\indeg(-1)+\Hh_\outdeg(1)+\Hh_\indeg(1)$) for SiGAT, refit per dataset on 10 splits; each term's bar is stacked by dataset (diverging: negative segments stack downward) to compare across datasets rather than only pooled; error bars are $\pm1$ SD per segment, hatched = not robust (BH-FDR significant in $<8/10$ random seeds).}
+\caption{(A) Position-index notation: target edge = 0, source $u$ = $-1$, target $v$ = $+1$; each endpoint's other incident edges are indexed $\pm2$, split into out-edges ($\Hh_\outdeg$) and in-edges ($\Hh_\indeg$). (B) Normalized mutual information (NMI$=\MI/\Hh(Y)$) between an anchor and context edge's sign vs. directed BFS distance (hops) from the anchor's target vertex, capped at distance 6, six datasets. (C) Test AUC ($4\times4$ bins) for SiGAT vs. source out-entropy ($\Hh_\outdeg(-1)$) and target in-entropy ($\Hh_\indeg(1)$), six datasets. (D) Test AUC (mean $\pm1$ SD, 10 splits) for SiGAT, bucketed by whether a target edge's other in-edges (into $v$) or out-edges (from $u$) agree (\emph{same}) or disagree (\emph{diff}) with it; edges may appear in multiple buckets. A paired Wilcoxon test confirms AUC is higher for \emph{same} than \emph{diff} on both axes, all six datasets ($p=0.001$ throughout). (E) $z$-scored logistic-regression coefficients (correct $\sim \Hh_\outdeg(-1)+\Hh_\indeg(-1)+\Hh_\outdeg(1)+\Hh_\indeg(1)$) for SiGAT, refit per dataset on 10 splits; each term's bar is stacked by dataset; error bars are $\pm1$ SD, hatched = not robust.}
 \label{fig:empconf-panels}
 \end{figure}
 
@@ -268,7 +262,7 @@ We compare against eight baselines on the same six datasets and the same held-ou
 
 Pewter has a higher test AUC than the best baseline on all six datasets, under both attention variants (Table~\ref{tab:result1}), by a mean of $+3.3$ AUC points and a range of $+1.4$ (Wiki-elec, Wiki-RfA) to $+4.5$ (Epinions) points, comparing each dataset's best Pewter variant against its best baseline; a one-sided paired Wilcoxon signed-rank test across the 10 splits confirms Pewter wins on all 10 splits on every dataset ($p=0.00098$ throughout).
 
-\begin{table*}[!tbp]
+\begin{table*}[t!]
 \centering
 \scriptsize
 \caption{Test AUC and macro-F1 (mean $\pm$ std) for edge sign prediction. Bold marks the best result per dataset per metric; italic marks the second-best.}
@@ -302,7 +296,7 @@ Pewter (local attention) & $\mathit{0.913_{\pm.017}}$ & $\mathbf{0.759_{\pm.025}
 
 \subsection{The gain concentrates where the entropy is high}
 We stratified the test edges of each dataset by endpoint entropy, in the same source/target entropy bins as Figure~\ref{fig:empconf-panels}(C), and report the mean-AUC delta between Pewter (local attention) and SiGAT per bin (Figure~\ref{fig:delta-heatmap}). In all datasets and most entropy-combination bins, PEWTER has a higher AUC than SiGAT. The difference increases with source and target vertex entropy. In a per-dataset regression of the bin-level delta on the source- and target-entropy bin midpoints, the entropy dependence is significant on both axes for Bitcoin-otc and on the source-entropy axis for Epinions (both $p<0.01$).
-\begin{figure}[!htbp]
+\begin{figure}[t!]
 \centering
 \includegraphics[width=\linewidth]{figures/pewter_sigat_delta_heatmap.png}
 \caption{Pewter (local attention) minus SiGAT, mean test AUC by source/target entropy bin (10 splits, six datasets). Each cell shows the AUC delta and mean per-split sample size $n$ ($n\ge50$, else grey `n/a').}
@@ -364,7 +358,7 @@ Attention also splits by token role, between vertex tokens and edge tokens (Figu
 
 Attention allocation describes where the model places computational weight and should not by itself be interpreted as direct measurement of feature importance. We therefore complement attention analysis with Shapley contributions~\citep{shapley1953value} to the masked target's predicted sign probability (Figure~\ref{fig:attndir}D), decomposed by hop and direction within the $\pm2$-hop local window; "significant" here means the cluster-robust 95\% CI on the forward-minus-backward difference excludes zero. The two measures broadly agree in direction, except on Wiki-elec and Wiki-RfA, where Shapley contribution is significantly forward-dominant while raw attention mass is backward-dominant.
 
-\begin{figure}[!htbp]
+\begin{figure}[t!]
 \centering
 \includegraphics[width=\linewidth]{figures/attndir_panels_abcd_combined.png}
 \caption{Attention directionality and Shapley contribution of Pewter's first layer 0 over the six datasets. For each masked target-edge, attention mass is split by signed offset $d$ (position relative to the target, in token steps) and by token role (vertex vs.\ edge); self-attention ($d=0$) is excluded. (A) Per-head breakdown for the Bitcoin-alpha dataset (4 heads) over the window $d\in[-4,4]$ (labeled ``Offset'' on the plot axis): heads alternate their peak mass between vertex and edge offsets. (B) Forward vs.\ backward mass by dataset, mean over heads. (C) Vertex vs.\ edge mass by dataset, mean over heads. (D) Shapley contribution of context edges by hop distance and direction.}
@@ -374,7 +368,6 @@ Attention allocation describes where the model places computational weight and s
 
 
 \appendix
-\FloatBarrier
 \section{Full Proofs}
 \label{app:proofs}
 We work with a distribution $\mathcal{D}$ over labeled edges: draw an edge $(U,V)$ and read its label $Y$. All bounds are on the population (Bayes) error of the stated hypothesis class, which lower-bounds the test error of any member of that class.
@@ -408,7 +401,7 @@ the last step being the chain rule for conditional entropy. Since any GNN lies i
 
 
 
-\begin{table}[!htbp]
+\begin{table}[h!]
 \centering
 \scriptsize
 \caption{Ablation~\ref{abl:aggregator}: test AUC (mean $\pm$ std, 10 splits) for Pewter (local attention) under 11 aggregator weight functions $w(q)$, each depending only on the walk's predicted probability $q$. Bold marks the best per dataset, italic the second best. The full spread across all functions and datasets is under $0.0018$ AUC.}
@@ -434,7 +427,6 @@ $\max(q,1-q)^b$ & $0.913_{\pm0.017}$ & $0.932_{\pm0.006}$ & $0.953_{\pm0.002}$ &
 }
 \end{table}
 %% References Section
-\FloatBarrier
 \section{Discussion and limitations}
 We have shown that PEWTER - a random-walk-based edge-sign classifier has significantly higher AUC than current methods.  The improvement we report comes with a trade-off that follows directly from Proposition 1 itself. PEWTER escapes the endpoint bottleneck in part because its vertex tokens are identity-indexed embeddings rather than structural encodings computed from a WL-style computation tree. Consequently, PEWTER inherits that price: it is a fully transductive model, and a target edge whose endpoints were absent from the training walk corpus (a genuinely new vertex, rather than merely a held-out edge between known vertices) has no learned vertex token and no walk occurrences to score. Inductive baselines such as GraphSAGE, and more generally any message-passing GNN that computes the embeddings from features and local structure rather than an identity lookup, degrade gracefully in this regime, where PEWTER cannot be evaluated at all without retraining or a fallback rule. We did not test this regime, since all six benchmarks are transductive by construction, but it bounds the settings the reported gains apply to: streaming or cold-start deployments where new accounts arrive continuously are exactly the ones where the endpoint bottleneck is least escapable by our method.
 

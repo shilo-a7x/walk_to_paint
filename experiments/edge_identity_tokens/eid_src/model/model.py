@@ -41,6 +41,21 @@ ablation branch in forward()); this file adds two things this experiment needs:
    reproduces the original unified `self.embed` table exactly -- no behavior
    change for any run that doesn't set this flag.
 
+3. An OPTIONAL separate node/vertex embedding width (model.node_embed_dim,
+   added 2026-08-24), only meaningful when edge_embed_rank>0 (factorized mode
+   already has a standalone `base_embed` table for nodes at that point).
+   Undecoupled by default, node capacity is whatever `content_dim` happens to
+   be after the edge/sign split (e.g. content_dim=48 when embedding_dim=64,
+   sign_embed_dim=16, concat) -- an incidental trim, not a deliberate choice.
+   Setting model.node_embed_dim gives nodes their own width, projected up to
+   content_dim via a shared nn.Linear (same up-projection pattern as
+   edge_proj, mirrored -- unlike edges, node vocab (3,788 on bitcoin-alpha) is
+   small enough that this isn't about parameter-count capacity control, it's
+   about letting Optuna search node representational width independently of
+   whatever the edge/sign split leaves over. Defaults to content_dim (a
+   straight nn.Embedding, no projection, identical to the old behavior) when
+   unset.
+
 `forward()` has to be a near-full copy of the parent's, not a call to
 `super().forward()` plus a patch, because the parent recomputes
 `x = self.embed(input_ids)` from scratch as its very first line with no hook to
@@ -92,7 +107,17 @@ class EdgeIdentityTransformerModel(TransformerModel):
                 self.content_dim = embedding_dim
 
             self.sign_embedding = nn.Embedding(3, self.sign_embed_dim)
-            self.base_embed = nn.Embedding(self.old_vocab_size, self.content_dim, padding_idx=cfg.model.pad_id)
+
+            node_embed_dim = int(getattr(cfg.model, "node_embed_dim", 0) or 0)
+            if node_embed_dim > 0 and node_embed_dim != self.content_dim:
+                self.node_embed_dim = node_embed_dim
+                self.base_embed = nn.Embedding(self.old_vocab_size, node_embed_dim, padding_idx=cfg.model.pad_id)
+                self.node_proj = nn.Linear(node_embed_dim, self.content_dim)
+            else:
+                self.node_embed_dim = self.content_dim
+                self.base_embed = nn.Embedding(self.old_vocab_size, self.content_dim, padding_idx=cfg.model.pad_id)
+                self.node_proj = None
+
             self.edge_embed_low = nn.Embedding(num_edges, self.edge_embed_rank)
             self.edge_proj = nn.Linear(self.edge_embed_rank, self.content_dim)
 
@@ -107,6 +132,8 @@ class EdgeIdentityTransformerModel(TransformerModel):
         edge_ids_0 = (input_ids - old_vs).clamp(min=0)
 
         base_content = self.base_embed(base_ids)
+        if self.node_proj is not None:
+            base_content = self.node_proj(base_content)
         edge_content = self.edge_proj(self.edge_embed_low(edge_ids_0))
         return torch.where(is_edge_tok.unsqueeze(-1), edge_content, base_content)
 
