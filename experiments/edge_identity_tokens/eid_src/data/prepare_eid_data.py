@@ -43,6 +43,7 @@ def prepare_eid_data(cfg, eid_cache_path: str):
 
     cfg.model.vocab_size = int(tok["vocab_size"])
     cfg.model.old_vocab_size = int(tok["old_vocab_size"])
+    cfg.model.eid_cache_path = str(eid_cache_path)  # for model.py's edge_residual_baseline
     cfg.model.num_classes = cache_data["metadata"]["num_classes"]
     cfg.model.pad_id = cache_data["metadata"]["pad_id"]
     cfg.model.ignore_index = cache_data["metadata"]["ignore_index"]

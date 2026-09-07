@@ -56,6 +56,38 @@ ablation branch in forward()); this file adds two things this experiment needs:
    straight nn.Embedding, no projection, identical to the old behavior) when
    unset.
 
+4. An OPTIONAL residual/skip edge embedding (model.edge_residual_baseline, added
+   2026-09-01), only meaningful when edge_embed_rank>0. Motivation: everything found
+   so far (SIGNSCRAMBLE's production null result, and the Optuna search's own winning
+   configs needing edge_replace_prob~0.9 -- i.e. mostly disabling the very channel
+   being tested -- to avoid overfitting) points the same direction: there may not be
+   much LEARNABLE signal in "which specific edge is this" beyond what its two
+   endpoint vertices already imply. The free-lookup edge table (`edge_embed_low`)
+   has to learn each edge's whole representation from nothing, with no reference to
+   which vertices it connects -- a much bigger, easier-to-overfit target than it
+   needs to be if vertex identity already explains most of it.
+
+   With this flag on, edge content becomes a residual: `pair_baseline(u, v) +
+   edge_proj(edge_embed_low(edge_id))`, where `pair_baseline(u, v) =
+   node_content(u) + node_content(v)` reuses the SAME node embedding table/
+   projection every vertex token already goes through. The low-rank correction term
+   only has to capture what the endpoint pair doesn't already explain -- a smaller,
+   more constrained target than learning the edge from scratch, and a more direct
+   test of "is there real residual edge-specific signal" than a global corruption
+   probability is.
+
+   Needs each edge's true (u, v) endpoint vertex-token-ids, which aren't derivable
+   from `input_ids` alone at a single position (an edge token doesn't carry its own
+   endpoints). Sourced from `build_cache.py`'s `edge_u_ids`/`edge_v_ids` arrays
+   (derived once, offline, from the walk cache: an edge's immediate flat neighbors in
+   any of its walk occurrences ARE its source/target vertex tokens, since a walk is
+   never anything but alternating N,E,N,E,...,N and an edge is never a walk's first
+   or last token) -- loaded from the EID cache file at model-init time via
+   `cfg.model.eid_cache_path` (set by prepare_eid_data.py), registered as
+   non-persistent buffers. Known inefficiency, not yet worth fixing at single-dataset
+   scale: this re-reads the whole EID cache file a second time just for two small
+   arrays, on top of whatever the dataloader already holds in memory.
+
 `forward()` has to be a near-full copy of the parent's, not a call to
 `super().forward()` plus a patch, because the parent recomputes
 `x = self.embed(input_ids)` from scratch as its very first line with no hook to
@@ -87,6 +119,7 @@ class EdgeIdentityTransformerModel(TransformerModel):
             self.sign_embedding = nn.Embedding(3, self.sign_embed_dim)
             self.content_dim = embedding_dim
             self.old_vocab_size = None  # unused in this mode
+            self.edge_residual_baseline = False
         else:
             # Factorized mode: replace the unified self.embed with separate
             # node/base and low-rank edge tables. del first so the large unified
@@ -121,6 +154,22 @@ class EdgeIdentityTransformerModel(TransformerModel):
             self.edge_embed_low = nn.Embedding(num_edges, self.edge_embed_rank)
             self.edge_proj = nn.Linear(self.edge_embed_rank, self.content_dim)
 
+            self.edge_residual_baseline = bool(getattr(cfg.model, "edge_residual_baseline", False))
+            if self.edge_residual_baseline:
+                cache_path = str(cfg.model.eid_cache_path)
+                cache_tok = torch.load(cache_path, map_location="cpu", weights_only=False)["tokenizer"]
+                self.register_buffer("edge_u_ids", cache_tok["edge_u_ids"].long(), persistent=False)
+                self.register_buffer("edge_v_ids", cache_tok["edge_v_ids"].long(), persistent=False)
+
+    def _node_content(self, node_token_ids):
+        """Vertex-token content vector, at full content_dim width -- shared by both
+        ordinary node positions and (when edge_residual_baseline is on) the
+        vertex-pair baseline an edge's content gets built on top of."""
+        base_content = self.base_embed(node_token_ids)
+        if self.node_proj is not None:
+            base_content = self.node_proj(base_content)
+        return base_content
+
     def _content_embed(self, input_ids):
         """Look up the (edge-identity-or-node) content vector per position."""
         if self.edge_embed_rank <= 0:
@@ -131,10 +180,12 @@ class EdgeIdentityTransformerModel(TransformerModel):
         base_ids = input_ids.clamp(max=old_vs - 1)
         edge_ids_0 = (input_ids - old_vs).clamp(min=0)
 
-        base_content = self.base_embed(base_ids)
-        if self.node_proj is not None:
-            base_content = self.node_proj(base_content)
+        base_content = self._node_content(base_ids)
         edge_content = self.edge_proj(self.edge_embed_low(edge_ids_0))
+        if self.edge_residual_baseline:
+            u_ids = self.edge_u_ids[edge_ids_0]
+            v_ids = self.edge_v_ids[edge_ids_0]
+            edge_content = edge_content + self._node_content(u_ids) + self._node_content(v_ids)
         return torch.where(is_edge_tok.unsqueeze(-1), edge_content, base_content)
 
     def forward(self, input_ids, sign_ids, attention_mask=None, node_mask=None):

@@ -34,7 +34,7 @@ from src.utils.paths import resolve_outputs_dirs
 from experiments.edge_identity_tokens.eid_src.data.prepare_eid_data import prepare_eid_data
 from experiments.edge_identity_tokens.eid_src.training.train import train_eid_model
 
-EID_CACHE_PATH = "experiments/edge_identity_tokens/cache/{dataset}_eid.pt"
+EID_CACHE_PATH = "experiments/edge_identity_tokens/cache/{dataset}_nw{num_walks}_eid.pt"
 
 
 def parse_args():
@@ -127,7 +127,7 @@ def main():
     else:
         print("Using CPU")
 
-    eid_cache_path = EID_CACHE_PATH.format(dataset=cfg.dataset.name)
+    eid_cache_path = EID_CACHE_PATH.format(dataset=cfg.dataset.name, num_walks=int(cfg.dataset.num_walks))
     ensure_eid_cache(cfg, eid_cache_path)
 
     data_module = prepare_eid_data(cfg, eid_cache_path)

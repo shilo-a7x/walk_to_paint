@@ -79,11 +79,34 @@ def build(in_path, out_path):
     edge_sign_lookup[flat_edge_ids[is_edge].long()] = sign_class[is_edge].to(torch.int8)
     assert (edge_sign_lookup >= 0).all(), "found an edge with no resolvable sign in edge_sign_lookup"
 
+    # edge_id -> (u, v) vertex-token-id lookup, for the residual edge embedding
+    # (model.py's edge_residual_baseline). No new data needed -- every walk is an
+    # alternating N,E,N,E,...,N sequence, so an edge occurrence's immediate flat
+    # neighbors (position-1, position+1) ARE its source/target vertex tokens, by
+    # construction; an edge is never a walk's first or last token, so this never reads
+    # across a walk boundary even without consulting `offsets` explicitly. Same
+    # scatter-is-safe reasoning as edge_sign_lookup above: a given edge_id connects the
+    # same two vertices in every occurrence, in the same direction (these are the
+    # original, non-direction-randomized walks), so any one occurrence agrees with all
+    # others.
+    edge_pos = is_edge.nonzero(as_tuple=True)[0]
+    edge_ids_at_pos = flat_edge_ids[edge_pos].long()
+    u_ids_at_pos = flat_input_ids[edge_pos - 1].long()
+    v_ids_at_pos = flat_input_ids[edge_pos + 1].long()
+    edge_u_ids = torch.full((num_edges,), -1, dtype=torch.long)
+    edge_v_ids = torch.full((num_edges,), -1, dtype=torch.long)
+    edge_u_ids[edge_ids_at_pos] = u_ids_at_pos
+    edge_v_ids[edge_ids_at_pos] = v_ids_at_pos
+    assert (edge_u_ids >= 0).all() and (edge_v_ids >= 0).all(), \
+        "found an edge with no resolvable (u, v) endpoint pair"
+
     new_tok = dict(tok)
     new_tok["vocab_size"] = new_vocab_size
     new_tok["old_vocab_size"] = old_vocab_size  # first new-edge-identity-token id
     new_tok["num_edges"] = num_edges
     new_tok["edge_sign_lookup"] = edge_sign_lookup
+    new_tok["edge_u_ids"] = edge_u_ids
+    new_tok["edge_v_ids"] = edge_v_ids
 
     new_enc = dict(enc)
     new_enc["flat_input_ids"] = flat_input_ids_new.to(torch.int32)

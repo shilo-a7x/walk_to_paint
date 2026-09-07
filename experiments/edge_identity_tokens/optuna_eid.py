@@ -7,10 +7,33 @@ below. Reuses the real eid_src/ classes (EIDLitEdgeClassifier,
 EdgeIdentityTransformerModel via it, prepare_eid_data), same discipline as
 run_eid.py: no hand-rolled training loop.
 
-Goal (per user, 2026-08-24): find out whether a genuinely good EID model exists
-at all -- so far the best point found by hand (rank=4, replace=0.9, concat)
-is 0.8512 test AUC on bitcoin-alpha vs. production's 0.9188 -- by searching the
-EID-specific capacity/regularization knobs jointly instead of one at a time.
+===== v2, 2026-09-01: reframed goal, real bug fix, escape-route closed =====
+v1 (160 trials, free search) found that the way to make EID "work" is to mostly
+disable the mechanism being tested (winning configs needed edge_replace_prob~0.9,
+i.e. 90% of visible edge-identity tokens corrupted away during training) -- and
+even the best trial's real TEST auc (0.8524, re-verified directly, not the val_auc
+the search optimized against) never beat production. Combined with SIGNSCRAMBLE's
+independent production-model null result, that's suggestive but NOT dispositive
+that edges carry no learnable signal -- it only shows what happens when the search
+is FREE to escape into "ignore edges." This version asks a different, sharper
+question: can a model that's FORCED to actually rely on edges do it well? Two
+changes implement that: `edge_replace_prob` is capped (can't disable edges to
+escape) and `node_replace_prob` is floored (can't just lean on undamaged vertices
+either) -- both channels take damage, so whichever one the model genuinely needs
+should show up in the AUC. Also adds `edge_residual_baseline` (model.py), a new
+architecture mechanism, not just a hyperparameter: edge content becomes
+`vertex_pair_baseline + small_correction` instead of a fully free lookup, so the
+per-edge table only has to learn what its endpoints don't already explain -- a
+smaller, harder-to-overfit, more surgical test of "is there real residual
+edge-specific signal" than corruption probabilities alone.
+
+**Real bug fixed from v1**: every worker process built `TPESampler(seed=seed)`
+with the SAME seed (`get_seed(cfg)` is deterministic, same config everywhere) --
+so all 4 processes' first trials, drawn from identically-seeded RNGs before any
+had reported a result back through shared storage, came out byte-identical
+(confirmed: trials 0-3 all landed on val_auc=0.6338, exactly, not just similar,
+then got pruned -- wasted computation on redundant points instead of diverse
+coverage). Fixed: `TPESampler(seed=seed*1000 + device)`, distinct per process.
 
 ===== FIXED (not searched) =====
   - dataset.* (walk sampler/budget): from configs/<dataset>.yaml, already
@@ -19,56 +42,51 @@ EID-specific capacity/regularization knobs jointly instead of one at a time.
   - model.dynamic_train_masking=False, model.scramble_edge_signs=False:
     unsupported by EIDLitEdgeClassifier (see its module docstring); enforced
     the same way run_eid.py does.
-  - model.edge_sign_combine: forced to "concat" whenever edge_embed_rank>0
-    (the only add-vs-concat comparison run so far, rank=8/replace=0.9,
-    favored concat by ~0.7pp: 0.8453 vs 0.8381 -- one data point, not a
-    proof, but not worth spending trial budget on with a small study).
-    Irrelevant/unused when edge_embed_rank=0 (model.py's unified-table branch
-    ignores this flag entirely).
-  - model.nhead/hidden_dim/nlayers: kept at the dataset's already-tuned
-    production values (configs/<dataset>.yaml) -- retuning transformer
-    depth/width is a separate question from "does edge identity help at all,"
-    and production's own per-dataset search already picked reasonable values.
   - training.batch_size, training.epochs: from config.
+  - Single dataset (bitcoin-alpha), single seed (42) -- per user, 2026-09-01:
+    the cross-dataset test already showed the production-vs-EID gap holds
+    across 5/6 datasets (not bitcoin-alpha-specific), so no need to pay
+    multi-dataset cost while iterating on the mechanism itself.
 
-===== SEARCHED (11 dimensions) =====
+===== SEARCHED (14 dimensions) =====
   - model.edge_embed_rank (int, 0-32): 0 = disabled, the original unified
-    full-width table (still viable in principle now that edge_replace_prob,
-    unk_ratio, and node_replace_* are ALL being tuned jointly here for the
-    first time -- earlier full-table runs (EID_REG1-5, up to 0.8320 at
-    replace=0.9) never combined high replace with a tuned unk_ratio or R
-    regularizer, so "simple table always loses to LoRA" isn't actually
-    established, just under-tested). >0 = ALBERT-style low-rank factorization
-    per this file's model.py. sign_embed_dim/node_embed_dim/edge_embed_
-    weight_decay below are still sampled every trial for TPE consistency but
-    only applied to cfg (and only affect the objective) when rank>0.
-  - model.node_replace_prob (float, 0.0-0.5) and model.node_replace_unk_ratio
-    (float, 0.3-1.0): the vertex-side "R" regularizer -- reused from
-    optuna_run.py's production range, but never actually retuned for EID
-    specifically (production's 0.2/0.7 defaults were just inherited
-    unchanged in every run so far) despite EID's much larger total vocab
-    potentially changing the right operating point.
+    full-width table. v1's top-10 all clustered rank 16-23; rank=0 was never
+    sampled once in 160 trials (bad luck in TPE's random-startup phase, not
+    evaluated-and-rejected) -- explicitly enqueued this round (see main()).
+  - model.edge_sign_combine (categorical, "add"/"concat"): REOPENED this
+    round -- v1 fixed this to "concat" from one data point at rank=8/
+    replace=0.9, a since-superseded operating region; never validated at the
+    rank~20 regime v1 actually found best.
+  - model.edge_residual_baseline (categorical, True/False): NEW mechanism,
+    see above and model.py's docstring.
+  - model.node_replace_prob (float, **0.3-0.5, floored** -- was 0.0-0.5) and
+    model.node_replace_unk_ratio (float, 0.3-1.0): the vertex-side "R"
+    regularizer. Floor closes the "just lean on undamaged vertices" escape
+    route per this version's goal.
   - model.sign_embed_dim (int, 4-32 step 4): width of the sign channel in
     concat mode.
-  - model.node_embed_dim (categorical, incl. 0=tied-to-content_dim): the new
-    lever added this session -- decouples vertex-embedding width from
-    whatever's left of content_dim after the edge/sign split, via a
-    node_proj up-projection (model.py).
-  - head_dim (int, 8-32 step 8) -> model.embedding_dim = nhead(fixed)*head_dim:
-    same reparameterization trick as optuna_run.py, always satisfies
-    validate_config's embedding_dim % nhead == 0 by construction.
-  - model.edge_replace_prob (float, 0.0-0.95): identity-corruption
-    regularizer: monotonically improving from 0.2->0.9 in the manual sweep,
-    upper end not yet found.
+  - model.node_embed_dim (categorical, incl. 0=tied-to-content_dim):
+    decouples vertex-embedding width from whatever's left of content_dim
+    after the edge/sign split, via a node_proj up-projection (model.py).
+  - model.nhead (categorical, 2/4/8), model.hidden_dim (int, 64-384 step 64),
+    model.nlayers (int, 2-6): REOPENED this round -- v1 kept these frozen at
+    bitcoin-alpha's production-tuned values, but those were tuned for the
+    2-token scheme's much smaller vocab, not for a model that has to do
+    useful work with a ~28K-entry vocabulary; worth letting depth/width move.
+  - head_dim (int, 8-32 step 8) -> model.embedding_dim = nhead*head_dim
+    (nhead now searched too, not fixed): same reparameterization trick as
+    optuna_run.py, always satisfies validate_config's embedding_dim % nhead
+    == 0 by construction regardless of which nhead gets sampled.
+  - model.edge_replace_prob (float, **0.0-0.5, capped** -- was 0.0-0.95):
+    v1's winning trials all needed ~0.9 (90% of visible edge tokens
+    corrupted) to avoid overfitting -- capping below that closes the
+    "mostly disable edges" escape route per this version's goal.
   - model.edge_replace_unk_ratio (float, 0.0-1.0): UNK-vs-random-other-edge
-    replacement mix -- never swept before this script (always left at its
-    0.7 default).
+    replacement mix.
   - model.edge_embed_weight_decay (conditional float, log 1e-4-1.0, or
-    unset/0): direct L2 penalty on just the edge table, a capacity-control
-    mechanism distinct from edge_replace_prob's corruption-based one.
-  - training.lr (float, log 1e-5-5e-3): reused from optuna_run.py's range,
-    EID's much larger vocab/embedding table may want a different point.
-  - model.dropout (float, 0.1-0.6): reused from optuna_run.py's range.
+    unset/0): direct L2 penalty on just the edge table.
+  - training.lr (float, log 1e-5-5e-3).
+  - model.dropout (float, 0.1-0.6).
 
 ===== Pruning =====
 Two layers, both active by default:
@@ -154,13 +172,18 @@ from experiments.edge_identity_tokens.eid_src.model.lit_model import EIDLitEdgeC
 
 OPTUNA_RANGES = {
     "model.edge_embed_rank": {"type": "int", "low": 0, "high": 32},
+    "model.edge_sign_combine": {"type": "categorical", "choices": ["add", "concat"]},
+    "model.edge_residual_baseline": {"type": "categorical", "choices": [False, True]},
     "model.sign_embed_dim": {"type": "int", "low": 4, "high": 32, "step": 4},
     "model.node_embed_dim": {"type": "categorical", "choices": [0, 16, 32, 48, 64, 96]},
+    "model.nhead": {"type": "categorical", "choices": [2, 4, 8]},
+    "model.hidden_dim": {"type": "int", "low": 64, "high": 384, "step": 64},
+    "model.nlayers": {"type": "int", "low": 2, "high": 6},
     "model.head_dim": {"type": "int", "low": 8, "high": 32, "step": 8},
-    "model.edge_replace_prob": {"type": "float", "low": 0.0, "high": 0.95},
+    "model.edge_replace_prob": {"type": "float", "low": 0.0, "high": 0.5},
     "model.edge_replace_unk_ratio": {"type": "float", "low": 0.0, "high": 1.0},
     "model.edge_embed_weight_decay": {"type": "float", "low": 1e-4, "high": 1.0, "log": True},
-    "model.node_replace_prob": {"type": "float", "low": 0.0, "high": 0.5},
+    "model.node_replace_prob": {"type": "float", "low": 0.3, "high": 0.5},
     "model.node_replace_unk_ratio": {"type": "float", "low": 0.3, "high": 1.0},
     "training.lr": {"type": "float", "low": 1e-5, "high": 5e-3, "log": True},
     "model.dropout": {"type": "float", "low": 0.1, "high": 0.6},
@@ -290,20 +313,27 @@ def objective_factory(base_cfg, device, shared_post_prepare_cfg, floor_pruning_k
 
         # ===== SEARCHED =====
         # Sample every dimension every trial (TPE consistency) even though
-        # sign_embed_dim/node_embed_dim/edge_embed_weight_decay/edge_sign_combine
-        # only affect the objective when edge_embed_rank > 0 -- see module docstring.
+        # sign_embed_dim/node_embed_dim/edge_embed_weight_decay/edge_sign_combine/
+        # edge_residual_baseline only affect the objective when edge_embed_rank > 0
+        # -- see module docstring.
         edge_embed_rank = _suggest(trial, "model.edge_embed_rank")
+        edge_sign_combine = _suggest(trial, "model.edge_sign_combine")
+        edge_residual_baseline = _suggest(trial, "model.edge_residual_baseline")
         sign_embed_dim = _suggest(trial, "model.sign_embed_dim")
         node_embed_dim = _suggest(trial, "model.node_embed_dim")
         edge_embed_weight_decay = _suggest(trial, "model.edge_embed_weight_decay")
 
         cfg.model.edge_embed_rank = edge_embed_rank
         if edge_embed_rank > 0:
-            cfg.model.edge_sign_combine = "concat"
+            cfg.model.edge_sign_combine = edge_sign_combine
+            cfg.model.edge_residual_baseline = edge_residual_baseline
             cfg.model.sign_embed_dim = sign_embed_dim
             cfg.model.node_embed_dim = node_embed_dim
             cfg.model.edge_embed_weight_decay = edge_embed_weight_decay
 
+        cfg.model.nhead = _suggest(trial, "model.nhead")
+        cfg.model.hidden_dim = _suggest(trial, "model.hidden_dim")
+        cfg.model.nlayers = _suggest(trial, "model.nlayers")
         head_dim = _suggest(trial, "model.head_dim")
         cfg.model.embedding_dim = cfg.model.nhead * head_dim
         cfg.model.edge_replace_prob = _suggest(trial, "model.edge_replace_prob")
@@ -324,8 +354,10 @@ def objective_factory(base_cfg, device, shared_post_prepare_cfg, floor_pruning_k
 
         print(f"\nTrial {trial.number}: edge_embed_rank={edge_embed_rank} "
               f"({'factorized' if edge_embed_rank > 0 else 'simple/unified table'}), "
+              f"combine={edge_sign_combine}, residual_baseline={edge_residual_baseline} [rank>0 only], "
               f"sign_embed_dim={sign_embed_dim}, node_embed_dim={node_embed_dim}, "
               f"edge_embed_weight_decay={edge_embed_weight_decay:.2e} [rank>0 only], "
+              f"nhead={cfg.model.nhead}, hidden_dim={cfg.model.hidden_dim}, nlayers={cfg.model.nlayers}, "
               f"embedding_dim={cfg.model.embedding_dim} (head_dim={head_dim}), "
               f"edge_replace_prob={cfg.model.edge_replace_prob:.2f}, "
               f"edge_replace_unk_ratio={cfg.model.edge_replace_unk_ratio:.2f}, "
@@ -397,7 +429,7 @@ def main():
 
     print(f"Starting EID Optuna search with {args.n_trials} trials on device {args.device}")
 
-    eid_cache_path = EID_CACHE_PATH.format(dataset=base_cfg.dataset.name)
+    eid_cache_path = EID_CACHE_PATH.format(dataset=base_cfg.dataset.name, num_walks=int(base_cfg.dataset.num_walks))
     ensure_eid_cache(base_cfg, eid_cache_path)
 
     print("\nPre-loading EID dataset cache (shared across all trials)...")
@@ -418,7 +450,12 @@ def main():
     storage = JournalStorage(JournalFileStorage(os.path.join(optuna_dir, "optuna_eid_study.log")))
 
     study_name = args.study_name or f"eid_optuna_{base_cfg.training.exp_name}"
-    sampler = optuna.samplers.TPESampler(seed=seed)
+    # Bug fix from v1: seed = get_seed(cfg) is identical in every worker process
+    # (deterministic function of the shared config), so TPESampler(seed=seed) alone
+    # gave every process's pre-history random-startup draws the same RNG state --
+    # confirmed: v1's first 4 trials (one per process) landed byte-identical, wasted.
+    # Per-device offset makes each process's random phase genuinely distinct.
+    sampler = optuna.samplers.TPESampler(seed=seed * 1000 + args.device)
     study = optuna.create_study(
         direction="maximize",
         sampler=sampler,
@@ -430,6 +467,35 @@ def main():
     n_existing = len(study.get_trials(deepcopy=False))
     print(f"Study '{study_name}': {n_existing} trial(s) already recorded "
           f"(storage: {os.path.join(optuna_dir, 'optuna_eid_study.log')})")
+
+    if n_existing == 0:
+        # Deliberate seed trials, enqueued once by whichever process actually creates
+        # the study (n_existing==0 means this process won the create race) -- covers
+        # edge cases the free search under-explored or never validated at the regime
+        # that matters, instead of leaving them to random-startup luck (see v1's
+        # rank=0-never-sampled gap). All clamped into v2's capped/floored ranges.
+        _common = {
+            "model.sign_embed_dim": 20, "model.node_embed_dim": 64,
+            "model.nhead": 4, "model.hidden_dim": 128, "model.nlayers": 3,
+            "model.head_dim": 24, "model.edge_replace_prob": 0.5,
+            "model.edge_replace_unk_ratio": 0.23, "model.edge_embed_weight_decay": 3e-4,
+            "model.node_replace_prob": 0.49, "model.node_replace_unk_ratio": 0.65,
+            "training.lr": 1.24e-3, "model.dropout": 0.17,
+        }
+        seed_trials = [
+            {**_common, "model.edge_embed_rank": 0,
+             "model.edge_sign_combine": "concat", "model.edge_residual_baseline": False},
+            {**_common, "model.edge_embed_rank": 20,
+             "model.edge_sign_combine": "add", "model.edge_residual_baseline": False},
+            {**_common, "model.edge_embed_rank": 20,
+             "model.edge_sign_combine": "concat", "model.edge_residual_baseline": True},
+            {**_common, "model.edge_embed_rank": 20,
+             "model.edge_sign_combine": "concat", "model.edge_residual_baseline": False},
+        ]
+        for params in seed_trials:
+            study.enqueue_trial(params, skip_if_exists=True)
+        print(f"Enqueued {len(seed_trials)} deliberate seed trials (rank=0; "
+              f"add-combine; residual on/off at v1's best region)")
 
     n_trials_this_run = args.n_trials
     if args.total_trials is not None:
