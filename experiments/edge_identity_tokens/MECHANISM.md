@@ -246,6 +246,51 @@ disallowed positions always had both `input_ids==<MASK>` and `sign_ids==2`; ever
 position with a real 0/1 sign always had `input_ids >= old_vocab_size` (a genuine edge
 token, never a vertex token accidentally carrying a sign class). All passed.
 
+### 3b. `model.eid_reveal_holdout_identity` — ablation flag, default off (added 2026-09-07)
+
+Motivation: the table above shows disallowed (val/test) edges get **both** identity and
+sign hidden, plus attention-excluded — meaning their `edge_embed_low` row never appears
+in ANY train-stage forward pass, so it never receives gradient at all (confirmed by
+direct code read; this is an architectural fact of the baseline design, not a bug — see
+the 2026-09 conversation log for the full discussion of why the baseline chose this,
+including the GNN-baseline/transductive-node-classification literature comparison).
+
+`model.eid_reveal_holdout_identity=true` changes exactly one thing, and only for the
+TRAIN-stage dataset: `input_ids[disallowed_edges]` and `attention_mask[disallowed_edges]`
+are no longer forced to `<MASK>`/0 — a disallowed edge becomes ordinary attendable
+context, identical treatment to a target edge. `sign_ids[disallowed_edges] = SIGN_NA`
+stays completely unconditional (untouched by this flag) — a held-out edge's sign is
+never revealed under any setting of this flag, only its identity/topology. Two things
+are deliberately NOT changed by this flag:
+
+1. **`target_edges` and `labels` are untouched.** Disallowed edges (VAL/TEST split, for
+   the train-stage dataset) are never in `target_split`/the dynamic target pool
+   (disjoint by construction — train-stage targets only ever come from TRAIN/MASK), so
+   revealing a disallowed edge's identity can never make it a loss target. Verified
+   directly (see below), not just reasoned about.
+2. **The val-stage and test-stage datasets never get this flag.** Only
+   `create_eid_stage_dataloaders`'s `train_dataset` construction receives
+   `reveal_holdout_identity`; `val_dataset`/`test_dataset` are always built with the
+   baseline (flag-off) behavior, regardless. This means the evaluation protocol itself —
+   what "disallowed" excludes during a val/test-stage forward pass, and therefore
+   early-stopping's `val_auc` and the final reported test AUC — is byte-identical to the
+   non-ablated EID setup either way. Only what a TRAIN-stage forward pass is allowed to
+   see (and therefore what gradients get computed from) changes. This isolates the
+   ablation to exactly the scientific question it's meant to test: does letting a
+   held-out edge's embedding row receive real training-time gradient (via appearing as
+   useful context for legitimate train-stage predictions) produce a row that's
+   meaningfully better than an untrained one, once it's looked up at eval time to help
+   predict that same edge's own sign?
+
+**Verification run before any training** (`ds_off`/`ds_on`, 3000 walks, 20,898
+disallowed occurrences, both `EdgeIdentityStageViewDataset(stage="train")`):
+flag-off output is byte-identical to the pre-flag baseline at every non-disallowed
+position; `labels` and `sign_ids` are identical between flag-on and flag-off for every
+single walk (confirms the flag never touches the loss or the sign channel); with the
+flag on, every disallowed position gets a real edge token (`input_ids >= old_vocab_size`,
+never `mask_id`) and `attention_mask==1`, while `sign_ids` at those exact same positions
+still reads `SIGN_NA`. All checks passed.
+
 ---
 
 ## 4. The model — sign as a third additive embedding, exactly like position already is

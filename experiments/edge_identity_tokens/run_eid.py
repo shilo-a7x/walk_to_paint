@@ -80,15 +80,10 @@ def main():
         print(f"ERROR: {e}")
         sys.exit(1)
 
-    # EIDLitEdgeClassifier does not support dynamic_train_masking or
-    # scramble_edge_signs yet (see eid_src/model/lit_model.py's module docstring) --
-    # production's config.yaml defaults dynamic_train_masking to True (the "D" flag),
-    # which would otherwise crash EIDLitEdgeClassifier.__init__ loudly. Force both off
-    # here, visibly, rather than requiring every EID invocation to remember the
-    # override or letting it fail with a less obvious error deep in construction.
-    if bool(getattr(cfg.model, "dynamic_train_masking", False)):
-        print("NOTE: forcing model.dynamic_train_masking=False (unsupported by EIDLitEdgeClassifier)")
-        cfg.model.dynamic_train_masking = False
+    # dynamic_train_masking is now supported (sign-only-hide override, see
+    # eid_src/model/lit_model.py's module docstring) -- production's config.yaml
+    # default (True, the "D" flag) now flows through unmodified. scramble_edge_signs
+    # is still unsupported (see the same docstring) and forced off here, visibly.
     if bool(getattr(cfg.model, "scramble_edge_signs", False)):
         print("NOTE: forcing model.scramble_edge_signs=False (unsupported by EIDLitEdgeClassifier)")
         cfg.model.scramble_edge_signs = False

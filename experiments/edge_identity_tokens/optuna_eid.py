@@ -39,9 +39,10 @@ coverage). Fixed: `TPESampler(seed=seed*1000 + device)`, distinct per process.
   - dataset.* (walk sampler/budget): from configs/<dataset>.yaml, already
     E25/E26-swept, not re-litigated here.
   - model.local_attention_window=4 (LocalAttn4): settled production default.
-  - model.dynamic_train_masking=False, model.scramble_edge_signs=False:
-    unsupported by EIDLitEdgeClassifier (see its module docstring); enforced
-    the same way run_eid.py does.
+  - model.dynamic_train_masking=True (fixed 2026-09-07, sign-only-hide override --
+    see eid_src/model/lit_model.py's module docstring): now supported and forced
+    ON, matching production's own default. model.scramble_edge_signs=False:
+    still unsupported by EIDLitEdgeClassifier; enforced the same way run_eid.py does.
   - training.batch_size, training.epochs: from config.
   - Single dataset (bitcoin-alpha), single seed (42) -- per user, 2026-09-01:
     the cross-dataset test already showed the production-vs-EID gap holds
@@ -308,7 +309,7 @@ def objective_factory(base_cfg, device, shared_post_prepare_cfg, floor_pruning_k
         cfg.training.num_workers = 0
         cfg.training.persistent_workers = False
         cfg.model.local_attention_window = 4
-        cfg.model.dynamic_train_masking = False
+        cfg.model.dynamic_train_masking = True  # now supported, sign-only-hide override
         cfg.model.scramble_edge_signs = False
 
         # ===== SEARCHED =====
@@ -435,7 +436,14 @@ def main():
     print("\nPre-loading EID dataset cache (shared across all trials)...")
     t0 = time.time()
     base_cfg_preload = copy.deepcopy(base_cfg)
-    base_cfg_preload.model.dynamic_train_masking = False
+    # Must match what objective_factory's trials actually use (True) -- the shared
+    # dataset objects built here are reused across every trial, and
+    # EdgeIdentityStageViewDataset's target_edges computation for the train stage
+    # depends on dynamic_train_masking at __getitem__-construction time, not just at
+    # the LitModel level. A mismatch here would silently pre-hide the MASK split's
+    # sign statically (old behavior) while the LitModel expects to dynamically
+    # resample targets instead.
+    base_cfg_preload.model.dynamic_train_masking = True
     base_cfg_preload.model.scramble_edge_signs = False
     base_cfg_preload.training.num_workers = 0
     base_cfg_preload.training.persistent_workers = False

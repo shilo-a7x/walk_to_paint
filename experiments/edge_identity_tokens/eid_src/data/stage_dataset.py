@@ -53,24 +53,40 @@ class EdgeIdentityStageViewDataset(Dataset):
         stage: str = "train",
         dynamic_train_masking: bool = False,
         walk_flip: torch.Tensor = None,
+        reveal_holdout_identity: bool = False,
     ):
-        if dynamic_train_masking:
-            # Not supported yet in this experiment -- production's dynamic-resplit
-            # hides a target by overwriting input_ids with <MASK> (see
-            # LitEdgeClassifier._build_dynamic_targets_for_batch), which would hide
-            # IDENTITY too, defeating this experiment's whole point. A sign-only-hide
-            # variant of dynamic resplit is a real possible extension, just not
-            # implemented here -- see MECHANISM.md.
-            raise NotImplementedError(
-                "dynamic_train_masking is not supported by EdgeIdentityStageViewDataset "
-                "yet -- keep model.dynamic_train_masking=false in the EID run config."
-            )
-
+        # reveal_holdout_identity: ablation flag, default off. When True, a disallowed
+        # (later-split) edge's IDENTITY and attention-key visibility are no longer
+        # forced to <MASK>/excluded -- it's revealed as ordinary attendable context,
+        # same treatment a target edge already gets. Its SIGN stays hidden regardless
+        # (sign_ids[disallowed_edges] = self.sign_na_id below is unconditional, not
+        # gated by this flag) -- this flag only concerns identity/topology, never sign.
+        # Callers should only ever pass True for the TRAIN-stage dataset: revealing a
+        # val/test edge's identity as context during a TRAIN-stage forward pass lets its
+        # edge_embed_low row receive real gradient (as established: gradient flows to
+        # any embedding used in a forward pass that feeds the loss, not only to
+        # positions that are themselves the target -- see MECHANISM.md section 3b).
+        # The val/test-stage datasets (used for early-stopping's val_auc and the final
+        # reported test AUC) are intentionally NEVER constructed with this flag on, so
+        # the evaluation protocol itself -- what "disallowed" means during val/test
+        # forward passes -- stays byte-identical to the baseline EID setup regardless
+        # of this flag; only what gets exposed during TRAINING changes.
+        self.reveal_holdout_identity = bool(reveal_holdout_identity)
         enc = cache_data["encoded"]
         tokenizer = cache_data["tokenizer"]
         self.mask_id = tokenizer["MASK_ID"]
         self.ignore_index = tokenizer["UNK_LABEL_ID"]
-        self.dynamic_train_masking = False
+        # Sign-only-hide variant of production's dynamic resplit: production hides a
+        # dynamic target by overwriting input_ids with <MASK> (_build_dynamic_targets_
+        # for_batch), which would hide IDENTITY too and defeat this experiment's whole
+        # point. Here, when dynamic_train_masking is on for the train stage, the MASK
+        # split is NOT statically treated as the target below (target_edges stays
+        # empty) -- its sign is left visible, same as the TRAIN split, and real
+        # per-epoch target selection + sign-hiding happens later in
+        # EIDLitEdgeClassifier._build_dynamic_targets_for_batch (touches sign_ids only,
+        # never input_ids). Val/test stages are unaffected -- dynamic resplit is a
+        # train-time-only regularizer, their target_split stays static as always.
+        self.dynamic_train_masking = bool(dynamic_train_masking)
         self.walk_flip = walk_flip
         self.stage = stage
         self.sign_na_id = SIGN_NA
@@ -152,7 +168,12 @@ class EdgeIdentityStageViewDataset(Dataset):
         attention_mask = torch.ones(L, dtype=torch.long)
 
         is_edge = split_mask != int(SplitID.BAD)
-        target_edges = split_mask == int(self.target_split)
+        if self.dynamic_train_masking and self.stage == "train":
+            # Real targets are selected per-epoch at the LitModel level instead of
+            # statically here -- see __init__ docstring note above.
+            target_edges = torch.zeros(L, dtype=torch.bool)
+        else:
+            target_edges = split_mask == int(self.target_split)
 
         allowed_edges = torch.zeros(L, dtype=torch.bool)
         for split_id in self.allowed_splits:
@@ -179,11 +200,15 @@ class EdgeIdentityStageViewDataset(Dataset):
         # --- DIFF 2: identity (input_ids) is left untouched at target_edges -- this
         # is the one behavioral difference from production's _getitem_ragged, which
         # does `input_ids[target_edges] = self.mask_id` here. Disallowed edges still
-        # get their identity hidden too, same as production (harmless either way,
-        # since they're excluded from attention below regardless -- kept purely for
-        # convention-consistency with "hidden edges render as <MASK>").
-        input_ids[disallowed_edges] = self.mask_id
-        attention_mask[disallowed_edges] = 0
+        # get their identity hidden too by default, same as production (harmless
+        # either way, since they're excluded from attention below regardless -- kept
+        # purely for convention-consistency with "hidden edges render as <MASK>")
+        # UNLESS reveal_holdout_identity is on, in which case disallowed edges are
+        # deliberately left fully attendable (sign already hidden above,
+        # unconditionally -- this only concerns identity/topology visibility).
+        if not self.reveal_holdout_identity:
+            input_ids[disallowed_edges] = self.mask_id
+            attention_mask[disallowed_edges] = 0
 
         metadata = {
             "edge_ids": edge_ids,
@@ -310,6 +335,7 @@ def create_eid_stage_dataloaders(
     prefetch_factor: int = 2,
     dynamic_train_masking: bool = False,
     randomize_walk_direction: bool = False,
+    reveal_holdout_identity: bool = False,
     use_bucket_batching: bool = True,
     bucket_width: int = 16,
     seed: int = 0,
@@ -344,7 +370,14 @@ def create_eid_stage_dataloaders(
         cache_data, stage="train",
         dynamic_train_masking=dynamic_train_masking,
         walk_flip=walk_flip,
+        reveal_holdout_identity=reveal_holdout_identity,
     )
+    # val/test datasets NEVER get reveal_holdout_identity=True, regardless of the
+    # train-stage setting above -- the eval protocol (what "disallowed" excludes
+    # during a val/test-stage forward pass) must stay byte-identical to the
+    # baseline EID setup, so val_auc-based checkpoint selection and the reported
+    # test AUC are not corrupted by the ablation being tested. See __init__'s
+    # docstring on this flag for the full reasoning.
     val_dataset = EdgeIdentityStageViewDataset(
         cache_data, stage="val", dynamic_train_masking=False, walk_flip=walk_flip,
     )

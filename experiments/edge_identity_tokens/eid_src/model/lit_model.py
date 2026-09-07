@@ -19,13 +19,23 @@ what genuinely has to change for the new tokenization scheme:
      can't generalize to held-out edges. Off by default (edge_replace_prob=0.0);
      enable via `model.edge_replace_prob=0.2` (matching production's
      node_replace_prob default) on the CLI.
+  4. `dynamic_train_masking` IS now supported (fixed -- see below), via a sign-only-
+     hide override of `_build_dynamic_targets_for_batch` that touches `sign_ids`
+     instead of `input_ids`.
 
-NOT supported by this subclass (both fail loudly rather than silently misbehave if
+Sign-only-hide dynamic resplit (fixed; previously a documented, deliberate gap):
+production's dynamic resplit hides a target by overwriting `input_ids` with
+`<MASK>` (`LitEdgeClassifier._build_dynamic_targets_for_batch`), which would hide
+IDENTITY too and defeat this experiment's whole point. This subclass overrides
+that method to touch `sign_ids` only (see below) -- `EdgeIdentityStageViewDataset`
+was previously masking every occurrence of the (fixed, static) MASK split's sign
+every epoch, meaning ~48% of the train+mask pool (the TRAIN split) never got a
+direct supervised-target gradient on its identity row at all, only indirect
+gradient via being read as context. Dynamic resplit fixes this by rotating which
+edges are this epoch's targets, same as production.
+
+NOT supported by this subclass (fails loudly rather than silently misbehaving if
 ever accidentally enabled on an EID run):
-  - `dynamic_train_masking` -- see EdgeIdentityStageViewDataset's __init__ docstring;
-    production hides a dynamic target via `input_ids = mask_id`, which would destroy
-    this experiment's identity-stays-visible design. Left as a real gap, not solved
-    here -- keep `model.dynamic_train_masking=false` in the EID run config.
   - `scramble_edge_signs` -- production's sign-scramble ablation flips a token id to
     "the other class's token id" (`class2tokid[flipped_class]`), which assumes
     exactly one token id per class (true in production's 2-token scheme, not true
@@ -52,8 +62,9 @@ VERTEX tokens, `_maybe_apply_token_masking`) is inherited completely unmodified.
 
 import torch
 
-from src.model.lit_model import LitEdgeClassifier
+from src.model.lit_model import LitEdgeClassifier, SPLIT_TRAIN, SPLIT_MASK
 from experiments.edge_identity_tokens.eid_src.model.model import EdgeIdentityTransformerModel
+from experiments.edge_identity_tokens.eid_src.data.stage_dataset import SIGN_NA
 
 
 class EIDLitEdgeClassifier(LitEdgeClassifier):
@@ -66,11 +77,6 @@ class EIDLitEdgeClassifier(LitEdgeClassifier):
         # dynamic/sign-scramble/hardness state) that this subclass still needs.
         self.model = EdgeIdentityTransformerModel(self.cfg)
 
-        if bool(getattr(self.cfg.model, "dynamic_train_masking", False)):
-            raise NotImplementedError(
-                "EIDLitEdgeClassifier does not support dynamic_train_masking yet -- "
-                "see this file's module docstring."
-            )
         if bool(getattr(self.cfg.model, "scramble_edge_signs", False)):
             raise NotImplementedError(
                 "EIDLitEdgeClassifier does not support scramble_edge_signs -- "
@@ -153,9 +159,46 @@ class EIDLitEdgeClassifier(LitEdgeClassifier):
 
         return x
 
+    def _build_dynamic_targets_for_batch(self, sign_ids, metadata):
+        """EID override of the inherited method: dynamic resplit hides SIGN only
+        (sign_ids -> SIGN_NA at this epoch's sampled target positions), never
+        IDENTITY -- production's version hides identity too via
+        `input_ids[target_positions] = mask_id`, which would defeat this
+        experiment's whole point (identity must stay visible everywhere except
+        genuinely held-out/disallowed positions). Reuses the inherited
+        `_sample_epoch_targets`/`_build_dynamic_train_pool`/`on_train_start`/
+        `on_train_epoch_start` completely unmodified -- they only touch generic
+        dataset metadata (edge_ids/edge_split_mask/input_ids/id2class), all of
+        which EdgeIdentityStageViewDataset exposes the same way production's
+        dataset does, so the per-epoch target *selection* is identical; only the
+        batch-level *application* differs (sign_ids vs. input_ids)."""
+        labels = torch.full_like(sign_ids, self.ignore_index)
+        edge_ids = metadata["edge_ids"]
+        split_mask = metadata["edge_split_mask"]
+        edge_classes = metadata["edge_classes"]
+
+        target_ids = self._epoch_target_edge_ids_by_device.get(edge_ids.device)
+        if target_ids is None:
+            if self._epoch_target_edge_ids_cpu is None:
+                target_ids = torch.empty(0, dtype=torch.long, device=edge_ids.device)
+            else:
+                target_ids = self._epoch_target_edge_ids_cpu.to(edge_ids.device)
+            self._epoch_target_edge_ids_by_device[edge_ids.device] = target_ids
+
+        in_pool = (split_mask == SPLIT_TRAIN) | (split_mask == SPLIT_MASK)
+        valid_edge = edge_ids >= 0
+        target_positions = in_pool & valid_edge & torch.isin(edge_ids, target_ids)
+
+        labels[target_positions] = edge_classes[target_positions]
+        dynamic_sign_ids = sign_ids.clone()
+        dynamic_sign_ids[target_positions] = SIGN_NA
+        return dynamic_sign_ids, labels
+
     def _step(self, batch, stage: str):
-        """Copy of LitEdgeClassifier._step with three changes from production,
-        marked inline: (a) sign_ids is read from metadata, (b) the new edge-identity
+        """Copy of LitEdgeClassifier._step with four changes from production,
+        marked inline: (a) sign_ids is read from metadata, (a2) dynamic resplit (if
+        on) overrides sign_ids instead of input_ids -- see
+        _build_dynamic_targets_for_batch override above, (b) the new edge-identity
         replacement regularizer is applied train-side, (c) sign_ids is passed into
         the model call. Everything else -- loss, hardness path (unused/off here),
         metrics logging -- is verbatim production logic."""
@@ -163,10 +206,12 @@ class EIDLitEdgeClassifier(LitEdgeClassifier):
         self._last_metadata = metadata
 
         model_input_ids = input_ids
-        # dynamic_train_masking is asserted false in __init__, so this branch never
-        # fires -- kept only so this method stays a faithful diff against production.
+        # --- (a): fetch sign_ids (moved earlier than production's _step, since
+        # dynamic resplit needs it as input here instead of input_ids)
+        sign_ids = metadata["sign_ids"]
+        # --- (a2): dynamic resplit overrides sign_ids + labels, never model_input_ids
         if stage == "train" and self.training and self.dynamic_train_masking:
-            model_input_ids, labels = self._build_dynamic_targets_for_batch(input_ids, metadata)
+            sign_ids, labels = self._build_dynamic_targets_for_batch(sign_ids, metadata)
 
         if torch.all(labels == self.cfg.model.ignore_index):
             return None
@@ -187,8 +232,8 @@ class EIDLitEdgeClassifier(LitEdgeClassifier):
         if stage == "train" and self.training and node_mask is not None:
             model_input_ids = self._maybe_apply_node_replacement(model_input_ids, node_mask)
 
-        # --- (a)/(b): fetch sign_ids, apply the new edge-identity replacement regularizer
-        sign_ids = metadata["sign_ids"]
+        # --- (b): apply the new edge-identity replacement regularizer
+        # (sign_ids was already fetched, and dynamically overridden if applicable, above)
         if stage == "train" and self.training:
             old_vocab_size = int(self.cfg.model.old_vocab_size)
             model_input_ids = self._maybe_apply_edge_identity_replacement(model_input_ids, old_vocab_size)
