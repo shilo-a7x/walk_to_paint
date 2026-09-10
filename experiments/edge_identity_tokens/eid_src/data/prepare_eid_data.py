@@ -63,5 +63,6 @@ def prepare_eid_data(cfg, eid_cache_path: str):
         dynamic_train_masking=bool(getattr(cfg.model, "dynamic_train_masking", False)),
         randomize_walk_direction=bool(getattr(cfg.model, "randomize_walk_direction", False)),
         reveal_holdout_identity=bool(getattr(cfg.model, "eid_reveal_holdout_identity", False)),
+        reveal_holdout_attendable_only=bool(getattr(cfg.model, "eid_reveal_holdout_attendable_only", False)),
         **_dataloader_kwargs(cfg),
     )

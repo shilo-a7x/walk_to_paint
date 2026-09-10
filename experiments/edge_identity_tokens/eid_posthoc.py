@@ -72,12 +72,40 @@ def _extract_eid_predictions(model, dataloader, split_name, epoch, device):
             attention_mask = attention_mask.to(device)
             sign_ids = metadata["sign_ids"].to(device)
 
+            # Reapply every ablation flag the SAME way EIDLitEdgeClassifier._step does at
+            # train/eval time -- this used to call only _maybe_apply_token_masking (identity-
+            # only, mask_node_tokens/mask_edge_tokens), silently skipping mask_edge_tokens's
+            # sign-channel companion and all three EID-native scramble/context ablations.
+            # Checkpoints were always trained correctly (_step applies everything below); this
+            # bug only affected edge-level posthoc evaluation -- the exact same bug category
+            # (and same fix pattern: posthoc-only rerun, no retraining) as production's real
+            # abl:maskedge bug, see PAPER_CLOSEOUT_LOG.md 2026-08-23. Confirmed the walk-level
+            # Trainer.test() numbers (test_auc_epoch) were NOT affected, since those go through
+            # _step directly.
             positions_for_mask = metadata.get("positions")
             if positions_for_mask is not None and hasattr(model, "_maybe_apply_token_masking"):
                 positions_for_mask = positions_for_mask.to(device)
                 node_mask = (positions_for_mask >= 0) & ((positions_for_mask % 2) == 0)
                 edge_mask = (positions_for_mask >= 0) & ((positions_for_mask % 2) == 1)
                 input_ids = model._maybe_apply_token_masking(input_ids, node_mask, edge_mask)
+                if hasattr(model, "_maybe_apply_edge_sign_masking"):
+                    sign_ids = model._maybe_apply_edge_sign_masking(sign_ids, edge_mask)
+                if hasattr(model, "_maybe_apply_eid_sign_scramble"):
+                    sign_ids = model._maybe_apply_eid_sign_scramble(
+                        sign_ids, edge_mask, metadata["edge_ids"].to(device), metadata["edge_classes"].to(device),
+                        dataset=dataloader.dataset,
+                    )
+                if hasattr(model, "_maybe_apply_eid_identity_scramble"):
+                    input_ids = model._maybe_apply_eid_identity_scramble(
+                        input_ids, edge_mask, metadata["edge_ids"].to(device),
+                        dataset=dataloader.dataset,
+                    )
+                if hasattr(model, "_maybe_apply_target_identity_masking"):
+                    input_ids = model._maybe_apply_target_identity_masking(input_ids, edge_mask, labels)
+                if hasattr(model, "_maybe_apply_context_edge_masking"):
+                    input_ids, sign_ids = model._maybe_apply_context_edge_masking(
+                        input_ids, sign_ids, edge_mask, labels
+                    )
 
             logits = model.model(input_ids, sign_ids, attention_mask=attention_mask)
             probs = torch.softmax(logits, dim=-1)

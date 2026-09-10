@@ -54,6 +54,7 @@ class EdgeIdentityStageViewDataset(Dataset):
         dynamic_train_masking: bool = False,
         walk_flip: torch.Tensor = None,
         reveal_holdout_identity: bool = False,
+        reveal_holdout_attendable_only: bool = False,
     ):
         # reveal_holdout_identity: ablation flag, default off. When True, a disallowed
         # (later-split) edge's IDENTITY and attention-key visibility are no longer
@@ -61,17 +62,26 @@ class EdgeIdentityStageViewDataset(Dataset):
         # same treatment a target edge already gets. Its SIGN stays hidden regardless
         # (sign_ids[disallowed_edges] = self.sign_na_id below is unconditional, not
         # gated by this flag) -- this flag only concerns identity/topology, never sign.
-        # Callers should only ever pass True for the TRAIN-stage dataset: revealing a
-        # val/test edge's identity as context during a TRAIN-stage forward pass lets its
-        # edge_embed_low row receive real gradient (as established: gradient flows to
-        # any embedding used in a forward pass that feeds the loss, not only to
-        # positions that are themselves the target -- see MECHANISM.md section 3b).
-        # The val/test-stage datasets (used for early-stopping's val_auc and the final
-        # reported test AUC) are intentionally NEVER constructed with this flag on, so
-        # the evaluation protocol itself -- what "disallowed" means during val/test
-        # forward passes -- stays byte-identical to the baseline EID setup regardless
-        # of this flag; only what gets exposed during TRAINING changes.
+        # Callers pass the SAME value of this flag to all three stage datasets
+        # (train/val/test) -- see create_eid_stage_dataloaders below -- for a single
+        # coherent regime rather than an asymmetric carve-out (fixed 2026-09-08; an
+        # earlier version of this flag hardcoded val/test to always stay strict,
+        # regardless of the train-stage setting -- inconsistent once the flag exists
+        # at all, no principled reason for val to treat TEST edges differently from
+        # how train treats VAL/TEST edges). With the flag on: a TRAIN-stage forward
+        # pass reveals VAL/TEST edges as context, letting their edge_embed_low row
+        # receive real gradient (gradient flows to any embedding used in a forward
+        # pass that feeds the loss, not only to positions that are themselves the
+        # target -- see MECHANISM.md section 3b); a VAL-stage forward pass likewise
+        # reveals TEST edges as context, so early-stopping's val_auc is computed
+        # under the same permissive regime the model was trained under, rather than
+        # silently reverting to the strict regime only at checkpoint-selection time.
+        # TEST-stage is unaffected either way -- its allowed_splits already covers
+        # every split, so disallowed_edges is always empty there regardless of this
+        # flag. With the flag off (default), behavior is unchanged from before this
+        # fix at every stage.
         self.reveal_holdout_identity = bool(reveal_holdout_identity)
+        self.reveal_holdout_attendable_only = bool(reveal_holdout_attendable_only)
         enc = cache_data["encoded"]
         tokenizer = cache_data["tokenizer"]
         self.mask_id = tokenizer["MASK_ID"]
@@ -206,7 +216,24 @@ class EdgeIdentityStageViewDataset(Dataset):
         # UNLESS reveal_holdout_identity is on, in which case disallowed edges are
         # deliberately left fully attendable (sign already hidden above,
         # unconditionally -- this only concerns identity/topology visibility).
-        if not self.reveal_holdout_identity:
+        #
+        # reveal_holdout_attendable_only (added 2026-09-08): a third, diagnostic
+        # cell of the 2x2 grid {content visible?, attendable?} -- content stays
+        # hidden (input_ids=mask_id, same as the fully-strict baseline) but the
+        # position stays attendable (attention_mask=1, same as reveal_holdout_
+        # identity). Added specifically to separate two candidate explanations for
+        # reveal_holdout_identity's AUC gain: is it real content (identity/sign)
+        # reaching the model, or is it just that LocalAttn4's narrow window no
+        # longer has a "hole" at that position (an architectural/attention-pattern
+        # effect, unrelated to what content is actually shown there)? Mutually
+        # exclusive with reveal_holdout_identity -- if both are set,
+        # reveal_holdout_identity wins (checked first).
+        if self.reveal_holdout_identity:
+            pass
+        elif self.reveal_holdout_attendable_only:
+            input_ids[disallowed_edges] = self.mask_id
+            # attention_mask left at 1 (its default) for disallowed_edges
+        else:
             input_ids[disallowed_edges] = self.mask_id
             attention_mask[disallowed_edges] = 0
 
@@ -336,6 +363,7 @@ def create_eid_stage_dataloaders(
     dynamic_train_masking: bool = False,
     randomize_walk_direction: bool = False,
     reveal_holdout_identity: bool = False,
+    reveal_holdout_attendable_only: bool = False,
     use_bucket_batching: bool = True,
     bucket_width: int = 16,
     seed: int = 0,
@@ -371,18 +399,27 @@ def create_eid_stage_dataloaders(
         dynamic_train_masking=dynamic_train_masking,
         walk_flip=walk_flip,
         reveal_holdout_identity=reveal_holdout_identity,
+        reveal_holdout_attendable_only=reveal_holdout_attendable_only,
     )
-    # val/test datasets NEVER get reveal_holdout_identity=True, regardless of the
-    # train-stage setting above -- the eval protocol (what "disallowed" excludes
-    # during a val/test-stage forward pass) must stay byte-identical to the
-    # baseline EID setup, so val_auc-based checkpoint selection and the reported
-    # test AUC are not corrupted by the ablation being tested. See __init__'s
-    # docstring on this flag for the full reasoning.
+    # val/test datasets now get the SAME reveal_holdout_identity setting as train,
+    # for consistency (fixed 2026-09-08 -- previously val was hardcoded to always
+    # hide TEST edges regardless of this flag, an asymmetric carve-out with no
+    # principled reason once the flag exists at all). With the flag on, the regime
+    # is now uniform across all three stages: identity/topology is always visible,
+    # only the sign of the position currently being predicted (or a later-split
+    # edge, for train/val) is ever hidden. Passing the flag to test_dataset is a
+    # no-op in practice -- disallowed_edges is always empty there already, since
+    # its allowed_splits already covers all four splits -- kept only so no stage
+    # special-cases this parameter anymore.
     val_dataset = EdgeIdentityStageViewDataset(
         cache_data, stage="val", dynamic_train_masking=False, walk_flip=walk_flip,
+        reveal_holdout_identity=reveal_holdout_identity,
+        reveal_holdout_attendable_only=reveal_holdout_attendable_only,
     )
     test_dataset = EdgeIdentityStageViewDataset(
         cache_data, stage="test", dynamic_train_masking=False, walk_flip=walk_flip,
+        reveal_holdout_identity=reveal_holdout_identity,
+        reveal_holdout_attendable_only=reveal_holdout_attendable_only,
     )
 
     tokenizer = cache_data["tokenizer"]

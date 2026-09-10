@@ -246,7 +246,7 @@ disallowed positions always had both `input_ids==<MASK>` and `sign_ids==2`; ever
 position with a real 0/1 sign always had `input_ids >= old_vocab_size` (a genuine edge
 token, never a vertex token accidentally carrying a sign class). All passed.
 
-### 3b. `model.eid_reveal_holdout_identity` — ablation flag, default off (added 2026-09-07)
+### 3b. `model.eid_reveal_holdout_identity` — ablation flag, default off (added 2026-09-07, made consistent across stages 2026-09-08)
 
 Motivation: the table above shows disallowed (val/test) edges get **both** identity and
 sign hidden, plus attention-excluded — meaning their `edge_embed_low` row never appears
@@ -268,19 +268,29 @@ are deliberately NOT changed by this flag:
    (disjoint by construction — train-stage targets only ever come from TRAIN/MASK), so
    revealing a disallowed edge's identity can never make it a loss target. Verified
    directly (see below), not just reasoned about.
-2. **The val-stage and test-stage datasets never get this flag.** Only
-   `create_eid_stage_dataloaders`'s `train_dataset` construction receives
-   `reveal_holdout_identity`; `val_dataset`/`test_dataset` are always built with the
-   baseline (flag-off) behavior, regardless. This means the evaluation protocol itself —
-   what "disallowed" excludes during a val/test-stage forward pass, and therefore
-   early-stopping's `val_auc` and the final reported test AUC — is byte-identical to the
-   non-ablated EID setup either way. Only what a TRAIN-stage forward pass is allowed to
-   see (and therefore what gradients get computed from) changes. This isolates the
-   ablation to exactly the scientific question it's meant to test: does letting a
-   held-out edge's embedding row receive real training-time gradient (via appearing as
-   useful context for legitimate train-stage predictions) produce a row that's
-   meaningfully better than an untrained one, once it's looked up at eval time to help
-   predict that same edge's own sign?
+2. **The val-stage and test-stage datasets get the SAME flag value as train (fixed
+   2026-09-08).** `create_eid_stage_dataloaders` passes one `reveal_holdout_identity`
+   value to all three of `train_dataset`/`val_dataset`/`test_dataset`. An earlier
+   version of this flag hardcoded val/test to always stay strict regardless of the
+   train-stage setting -- an asymmetric carve-out with no principled reason once the
+   flag exists at all, corrected after the user pushed on it directly. With the flag
+   on, the regime is now uniform: a VAL-stage forward pass reveals TEST edges as
+   context (not just TRAIN-stage revealing VAL/TEST), so early-stopping's `val_auc` is
+   computed under the same permissive regime the model was actually trained under,
+   instead of silently reverting to the strict regime only at checkpoint-selection
+   time. TEST-stage is a no-op either way (its `allowed_splits` already covers every
+   split, so `disallowed_edges` is always empty there, flag or no flag) -- passing the
+   flag there just keeps the call site uniform, nothing to isolate.
+   **Consequence, worth being explicit about**: `val_auc` under `reveal_holdout_
+   identity=true` is measuring a genuinely different evaluation protocol than every
+   other EID number reported so far (flag-off runs, including the whole budget
+   sweep) -- it is not directly comparable to those numbers as an apples-to-apples
+   val metric, by design, since the whole point is that TEST identity is visible
+   during that forward pass now. The reported edge-level TEST AUC (via
+   `eid_posthoc.py`) is the number to compare against the flag-off baseline's edge-
+   level TEST AUC for the actual scientific question -- both are measuring the same
+   thing (predict test edges' sign from a checkpoint selected by that checkpoint's own
+   best val_auc), just under two different training/eval regimes end-to-end.
 
 **Verification run before any training** (`ds_off`/`ds_on`, 3000 walks, 20,898
 disallowed occurrences, both `EdgeIdentityStageViewDataset(stage="train")`):
