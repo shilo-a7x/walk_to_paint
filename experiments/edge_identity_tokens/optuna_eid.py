@@ -144,6 +144,7 @@ Usage (single GPU):
 
 import argparse
 import copy
+import json
 import os
 import random
 import time
@@ -224,6 +225,12 @@ def parse_args():
                          "prune_floor_frac * vanilla_auc past the warmup epochs.")
     p.add_argument("--prune-warmup-epochs", type=int, default=3,
                     help="Epochs to let a trial run before the absolute floor applies.")
+    p.add_argument("--extra-seed-json", type=str, default=None,
+                    help="JSON-encoded dict of OPTUNA_RANGES-keyed params to enqueue as an "
+                         "extra deliberate seed trial, on top of the 4 built-in ones (e.g. a "
+                         "prior search's winning config, for a refinement pass at a new fixed "
+                         "budget -- see run_gap_closer.py). Enqueued once by whichever process "
+                         "creates the study, same as the built-in seeds.")
     # parse_known_args (not nargs=REMAINDER): REMAINDER swallows every later token,
     # flags included, the instant it hits the first dotlist override -- bit run_eid.py
     # this same session (see CLAUDE.md's GPU-pinning gotcha) when --device came after
@@ -306,11 +313,29 @@ def objective_factory(base_cfg, device, shared_post_prepare_cfg, floor_pruning_k
         cfg.training.exp_name = f"{base_cfg.training.exp_name}-t{trial.number}"
 
         # ===== FIXED (see module docstring) =====
-        cfg.training.num_workers = 0
+        # num_workers/persistent_workers here are cosmetic only -- the actual shared_train_
+        # loader/shared_val_loader (built once in main() from base_cfg_preload, reused
+        # unchanged across every trial) is what determines real DataLoader behavior. Kept in
+        # sync with base_cfg_preload's values below anyway to avoid a misleadingly dead
+        # setting that looks load-bearing but isn't.
+        cfg.training.num_workers = 4
         cfg.training.persistent_workers = False
         cfg.model.local_attention_window = 4
         cfg.model.dynamic_train_masking = True  # now supported, sign-only-hide override
         cfg.model.scramble_edge_signs = False
+        # log_epoch_figures=False (2026-09-10): per-epoch confusion-matrix/ROC-curve
+        # TensorBoard figures (matplotlib render + PIL PNG-encode) are synchronous,
+        # CPU-bound, and block the main thread with zero GPU overlap -- confirmed via
+        # live py-spy stack sampling to be a real GPU-starvation contributor during
+        # these trials, where nobody looks at per-epoch plots anyway. Real training runs
+        # (run_eid.py) are unaffected -- this flag defaults True everywhere else.
+        cfg.training.log_epoch_figures = False
+        # eid_reveal_holdout_identity=True (2026-09-10): this is the regime we actually
+        # deploy (the flagship finding -- see MECHANISM.md/lit_model.py), not an
+        # ablation toggle here. Searching architecture with it OFF would tune for a
+        # materially different, worse-performing configuration than what gets used --
+        # fixed on, matching every real per-dataset run this search is meant to inform.
+        cfg.model.eid_reveal_holdout_identity = True
 
         # ===== SEARCHED =====
         # Sample every dimension every trial (TPE consistency) even though
@@ -445,7 +470,19 @@ def main():
     # resample targets instead.
     base_cfg_preload.model.dynamic_train_masking = True
     base_cfg_preload.model.scramble_edge_signs = False
-    base_cfg_preload.training.num_workers = 0
+    base_cfg_preload.model.eid_reveal_holdout_identity = True
+    # num_workers=4, not 0 (fixed 2026-09-10): this is the load-bearing setting --
+    # shared_train_loader/shared_val_loader are built here, once, from base_cfg_preload,
+    # and reused unchanged across every trial. num_workers=0 meant every batch's CPU-side
+    # collation (_getitem_ragged + pad_sequence) ran synchronously on the main thread with
+    # zero overlap with GPU compute -- confirmed via live py-spy stack sampling during a
+    # real search (GPU utilization 0-10% the whole time despite the machine having 115+
+    # idle CPU cores -- not contention, just no prefetching at all). persistent_workers
+    # stays False (not True): the same loader object gets wrapped by a NEW PL Trainer every
+    # trial, and keeping worker processes alive across that many independent Trainer
+    # lifecycles is untested here -- safer to let each trial's iteration spawn/tear down
+    # its own workers than risk a subtle cross-trial state bug for a smaller further gain.
+    base_cfg_preload.training.num_workers = 4
     base_cfg_preload.training.persistent_workers = False
     data_module = prepare_eid_data(base_cfg_preload, eid_cache_path)
     global shared_train_loader, shared_val_loader
@@ -482,13 +519,31 @@ def main():
         # edge cases the free search under-explored or never validated at the regime
         # that matters, instead of leaving them to random-startup luck (see v1's
         # rank=0-never-sampled gap). All clamped into v2's capped/floored ranges.
+        #
+        # v3, 2026-09-10: architecture terms (nhead/hidden_dim/nlayers/dropout/lr/
+        # head_dim) now seed from THIS DATASET's own production-tuned values (already
+        # merged into base_cfg via configs/<dataset>.yaml -- no CLI override needed),
+        # not hardcoded bitcoin-alpha constants. Confirmed via configs/*.yaml that
+        # production's architecture genuinely differs by dataset (wiki-elec/wiki-rfa:
+        # hidden_dim=64, nhead=2, nlayers=5 vs. bitcoin-alpha/otc: hidden_dim=128,
+        # nhead=4, nlayers=3) -- reusing bitcoin-alpha's EID-tuned architecture on
+        # every dataset (what the first cross-dataset single-split pass did) is the
+        # likely dominant cause of wiki-elec/wiki-rfa's large single-split gap to
+        # production. EID-specific knobs (sign_embed_dim, edge_replace_prob, etc.,
+        # no production equivalent to inherit) keep bitcoin-alpha's own EID-tuned
+        # values as a reasonable starting prior.
+        _prod_nhead = int(base_cfg.model.nhead)
+        _prod_head_dim = int(base_cfg.model.embedding_dim) // _prod_nhead
         _common = {
             "model.sign_embed_dim": 20, "model.node_embed_dim": 64,
-            "model.nhead": 4, "model.hidden_dim": 128, "model.nlayers": 3,
-            "model.head_dim": 24, "model.edge_replace_prob": 0.5,
+            "model.nhead": _prod_nhead,
+            "model.hidden_dim": int(base_cfg.model.hidden_dim),
+            "model.nlayers": int(base_cfg.model.nlayers),
+            "model.head_dim": _prod_head_dim,
+            "model.edge_replace_prob": 0.5,
             "model.edge_replace_unk_ratio": 0.23, "model.edge_embed_weight_decay": 3e-4,
             "model.node_replace_prob": 0.49, "model.node_replace_unk_ratio": 0.65,
-            "training.lr": 1.24e-3, "model.dropout": 0.17,
+            "training.lr": float(base_cfg.training.lr), "model.dropout": float(base_cfg.model.dropout),
         }
         seed_trials = [
             {**_common, "model.edge_embed_rank": 0,
@@ -500,10 +555,17 @@ def main():
             {**_common, "model.edge_embed_rank": 20,
              "model.edge_sign_combine": "concat", "model.edge_residual_baseline": False},
         ]
+        if args.extra_seed_json:
+            extra = json.loads(args.extra_seed_json)
+            # head_dim must satisfy embedding_dim = nhead*head_dim by construction; a
+            # caller-provided config (e.g. a prior study's winning trial) already
+            # satisfies this, so pass it through as-is rather than re-deriving it.
+            seed_trials.append(extra)
         for params in seed_trials:
             study.enqueue_trial(params, skip_if_exists=True)
         print(f"Enqueued {len(seed_trials)} deliberate seed trials (rank=0; "
-              f"add-combine; residual on/off at v1's best region)")
+              f"add-combine; residual on/off at v1's best region"
+              f"{'; +1 extra-seed-json' if args.extra_seed_json else ''})")
 
     n_trials_this_run = args.n_trials
     if args.total_trials is not None:

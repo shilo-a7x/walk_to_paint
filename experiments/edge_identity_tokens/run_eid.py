@@ -41,7 +41,13 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="config.yaml")
     parser.add_argument("--device", type=int, default=0)
-    parser.add_argument("overrides", nargs=argparse.REMAINDER)
+    # nargs="*" (not REMAINDER): REMAINDER swallows every token after the first
+    # positional-looking one, including a later --device flag -- confirmed to
+    # silently strand args.device at its default (0) whenever --device is passed
+    # after the dotlist overrides (as run_eid_queue.py's command construction
+    # does). "*" lets argparse interleave --device/--config with overrides in
+    # either order, since dotlist entries never start with "-" here.
+    parser.add_argument("overrides", nargs="*")
     return parser.parse_args()
 
 
@@ -83,10 +89,10 @@ def main():
     # dynamic_train_masking is now supported (sign-only-hide override, see
     # eid_src/model/lit_model.py's module docstring) -- production's config.yaml
     # default (True, the "D" flag) now flows through unmodified. scramble_edge_signs
-    # is still unsupported (see the same docstring) and forced off here, visibly.
-    if bool(getattr(cfg.model, "scramble_edge_signs", False)):
-        print("NOTE: forcing model.scramble_edge_signs=False (unsupported by EIDLitEdgeClassifier)")
-        cfg.model.scramble_edge_signs = False
+    # is ALSO now supported (EIDLitEdgeClassifier._maybe_apply_eid_sign_scramble) --
+    # this used to force it off here, silently invalidating every scramble_edge_signs
+    # run (confirmed: EID_ABL_SCRAMBLESIGN_300000 trained and evaluated with the flag
+    # force-reset to False the whole time). Removed 2026-09-10.
 
     try:
         current_exp = getattr(cfg.training, "exp_name", None)

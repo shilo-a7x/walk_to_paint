@@ -30,7 +30,7 @@ def train_model(cfg, data_module):
         + "-{epoch:02d}-{val_auc_epoch:.4f}",
         monitor="val_auc_epoch",
         mode="max",
-        save_top_k=-1,
+        save_top_k=1,
         save_last=True,
     )
 

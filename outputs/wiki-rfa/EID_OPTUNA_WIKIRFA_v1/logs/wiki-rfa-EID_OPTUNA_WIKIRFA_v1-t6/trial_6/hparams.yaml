@@ -1,0 +1,117 @@
+cfg:
+  reproducibility:
+    seed: 42
+  preprocess:
+    save: true
+    use_cache: true
+    use_mmap: true
+    num_workers: 8
+  dataset:
+    name: wiki-rfa
+    data_dir: data/wiki-RfA
+    edge_list_file: wiki-RfA.txt.gz
+    train_ratio: 0.48
+    mask_ratio: 0.32
+    val_ratio: 0.1
+    test_ratio: 0.1
+    binary: true
+    remove_self_loops: true
+    multiedge_handling: most_recent
+    walk_strategy: edge_cover
+    walk_neg_emphasis_fraction: 0.5
+    walk_set_cover_multiplier: 4
+    walk_p: 1.0
+    walk_q: 1.0
+    walk_k_min: 1
+    max_walk_length: 80
+    num_walks: 265817
+  model:
+    embedding_dim: 192
+    hidden_dim: 256
+    dropout: 0.4707445337167503
+    nhead: 8
+    nlayers: 6
+    dynamic_train_masking: true
+    dynamic_train_mask_seed_offset: 0
+    node_context_mode: replace
+    node_replace_prob: 0.35136198249856926
+    node_replace_unk_ratio: 0.44991128522709295
+    local_attention_window: 4
+    hardness_lambda: 1.0
+    hardness_map_path: null
+    scramble_edge_signs: false
+    eid_reveal_holdout_identity: true
+    vocab_size: 188472
+    old_vocab_size: 11261
+    eid_cache_path: experiments/edge_identity_tokens/cache/wiki-rfa_nw265817_eid.pt
+    num_classes: 2
+    pad_id: 0
+    ignore_index: -1
+    unk_id: 2
+    mask_id: 1
+    class_weights:
+    - 1.6407002382139493
+    - 0.35929976178605066
+    edge_embed_rank: 3
+    edge_sign_combine: concat
+    edge_residual_baseline: true
+    sign_embed_dim: 20
+    node_embed_dim: 16
+    edge_embed_weight_decay: 0.6367870335350401
+    edge_replace_prob: 0.18596306766373527
+    edge_replace_unk_ratio: 0.31258186442991476
+  miner:
+    epochs: 5
+    embedding_dim: 16
+    hidden_dim: 16
+    nhead: 2
+    nlayers: 2
+    lr: 0.001
+    batch_size: 1024
+  training:
+    batch_size: 1024
+    epochs: 50
+    lr: 0.004030713384560321
+    weight_decay: 2.9866739870000337e-05
+    early_stopping_patience: 15
+    early_stopping_min_delta: 0.001
+    gradient_clip_val: 0.5394002549968298
+    log_dir: outputs/wiki-rfa/EID_OPTUNA_WIKIRFA_v1/logs
+    exp_name: EID_OPTUNA_WIKIRFA_v1-t6
+    checkpoint_dir: outputs/wiki-rfa/EID_OPTUNA_WIKIRFA_v1/checkpoints
+    resume_from_checkpoint: null
+    eval_only: false
+    use_cuda: true
+    num_workers: 0
+    pin_memory: true
+    persistent_workers: false
+    prefetch_factor: 2
+    bucket_batching: true
+    bucket_width: 4
+    callbacks:
+      enable_prediction_saver: false
+      enable_per_epoch_test_runner: false
+      save_every: 0
+  paths:
+    base_outputs_dir: outputs
+    use_dataset_outputs: true
+    append_timestamp: false
+  float32_precision: medium
+  optuna:
+    initial_params:
+      dataset:
+        max_walk_length: 80
+        num_walks: 265817
+      training:
+        lr: 0.0016135042002810406
+        weight_decay: 2.9866739870000337e-05
+        batch_size: 1024
+        gradient_clip_val: 0.5394002549968298
+        early_stopping_patience: 15
+        epochs: 50
+      model:
+        embedding_dim: 64
+        hidden_dim: 64
+        nhead: 2
+        nlayers: 5
+        dropout: 0.14736239940786994

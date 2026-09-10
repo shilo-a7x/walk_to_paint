@@ -2,10 +2,13 @@
 
 Copy of the production driver with exactly one substantive change: it builds an
 EIDLitEdgeClassifier instead of a LitEdgeClassifier. Everything else -- the
-TensorBoardLogger, ModelCheckpoint (monitor val_auc_epoch, save every improving
-epoch + last), EarlyStopping (same monitor, same patience/min_delta semantics
-read from cfg.training), gradient clipping, the fit -> test flow -- is the real
-production Trainer setup, unmodified.
+TensorBoardLogger, ModelCheckpoint (monitor val_auc_epoch, save_top_k=1 + last
+-- fixed 2026-09-10, was save_top_k=-1/every epoch in both this file and
+production's, the reason checkpoints/ dirs needed manual cleanup; TensorBoard's
+own per-epoch metric curves are unaffected, logged by a separate, undisturbed
+TensorBoardLogger), EarlyStopping (same monitor, same patience/min_delta
+semantics read from cfg.training), gradient clipping, the fit -> test flow --
+is the real production Trainer setup, unmodified.
 
 PerEpochPredictionSaver / PerEpochTestRunner (src/training/callbacks.py) are not
 wired in here -- this pilot doesn't need per-epoch prediction artifacts, and
@@ -46,7 +49,7 @@ def train_eid_model(cfg, data_module):
         + "-{epoch:02d}-{val_auc_epoch:.4f}",
         monitor="val_auc_epoch",
         mode="max",
-        save_top_k=-1,
+        save_top_k=1,
         save_last=True,
     )
 

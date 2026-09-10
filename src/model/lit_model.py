@@ -596,6 +596,15 @@ class LitEdgeClassifier(pl.LightningModule):
             "lr_scheduler": {"scheduler": scheduler, "interval": "epoch"},
         }
 
+    def _log_epoch_figures_enabled(self):
+        """Gate for the per-epoch confusion-matrix/ROC-curve TensorBoard figures
+        (matplotlib render + PIL PNG-encode, both CPU-bound and synchronous on
+        the main thread -- confirmed via py-spy live stack sampling to be a real
+        GPU-starvation contributor during Optuna trials, where nobody looks at
+        these plots anyway). Default True (unchanged behavior for every real
+        training run); optuna_eid.py sets training.log_epoch_figures=False."""
+        return bool(getattr(self.cfg.training, "log_epoch_figures", True))
+
     def on_train_epoch_end(self):
         self.log("step", self.current_epoch)
         results = self.metrics_manager.compute_and_reset_metrics("train")
@@ -605,7 +614,7 @@ class LitEdgeClassifier(pl.LightningModule):
         self.log("train_auc_epoch", results["auc"], prog_bar=True)
 
         # Log confusion matrix (only if logger is available)
-        if self.logger is not None:
+        if self.logger is not None and self._log_epoch_figures_enabled():
             self.logger.experiment.add_figure(
                 "train_confusion_matrix",
                 self.plotting_helper.plot_confusion_matrix(
@@ -616,7 +625,7 @@ class LitEdgeClassifier(pl.LightningModule):
 
         # Log ROC curve
         targets_list, probs_list = self.metrics_manager.get_roc_data("train")
-        if targets_list and probs_list:
+        if targets_list and probs_list and self._log_epoch_figures_enabled():
             roc_fig = self.plotting_helper.plot_roc_curve(
                 targets_list, probs_list, "Training", self.num_classes
             )
@@ -643,7 +652,7 @@ class LitEdgeClassifier(pl.LightningModule):
         self.log("val_auc_epoch", results["auc"], prog_bar=True)
 
         # Log confusion matrix (only if logger is available)
-        if self.logger is not None:
+        if self.logger is not None and self._log_epoch_figures_enabled():
             self.logger.experiment.add_figure(
                 "val_confusion_matrix",
                 self.plotting_helper.plot_confusion_matrix(
@@ -654,7 +663,7 @@ class LitEdgeClassifier(pl.LightningModule):
 
         # Log ROC curve
         targets_list, probs_list = self.metrics_manager.get_roc_data("val")
-        if targets_list and probs_list:
+        if targets_list and probs_list and self._log_epoch_figures_enabled():
             roc_fig = self.plotting_helper.plot_roc_curve(
                 targets_list, probs_list, "Validation", self.num_classes
             )
@@ -677,7 +686,7 @@ class LitEdgeClassifier(pl.LightningModule):
         self.log("test_auc_epoch", results["auc"], prog_bar=True)
 
         # Log confusion matrix (only if logger is available)
-        if self.logger is not None:
+        if self.logger is not None and self._log_epoch_figures_enabled():
             self.logger.experiment.add_figure(
                 "test_confusion_matrix",
                 self.plotting_helper.plot_confusion_matrix(
@@ -688,7 +697,7 @@ class LitEdgeClassifier(pl.LightningModule):
 
         # Log ROC curve
         targets_list, probs_list = self.metrics_manager.get_roc_data("test")
-        if targets_list and probs_list:
+        if targets_list and probs_list and self._log_epoch_figures_enabled():
             roc_fig = self.plotting_helper.plot_roc_curve(
                 targets_list, probs_list, "Test", self.num_classes
             )
