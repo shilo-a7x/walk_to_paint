@@ -1,5 +1,13 @@
 """Small Optuna search over the edge-identity-token (EID) model's own knobs.
 
+===== v3, 2026-09-14: per-dataset search-space overrides =====
+Gap-closer session (run_gap_closer.py) found several datasets' stage1 winners sitting
+right at OPTUNA_RANGES' boundaries -- a sign the bound, not the mechanism, was binding.
+See DATASET_RANGE_OVERRIDES below for the per-dataset field-level patches (wiki-elec:
+hidden_dim/dropout floors lowered; epinions: head_dim ceiling raised, node_replace_prob
+floor lowered; wiki-rfa/slashdot090221: edge_replace_prob/node_replace_prob ceiling
+raised from 0.5 to 0.7, not removed -- see the patch's own comment for why not removed).
+
 Adapted from ../../optuna_run.py's in-process PL-Trainer + shared-data-preload
 pattern, but trimmed to the axes specific to this experiment -- production's
 architecture search (nhead/hidden_dim/nlayers) is NOT re-run here, see "FIXED"
@@ -192,8 +200,46 @@ OPTUNA_RANGES = {
 }
 
 
-def _suggest(trial, name):
-    spec = OPTUNA_RANGES[name]
+# Per-dataset search-space overrides, 2026-09-14 gap-closing round. Each entry only
+# overrides the specific low/high fields named -- everything else (type, step, choices)
+# is inherited from OPTUNA_RANGES. Rationale per dataset (see logs/eid_gap_closer/
+# session notes): wiki-elec's stage1 winner sat at hidden_dim's floor (64) and near
+# dropout's floor (0.1) -- the search wants to go smaller/less-regularized than allowed.
+# epinions' winner sat at head_dim's ceiling (32, i.e. embedding_dim capped at
+# nhead*32=256) and node_replace_prob's floor (0.3) -- wants more capacity and less
+# forced node corruption. wiki-rfa/slashdot both sat near the edge_replace_prob/
+# node_replace_prob 0.5 cap -- raised, not removed (removing it re-opens the v1
+# "just disable edges to escape" failure mode this cap exists to prevent).
+DATASET_RANGE_OVERRIDES = {
+    "wiki-elec": {
+        "model.hidden_dim": {"low": 32},
+        "model.dropout": {"low": 0.05},
+    },
+    "epinions": {
+        "model.head_dim": {"high": 48},
+        "model.node_replace_prob": {"low": 0.15},
+    },
+    "wiki-rfa": {
+        "model.edge_replace_prob": {"high": 0.7},
+        "model.node_replace_prob": {"high": 0.7},
+    },
+    "slashdot090221": {
+        "model.edge_replace_prob": {"high": 0.7},
+        "model.node_replace_prob": {"high": 0.7},
+    },
+}
+
+
+def ranges_for_dataset(dataset_name):
+    """OPTUNA_RANGES with this dataset's overrides merged in (field-level, not whole-spec)."""
+    ranges = {k: dict(v) for k, v in OPTUNA_RANGES.items()}
+    for name, patch in DATASET_RANGE_OVERRIDES.get(dataset_name, {}).items():
+        ranges[name].update(patch)
+    return ranges
+
+
+def _suggest(trial, name, ranges=None):
+    spec = (ranges or OPTUNA_RANGES)[name]
     if spec["type"] == "float":
         return trial.suggest_float(name, spec["low"], spec["high"], log=spec.get("log", False))
     if spec["type"] == "int":
@@ -308,6 +354,8 @@ def build_trainer(cfg, val_loader, trial, floor_pruning_kwargs=None, enable_prun
 
 
 def objective_factory(base_cfg, device, shared_post_prepare_cfg, floor_pruning_kwargs=None):
+    ranges = ranges_for_dataset(str(base_cfg.dataset.name))
+
     def objective(trial: optuna.trial.Trial):
         cfg = copy.deepcopy(shared_post_prepare_cfg)
         cfg.training.exp_name = f"{base_cfg.training.exp_name}-t{trial.number}"
@@ -342,12 +390,12 @@ def objective_factory(base_cfg, device, shared_post_prepare_cfg, floor_pruning_k
         # sign_embed_dim/node_embed_dim/edge_embed_weight_decay/edge_sign_combine/
         # edge_residual_baseline only affect the objective when edge_embed_rank > 0
         # -- see module docstring.
-        edge_embed_rank = _suggest(trial, "model.edge_embed_rank")
-        edge_sign_combine = _suggest(trial, "model.edge_sign_combine")
-        edge_residual_baseline = _suggest(trial, "model.edge_residual_baseline")
-        sign_embed_dim = _suggest(trial, "model.sign_embed_dim")
-        node_embed_dim = _suggest(trial, "model.node_embed_dim")
-        edge_embed_weight_decay = _suggest(trial, "model.edge_embed_weight_decay")
+        edge_embed_rank = _suggest(trial, "model.edge_embed_rank", ranges)
+        edge_sign_combine = _suggest(trial, "model.edge_sign_combine", ranges)
+        edge_residual_baseline = _suggest(trial, "model.edge_residual_baseline", ranges)
+        sign_embed_dim = _suggest(trial, "model.sign_embed_dim", ranges)
+        node_embed_dim = _suggest(trial, "model.node_embed_dim", ranges)
+        edge_embed_weight_decay = _suggest(trial, "model.edge_embed_weight_decay", ranges)
 
         cfg.model.edge_embed_rank = edge_embed_rank
         if edge_embed_rank > 0:
@@ -357,17 +405,17 @@ def objective_factory(base_cfg, device, shared_post_prepare_cfg, floor_pruning_k
             cfg.model.node_embed_dim = node_embed_dim
             cfg.model.edge_embed_weight_decay = edge_embed_weight_decay
 
-        cfg.model.nhead = _suggest(trial, "model.nhead")
-        cfg.model.hidden_dim = _suggest(trial, "model.hidden_dim")
-        cfg.model.nlayers = _suggest(trial, "model.nlayers")
-        head_dim = _suggest(trial, "model.head_dim")
+        cfg.model.nhead = _suggest(trial, "model.nhead", ranges)
+        cfg.model.hidden_dim = _suggest(trial, "model.hidden_dim", ranges)
+        cfg.model.nlayers = _suggest(trial, "model.nlayers", ranges)
+        head_dim = _suggest(trial, "model.head_dim", ranges)
         cfg.model.embedding_dim = cfg.model.nhead * head_dim
-        cfg.model.edge_replace_prob = _suggest(trial, "model.edge_replace_prob")
-        cfg.model.edge_replace_unk_ratio = _suggest(trial, "model.edge_replace_unk_ratio")
-        cfg.model.node_replace_prob = _suggest(trial, "model.node_replace_prob")
-        cfg.model.node_replace_unk_ratio = _suggest(trial, "model.node_replace_unk_ratio")
-        cfg.training.lr = _suggest(trial, "training.lr")
-        cfg.model.dropout = _suggest(trial, "model.dropout")
+        cfg.model.edge_replace_prob = _suggest(trial, "model.edge_replace_prob", ranges)
+        cfg.model.edge_replace_unk_ratio = _suggest(trial, "model.edge_replace_unk_ratio", ranges)
+        cfg.model.node_replace_prob = _suggest(trial, "model.node_replace_prob", ranges)
+        cfg.model.node_replace_unk_ratio = _suggest(trial, "model.node_replace_unk_ratio", ranges)
+        cfg.training.lr = _suggest(trial, "training.lr", ranges)
+        cfg.model.dropout = _suggest(trial, "model.dropout", ranges)
 
         seed = get_seed(cfg)
         seed_everything(seed, workers=True)
