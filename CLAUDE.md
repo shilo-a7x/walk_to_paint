@@ -13,6 +13,34 @@ Beats every GNN/SGNN baseline on all 6 datasets on the same canonical splits.
 
 4× NVIDIA L40S (44 GB each), GPUs 0–3.
 
+## Background job / campaign launch and monitoring conventions
+
+**Standing rule for any long-running training campaign** (Optuna sweeps, budget sweeps,
+multiseed campaigns, ablation campaigns) — established through direct experience across many
+sessions, not a preference to rediscover each time:
+
+- **Launch detached, never foreground/blocking**: `nohup <cmd> > logfile 2>&1 & disown -a`
+  (or the Bash tool's `run_in_background: true`).
+- **Verify clean startup once, immediately after launch** — then stop checking manually. Find
+  the real python PID with `pgrep -af <script name>` (the shell wrapper's `$!` is often just
+  the bash wrapper, not the actual process), confirm GPU utilization via `nvidia-smi`, and read
+  the first few lines of the log to confirm real training is happening, not an immediate crash.
+- **Hand off to a background monitor, don't busy-poll.** Once startup is verified, use the
+  Bash tool's `run_in_background`, a `while kill -0 <pid>; do sleep 120; done; echo DONE` loop,
+  or the `Monitor` tool — not repeated manual `ps`/log-tail checks spaced by short sleeps. Busy
+  polling wastes turns and doesn't scale to 100+-job campaigns.
+- **A background task reported as "stopped" with no completion record is not evidence of
+  success or failure.** Always re-verify with fresh `ps`/log/state-file checks before reporting
+  status — never assume either outcome from an ambiguous stop signal.
+- **Multi-GPU campaigns with uneven per-job costs** (e.g. epinions/slashdot090221 run far
+  longer than bitcoin-alpha/bitcoin-otc) should use a **shared-queue, one-worker-thread-per-GPU**
+  pattern (`scripts/run_multiseed_pewter.py`'s `Queue`+`threading.Thread` shape), not a fixed
+  per-GPU-bucket-then-wait-all-buckets pattern (`experiments/edge_identity_tokens/
+  run_gap_closer.py`'s shape). The bucket pattern reliably leaves GPUs idle once their bucket
+  drains early — confirmed concretely in the EID ablation campaign (2026-09-15), where 3 of 4
+  GPUs sat idle ~40 minutes while the 4th finished the last job. Use the bucket pattern only for
+  short campaigns (a handful of jobs) where the idle tail is negligible.
+
 ## Key commands
 
 All commands below assume the project venv (`.venv/bin/python`, or
@@ -696,6 +724,34 @@ A/C/D/E rebuild history) — done, full day-by-day log: `aaai2027/PAPER_CLOSEOUT
   started 2026-08-23, prototyped in isolation under `experiments/local_attention_windowed/`,
   paused pending further validation, not adopted; see "Complexity claim" above for the
   findings.
+
+## EID (Edge Identity Tokens) — new architecture, active workstream, separate from the WSDM paper
+
+**What it is**: `experiments/edge_identity_tokens/` — a variant architecture that gives every
+edge a persistent per-edge identity token (a low-rank embedding table, `edge_embed_rank`)
+alongside its sign, on top of production's walk-Transformer. Full mechanism/design rationale
+(content_dim/node_embed_dim/edge_embed_rank relationships, SIGN_NA placeholder, why target
+identity stays visible while sign is hidden): `experiments/edge_identity_tokens/MECHANISM.md`.
+
+**Status (2026-09-15): gap-closing done, single-seed ablation sanity-check done, multiseed not
+yet started.** Per-dataset Optuna architecture search + budget sweep against production's own
+numbers landed real, verified test AUCs for all 6 datasets — winning architecture+budget per
+dataset in `logs/eid_gap_closer/state.json`/`state_v2.json`. **`model.eid_reveal_holdout_
+identity=true` is canon** (val/test edges' identity, never their sign, visible as attendable
+context during training) — baked into every real EID run, not an ablation toggle. Two
+EID-native ablations exist and were single-seed spot-checked across all 6 datasets:
+`model.mask_context_edges` (context edges lose identity+sign, target untouched) and
+`model.scramble_edge_signs` (deterministic wrong sign on a fixed ~50% of edges at genuinely
+visible positions — a real bug here, no guard against corrupting already-hidden target/holdout
+positions, was found and fixed in `eid_src/model/lit_model.py::_maybe_apply_eid_sign_scramble`
+this session). Results: `logs/eid_gap_closer/ablation_results.json`.
+
+**Next up, full plan**: `~/.claude/plans/plan-eid-multiseed-thesis.md` — 10-seed multiseed
+campaign for EID + both ablations (180 jobs), a paired-significance check, then a new
+`thesis/` directory (doesn't exist yet) that reproduces the WSDM paper's relevant figures/
+tables with EID as the new production architecture — **deadline-driven, takes priority over
+new ablation data**. This is a genuinely separate workstream from the WSDM paper closeout
+below — don't conflate the two, and don't edit `aaai2027/` or `thesis/` from the wrong plan.
 
 ## PEWTER paper (aaai2027/) — file map and conventions
 

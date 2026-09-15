@@ -263,6 +263,31 @@ class EIDLitEdgeClassifier(LitEdgeClassifier):
         x_sign[context_mask] = SIGN_NA
         return x_ids, x_sign
 
+    def _maybe_apply_context_sign_only_masking(self, sign_ids, edge_mask, labels):
+        """Phase 0 pilot ablation (2026-09-15, plan-eid-multiseed-thesis.md): the
+        sign-only complement of `_maybe_apply_context_edge_masking` -- context
+        edges (every edge occurrence that is NOT the current prediction target)
+        keep their identity token fully visible; only `sign_ids` gets forced to
+        SIGN_NA. `model.mask_context_edges` removes BOTH channels from context at
+        once; this isolates whether identity ALONE (no sign) is doing the work,
+        the closer analogue to what production's original edge token actually was
+        (production has no separate identity channel at all -- masking its edge
+        token removes both identity and sign together, same as
+        `mask_context_edges` does here). `input_ids` is completely untouched.
+
+        Same target-mask logic as `_maybe_apply_context_edge_masking` (called
+        after dynamic resplit has finalized `labels`, so `labels != ignore_index`
+        is the correctly-resolved target mask either way)."""
+        if edge_mask is None or not bool(getattr(self.cfg.model, "mask_context_sign_only", False)):
+            return sign_ids
+        target_mask = labels != self.ignore_index
+        context_mask = edge_mask & (~target_mask)
+        if not context_mask.any():
+            return sign_ids
+        x = sign_ids.clone()
+        x[context_mask] = SIGN_NA
+        return x
+
     def _build_eid_scramble_table(self, seed_offset: int, dataset=None):
         """Shared helper for both EID-native scramble ablations: a fixed,
         seeded-once mapping from real edge id -> real edge id, used as the
@@ -341,7 +366,23 @@ class EIDLitEdgeClassifier(LitEdgeClassifier):
         production's `_maybe_apply_sign_scramble` mechanic (fixed-liar-subset +
         deterministic flip), operating on sign_ids instead of input_ids since EID
         has a real class value per position already (edge_classes) rather than
-        needing to invert a token-id-to-class map."""
+        needing to invert a token-id-to-class map.
+
+        Bug fix (2026-09-15): the original version had no guard excluding
+        positions that are ALREADY hidden (SIGN_NA) -- target positions (this
+        stage's real prediction targets, static or dynamically-resplit) and
+        disallowed/holdout positions alike. Unlike production's own
+        `_maybe_apply_sign_scramble`, which correctly guards `input_ids !=
+        mask_id` before flipping, this method flipped unconditionally on
+        `edge_mask`, so for the ~50% "liar" edge subset, a target edge's own
+        input position would get overwritten with a concrete WRONG sign
+        instead of staying SIGN_NA -- directly contaminating the exact
+        position the model is supposed to predict from context alone, not
+        just misleading nearby context. Verified against a real cached batch:
+        63% of already-hidden positions were getting overwritten before this
+        fix. Fixed by requiring `sign_ids == SIGN_NA` was NOT already the case
+        on the *incoming* value, mirroring production's `input_ids != mask_id`
+        visibility check."""
         if edge_mask is None or not bool(getattr(self.cfg.model, "scramble_edge_signs", False)):
             return sign_ids
         if not self._eid_sign_scramble_ready:
@@ -351,9 +392,10 @@ class EIDLitEdgeClassifier(LitEdgeClassifier):
             self._eid_sign_scramble_flip_cpu = self._build_eid_sign_flip_table(dataset=dataset)
             self._eid_sign_scramble_ready = True
 
+        visible = edge_mask & (sign_ids != SIGN_NA)
         flip_table = self._eid_sign_scramble_flip_cpu.to(edge_ids.device)
         safe_ids = edge_ids.clamp(min=0, max=flip_table.numel() - 1)
-        flip_here = edge_mask & (edge_ids >= 0) & flip_table[safe_ids]
+        flip_here = visible & (edge_ids >= 0) & flip_table[safe_ids]
         if not flip_here.any():
             return sign_ids
 
@@ -480,6 +522,9 @@ class EIDLitEdgeClassifier(LitEdgeClassifier):
             model_input_ids, sign_ids = self._maybe_apply_context_edge_masking(
                 model_input_ids, sign_ids, edge_mask, labels
             )
+            # --- (a5b): Phase 0 pilot -- sign-only complement of context-edge
+            # masking (identity stays visible, only context sign is hidden)
+            sign_ids = self._maybe_apply_context_sign_only_masking(sign_ids, edge_mask, labels)
             # --- (a6): symmetric counterpart -- masks the TARGET's own identity
             # instead of context (production-parity comparison point)
             model_input_ids = self._maybe_apply_target_identity_masking(
