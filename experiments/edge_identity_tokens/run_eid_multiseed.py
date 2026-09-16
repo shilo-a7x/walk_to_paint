@@ -167,10 +167,20 @@ def job_train_and_posthoc(dataset, cond_flag, cond_tag, seed, gpu):
         VENV_PY, "experiments/edge_identity_tokens/run_eid.py",
         f"dataset.name={dataset}", f"dataset.num_walks={w['num_walks']}",
         f"training.exp_name={exp_name}",
-        "training.epochs=50", "training.batch_size=1024",
+        # No blanket training.epochs override (bug fix 2026-09-15) -- this used to hardcode
+        # 50 for every dataset, silently undoing configs/epinions.yaml's and
+        # configs/slashdot090221.yaml's own epochs=75. Let it flow through from
+        # configs/<dataset>.yaml instead, same as production's own run.py invocations do --
+        # EXCEPT epinions/slashdot090221, which get an explicit, intentional EID-only
+        # epochs=50 override (see ra.EID_EPOCH_OVERRIDE's docstring: a real diagnostic
+        # showed slashdot090221 scores worse at 75 epochs for EID specifically, and a full
+        # re-sweep to find EID's true best epoch/budget combo was judged too costly).
+        "training.batch_size=1024",
         *overrides,
         f"reproducibility.seed={seed}",
     ]
+    if dataset in ra.EID_EPOCH_OVERRIDE:
+        cmd.append(f"training.epochs={ra.EID_EPOCH_OVERRIDE[dataset]}")
     if cond_flag is not None:
         cmd.append(f"model.{cond_flag}=true")
     cmd += ["--device", str(gpu)]
@@ -193,16 +203,37 @@ def job_train_and_posthoc(dataset, cond_flag, cond_tag, seed, gpu):
 
 
 def build_queue():
+    """Ordered so the `noablation` condition -- across ALL 6 datasets -- fully drains
+    before any ablation job starts, not per-dataset (2026-09-15 reorder, per the user:
+    noablation is what unblocks most of the thesis's paper-asset reproduction, so it
+    should finish first; ablations are the fill-in work that keeps GPUs busy once
+    noablation is exhausted, not something interleaved with it dataset-by-dataset).
+    Workers pull from one shared queue, so this ordering alone is sufficient -- no
+    separate scheduling logic needed."""
     jobs = []
-    # 1) cheap seed-42 backfills first (posthoc-only, fast) -- all (dataset, condition)
+    noablation = [c for c in CONDITIONS if c[1] == "noablation"]
+    ablations = [c for c in CONDITIONS if c[1] != "noablation"]
+
+    # 1) noablation seed-42 backfills first (posthoc-only, fast) -- all datasets.
     for ds in DATASETS:
-        for cond_flag, cond_tag in CONDITIONS:
+        for cond_flag, cond_tag in noablation:
             jobs.append(("backfill42", ds, cond_flag, cond_tag))
-    # 1b) wiki-rfa's un-backfillable baseline: train it fresh at seed 42 explicitly
+    # 1b) wiki-rfa's un-backfillable noablation baseline: train it fresh at seed 42.
     jobs.append(("train", "wiki-rfa", None, "noablation", 42))
-    # 2) main sweep: per dataset, per condition, 9 new seeds
+    # 2) noablation main sweep: all datasets, 9 new seeds each -- must fully drain
+    #    before any ablation job below starts.
     for ds in DATASETS:
-        for cond_flag, cond_tag in CONDITIONS:
+        for cond_flag, cond_tag in noablation:
+            for seed in NEW_SEEDS:
+                jobs.append(("train", ds, cond_flag, cond_tag, seed))
+
+    # 3) ablation seed-42 backfills -- all datasets, both ablations.
+    for ds in DATASETS:
+        for cond_flag, cond_tag in ablations:
+            jobs.append(("backfill42", ds, cond_flag, cond_tag))
+    # 4) ablation main sweep: all datasets, both ablations, 9 new seeds each.
+    for ds in DATASETS:
+        for cond_flag, cond_tag in ablations:
             for seed in NEW_SEEDS:
                 jobs.append(("train", ds, cond_flag, cond_tag, seed))
     return jobs

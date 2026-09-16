@@ -211,7 +211,8 @@ def main():
     print(f"dataset={cfg.dataset.name} num_walks={cfg.dataset.num_walks} seed={seed} "
           f"edge_embed_rank={cfg.model.edge_embed_rank} local_attention_window={cfg.model.local_attention_window}")
 
-    eid_cache_path = EID_CACHE_PATH.format(dataset=cfg.dataset.name, num_walks=int(cfg.dataset.num_walks))
+    eid_cache_path = EID_CACHE_PATH.format(dataset=cfg.dataset.name, num_walks=int(cfg.dataset.num_walks),
+                                            seed=seed)
     ensure_eid_cache(cfg, eid_cache_path)
     data_module = prepare_eid_data(cfg, eid_cache_path)
 

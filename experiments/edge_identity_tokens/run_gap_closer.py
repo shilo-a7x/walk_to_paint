@@ -51,6 +51,24 @@ EDGE_COUNT = {
 }
 BUDGET_GRID_MULT = [1.0, 1.5, 3.0, 5.0, 8.0]
 
+# Explicit, intentional EID-side deviation from configs/<dataset>.yaml's own epochs
+# (2026-09-15 user decision) -- NOT the old blanket-hardcoded-50 bug (fixed this session,
+# see run_eid.py's EID_CACHE_PATH docstring for that bug's history). Production raised
+# epinions/slashdot090221 to epochs=75 because ITS OWN convergence curves were still
+# climbing at 50 -- a real, validated finding for production's architecture, left
+# untouched in configs/<dataset>.yaml so production keeps training at 75. For EID
+# specifically: a real diagnostic rerun of slashdot090221 at 75 epochs actually scored
+# WORSE (0.8836) than the original 50-epoch number (0.8895) -- likely CosineAnnealingLR's
+# horizon (coupled to training.epochs) shifting under a longer schedule, not
+# under-training -- and a full budget re-sweep at 75 epochs to find the true best point
+# was judged too expensive given slashdot090221 is EID's heaviest dataset. epinions was
+# never diagnosed (already beats production even at 50 epochs, lowest priority) but kept
+# at 50 for the same cost reason -- revisit if it ever stops beating production.
+EID_EPOCH_OVERRIDE = {
+    "epinions": 50,
+    "slashdot090221": 50,
+}
+
 COMMON_ARCH_KEYS = [
     "model.edge_embed_rank", "model.edge_sign_combine", "model.edge_residual_baseline",
     "model.sign_embed_dim", "model.node_embed_dim", "model.edge_embed_weight_decay",
@@ -174,10 +192,20 @@ def budget_sweep(dataset, arch_params, exp_prefix, n_gpus):
             tag = f"{mult}X".replace(".0X", "X")
             exp = f"{exp_prefix}_{tag}"
             lines.append(f'echo "=== [$(date +%T)] START train {exp} (num_walks={nw}) ==="')
+            # No training.epochs override (bug fix 2026-09-15 -- this used to hardcode
+            # epochs=50 for every dataset, silently overriding configs/epinions.yaml's and
+            # configs/slashdot090221.yaml's own epochs=75, which production adopted because
+            # those two datasets were still climbing in val AUC at epoch 50. Let it flow
+            # through from configs/<dataset>.yaml, same as stage 1's Optuna search already
+            # correctly does -- see launch_optuna_workers()'s docstring above). EXCEPT
+            # epinions/slashdot090221, which get an explicit, intentional EID-only
+            # epochs=50 override -- see EID_EPOCH_OVERRIDE's docstring above.
+            epoch_ov = (f" training.epochs={EID_EPOCH_OVERRIDE[dataset]}"
+                        if dataset in EID_EPOCH_OVERRIDE else "")
             lines.append(
                 f"{VENV_PY} experiments/edge_identity_tokens/run_eid.py "
                 f"dataset.name={dataset} dataset.num_walks={nw} training.exp_name={exp} "
-                f"training.epochs=50 training.batch_size=1024 {common_str} "
+                f"training.batch_size=1024{epoch_ov} {common_str} "
                 f"--device {gpu} > {LOG_DIR}/{exp}.train.log 2>&1"
             )
             lines.append(f'exp_dir=$(ls -dt outputs/{dataset}/{exp}_* | head -1)')
@@ -271,8 +299,10 @@ def process_dataset(dataset, state, skip_arch_search=False, known_arch=None, kno
         exp = f"EID_GAP_{dataset.upper().replace('-', '')}_FINAL"
         cmd = [VENV_PY, "experiments/edge_identity_tokens/run_eid.py",
                f"dataset.name={dataset}", f"dataset.num_walks={num_walks}",
-               f"training.exp_name={exp}", "training.epochs=50", "training.batch_size=1024",
+               f"training.exp_name={exp}", "training.batch_size=1024",
                *overrides, "--device", "0"]
+        if dataset in EID_EPOCH_OVERRIDE:
+            cmd.append(f"training.epochs={EID_EPOCH_OVERRIDE[dataset]}")
         run(cmd, LOG_DIR / f"{exp}.train.log")
         exp_dir = sorted((REPO_ROOT / "outputs" / dataset).glob(f"{exp}_*"))[-1]
         posthoc_cmd = [VENV_PY, "experiments/edge_identity_tokens/eid_posthoc.py",

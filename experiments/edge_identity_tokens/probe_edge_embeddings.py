@@ -31,6 +31,7 @@ from sklearn.metrics import roc_auc_score
 from experiments.edge_identity_tokens.eid_src.model.lit_model import EIDLitEdgeClassifier
 from experiments.edge_identity_tokens.eid_src.data.prepare_eid_data import prepare_eid_data
 from experiments.edge_identity_tokens.run_eid import EID_CACHE_PATH, ensure_eid_cache
+from src.utils.config import get_seed
 
 
 def held_out_edge_ids(loader, ignore_index):
@@ -65,7 +66,8 @@ def main():
           f"residual_baseline={getattr(model, 'edge_residual_baseline', False)}")
     assert model.edge_embed_rank > 0, "diagnostic needs a factorized (rank>0) checkpoint"
 
-    eid_cache_path = EID_CACHE_PATH.format(dataset=cfg.dataset.name, num_walks=int(cfg.dataset.num_walks))
+    eid_cache_path = EID_CACHE_PATH.format(dataset=cfg.dataset.name, num_walks=int(cfg.dataset.num_walks),
+                                            seed=get_seed(cfg))
     cache_tok = torch.load(eid_cache_path, map_location="cpu", weights_only=False)["tokenizer"]
     edge_u_ids = cache_tok["edge_u_ids"].long()
     edge_v_ids = cache_tok["edge_v_ids"].long()

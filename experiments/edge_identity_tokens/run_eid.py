@@ -34,7 +34,17 @@ from src.utils.paths import resolve_outputs_dirs
 from experiments.edge_identity_tokens.eid_src.data.prepare_eid_data import prepare_eid_data
 from experiments.edge_identity_tokens.eid_src.training.train import train_eid_model
 
-EID_CACHE_PATH = "experiments/edge_identity_tokens/cache/{dataset}_nw{num_walks}_eid.pt"
+# seed{seed} added 2026-09-15 -- bug fix, not cosmetic. ensure_eid_cache() below always built
+# the *base* production cache correctly keyed by seed (_keyed_cache_path(cfg) includes it), but
+# the EID-transformed cache this constant names did NOT, so every (dataset, num_walks) pair
+# shared ONE EID cache across all reproducibility.seed values: whichever seed's job ran first
+# built it, and every other seed's job just found the file already there and silently trained
+# on that seed's walk sample instead of its own. Confirmed to have invalidated the entire
+# Phase 1 multiseed campaign's seeds 43-51 (plan-eid-multiseed-thesis.md) -- "10 seeds" only
+# varied model-init/training stochasticity, never the underlying walk resample, unlike
+# production's own multiseed convention. Fixed here; every caller (eid_posthoc.py,
+# optuna_eid.py, eval_eid_checkpoint.py, probe_edge_embeddings.py) updated to pass seed too.
+EID_CACHE_PATH = "experiments/edge_identity_tokens/cache/{dataset}_nw{num_walks}_seed{seed}_eid.pt"
 
 
 def parse_args():
@@ -128,7 +138,8 @@ def main():
     else:
         print("Using CPU")
 
-    eid_cache_path = EID_CACHE_PATH.format(dataset=cfg.dataset.name, num_walks=int(cfg.dataset.num_walks))
+    eid_cache_path = EID_CACHE_PATH.format(dataset=cfg.dataset.name, num_walks=int(cfg.dataset.num_walks),
+                                            seed=seed)
     ensure_eid_cache(cfg, eid_cache_path)
 
     data_module = prepare_eid_data(cfg, eid_cache_path)

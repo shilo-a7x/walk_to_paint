@@ -25,6 +25,7 @@ from pytorch_lightning import Trainer
 from experiments.edge_identity_tokens.eid_src.model.lit_model import EIDLitEdgeClassifier
 from experiments.edge_identity_tokens.eid_src.data.prepare_eid_data import prepare_eid_data
 from experiments.edge_identity_tokens.run_eid import EID_CACHE_PATH, ensure_eid_cache
+from src.utils.config import get_seed
 
 
 def main():
@@ -41,7 +42,8 @@ def main():
     print(f"Loaded checkpoint for dataset={cfg.dataset.name}, "
           f"edge_embed_rank={getattr(cfg.model, 'edge_embed_rank', None)}")
 
-    eid_cache_path = EID_CACHE_PATH.format(dataset=cfg.dataset.name, num_walks=int(cfg.dataset.num_walks))
+    eid_cache_path = EID_CACHE_PATH.format(dataset=cfg.dataset.name, num_walks=int(cfg.dataset.num_walks),
+                                            seed=get_seed(cfg))
     ensure_eid_cache(cfg, eid_cache_path)
     data_module = prepare_eid_data(cfg, eid_cache_path)
 

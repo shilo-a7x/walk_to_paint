@@ -503,7 +503,8 @@ def main():
 
     print(f"Starting EID Optuna search with {args.n_trials} trials on device {args.device}")
 
-    eid_cache_path = EID_CACHE_PATH.format(dataset=base_cfg.dataset.name, num_walks=int(base_cfg.dataset.num_walks))
+    eid_cache_path = EID_CACHE_PATH.format(dataset=base_cfg.dataset.name, num_walks=int(base_cfg.dataset.num_walks),
+                                            seed=seed)
     ensure_eid_cache(base_cfg, eid_cache_path)
 
     print("\nPre-loading EID dataset cache (shared across all trials)...")

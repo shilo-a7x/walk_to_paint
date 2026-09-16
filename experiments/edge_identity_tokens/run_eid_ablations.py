@@ -53,6 +53,11 @@ OUT_PATH = LOG_DIR / "ablation_results.json"
 
 ABLATIONS = ["mask_context_edges", "scramble_edge_signs"]
 
+# Defined in run_gap_closer.py (the base module every EID campaign driver ultimately
+# imports) -- re-exported here so callers that only import run_eid_ablations (e.g.
+# run_eid_multiseed.py, as `ra.EID_EPOCH_OVERRIDE`) don't need a second import.
+EID_EPOCH_OVERRIDE = rgc.EID_EPOCH_OVERRIDE
+
 
 def winning_entry(dataset):
     """Best-of-{v1,v2} entry for a dataset, same discipline used to finalize
@@ -128,10 +133,13 @@ def run_ablation_campaign(datasets):
             exp = f"EID_ABL2_{ds.upper().replace('-', '')}_{ablation.upper()}"
             common_str = " ".join(build_common_overrides(w["params"]))
             lines.append(f'echo "=== [$(date +%T)] START {exp} ==="')
+            # No training.epochs override (bug fix 2026-09-15, see run_gap_closer.py's matching
+            # note) -- let epochs flow through from configs/<dataset>.yaml (50 for 4 datasets,
+            # 75 for epinions/slashdot090221, production's own deliberate per-dataset values).
             lines.append(
                 f"{VENV_PY} experiments/edge_identity_tokens/run_eid.py "
                 f"dataset.name={ds} dataset.num_walks={w['num_walks']} training.exp_name={exp} "
-                f"training.epochs=50 training.batch_size=1024 {common_str} "
+                f"training.batch_size=1024 {common_str} "
                 f"model.{ablation}=true "
                 f"--device {gpu} > {LOG_DIR}/{exp}.train.log 2>&1"
             )

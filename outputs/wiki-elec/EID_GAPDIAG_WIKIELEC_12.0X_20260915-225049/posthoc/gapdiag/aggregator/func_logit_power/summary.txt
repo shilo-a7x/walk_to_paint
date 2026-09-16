@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 19
+Run ID: gapdiag
+Model: func_logit_power  (|logit(q)|^b)
+theta* = [1.0808593750000002]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8820 (10369 edges)
+  Test  AUC: 0.8862 (10370 edges)
