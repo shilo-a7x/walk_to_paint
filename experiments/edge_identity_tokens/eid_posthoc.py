@@ -110,6 +110,8 @@ def _extract_eid_predictions(model, dataloader, split_name, epoch, device):
                     sign_ids = model._maybe_apply_context_sign_only_masking(
                         sign_ids, edge_mask, labels
                     )
+                if hasattr(model, "_maybe_apply_identity_off"):
+                    input_ids = model._maybe_apply_identity_off(input_ids, edge_mask, labels)
 
             logits = model.model(input_ids, sign_ids, attention_mask=attention_mask)
             probs = torch.softmax(logits, dim=-1)

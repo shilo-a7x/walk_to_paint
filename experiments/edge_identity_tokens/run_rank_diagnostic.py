@@ -13,8 +13,12 @@ Motivated by real evidence, not a guess:
     memorization, not an optimization/init failure.
 
 Single-seed=42, same winning num_walks/architecture otherwise, only edge_embed_rank swept:
-{0 (identity fully disabled, isolates whether the identity mechanism itself is the problem),
-4, 8} vs the current winners (20/26) as reference (already have those numbers).
+{0, 4, 8} vs the current winners (20/26) as reference (already have those numbers).
+
+CORRECTION 2026-09-24: rank=0 does NOT disable identity. It keeps the unified full-vocab
+self.embed table, so every edge gets a full-width unfactorized identity row. The rank=0 jobs
+here measure "full-width vs. low-rank identity", not "identity off". See
+EID_OVERFITTING_INVESTIGATION_20260916.md sections 8 and 15.
 
 Usage:
   nohup .venv/bin/python experiments/edge_identity_tokens/run_rank_diagnostic.py \

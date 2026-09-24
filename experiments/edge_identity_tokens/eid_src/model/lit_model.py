@@ -230,6 +230,21 @@ class EIDLitEdgeClassifier(LitEdgeClassifier):
         x[target_mask] = mask_id
         return x
 
+    def _maybe_apply_identity_off(self, model_input_ids, edge_mask, labels):
+        """Identity-off control (2026-09-24): every edge-identity token collapses to one
+        shared row and the target renders as <MASK>, so edge positions carry sign only --
+        the same information production's two sign tokens carry. Meant to reproduce
+        production's numbers through EID's code path (run with edge_embed_rank=0,
+        eid_reveal_holdout_identity=false, edge_replace_prob=0)."""
+        if edge_mask is None or not bool(getattr(self.cfg.model, "eid_identity_off", False)):
+            return model_input_ids
+        old_vocab_size = int(self.cfg.model.old_vocab_size)
+        mask_id = int(getattr(self.cfg.model, "mask_id", 1))
+        x = model_input_ids.clone()
+        x[x >= old_vocab_size] = old_vocab_size
+        x[(labels != self.ignore_index) & edge_mask] = mask_id
+        return x
+
     def _maybe_apply_context_edge_masking(self, model_input_ids, sign_ids, edge_mask, labels):
         """New ablation (2026-09-08): isolates whether CONTEXT edges (every edge
         occurrence that is NOT the current prediction target) contribute anything
@@ -539,6 +554,8 @@ class EIDLitEdgeClassifier(LitEdgeClassifier):
         if stage == "train" and self.training:
             old_vocab_size = int(self.cfg.model.old_vocab_size)
             model_input_ids = self._maybe_apply_edge_identity_replacement(model_input_ids, old_vocab_size)
+
+        model_input_ids = self._maybe_apply_identity_off(model_input_ids, edge_mask, labels)
 
         # --- (c): sign_ids threaded into the model call (production has no such arg)
         logits = self.model(
