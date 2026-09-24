@@ -432,6 +432,45 @@ otherwise: rank 20, edge_replace 0.15, reveal on, 300k walks):** target identity
 controls are running via `run_identity_controls.py` (results ->
 `logs/eid_gap_closer/identity_controls_results.csv`).
 
+**Identity-controls screen results (2026-09-24, seed 42, complete; `identity_controls_results.csv`):**
+
+| dataset | IDOFF (prod config) | production s42 | parity | MASKTGT (EID config) | EID s42 (target visible) | MASKTGT effect |
+|---|---|---|---|---|---|---|
+| bitcoin-alpha | 0.9219 | 0.9188 | +0.31pp | **0.9195** | 0.9039 | **+1.56pp** |
+| bitcoin-otc | 0.9389 | 0.9358 | +0.31pp | 0.9368 | 0.9325 | +0.43pp |
+| wiki-elec | 0.9053 | 0.9075 | -0.22pp | 0.8938 | 0.8888 | +0.50pp |
+| wiki-rfa | 0.8961 | 0.8976 | -0.15pp | 0.5857 | 0.8766 | collapse (lr=0.0033 instability) |
+| epinions | 0.9554 | 0.9535 | +0.19pp | 0.9557 | 0.9542 | +0.15pp |
+| slashdot090221 | 0.8968 | 0.8981 | -0.13pp | 0.8889 | 0.8895 | -0.06pp |
+
+- **Parity passes on all 6** (within +/-0.31pp): EID's code path with identity off reproduces
+  production. The whole EID-vs-production gap is the identity mechanism, not a pipeline bug, and
+  EID's code can run production as a special case.
+- **Hiding the target's identity helps on 4/5** non-collapsed datasets, most on bitcoin-alpha
+  (+1.56pp, replicating the 2026-09-08 +1.1pp result; now matches production). Not enough alone on
+  wiki-elec (still -1.4pp vs production). wiki-rfa's collapse is re-tested at lr x0.5 in the
+  regularization campaign (`logs/eid_reg/`).
+- Trained identity tables are statistically indistinguishable from their N(0,1) init (median row
+  norm 4.42 vs 4.40 expected on wiki-elec, mean |w| 0.80 vs 0.798; same on 4 datasets): identity
+  acts as a fixed random per-edge fingerprint -- memorization substrate. Motivated adding
+  `model.edge_embed_init_std`.
+
+## 17. Regularization campaign (`logs/eid_reg/results.csv`, live driver `run_reg_campaign.py`)
+
+**Stage 1 -- wiki-rfa: target identity hidden + lr x0.5 (`MT_LRH`), 3 seeds (2026-09-24 15:04):**
+
+| seed | EID original | lr x0.5, target visible | **lr x0.5 + target hidden** | production | SiGAT |
+|---|---|---|---|---|---|
+| 42 | 0.8766 | 0.8762 | **0.8879** | 0.8976 | 0.8831 |
+| 43 | 0.8710 | 0.8624 | **0.8866** | 0.8919 | 0.8736 |
+| 44 | 0.8684 | 0.8702 | **0.8890** | 0.8893 | 0.8733 |
+| mean | 0.8720 | 0.8696 | **0.8878** | 0.8929 | 0.8767 |
+
+The two fixes stack: +1.8pp over the halved LR alone on the same seeds, no collapse, tight spread
+(0.8866-0.8890). The gap to production drops from -3.3pp (10-seed original) to -0.5pp, and it
+**beats SiGAT on 3/3 seeds** again (the paper claim's failure point). Preliminary (3 seeds);
+needs the 10-seed confirmation.
+
 ## 16. Regularization inventory (audit 2026-09-24)
 
 **Already searched/tested** (Optuna space in `optuna_eid.py:184-199`; stage-1 search was only
