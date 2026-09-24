@@ -152,6 +152,12 @@ class EdgeIdentityTransformerModel(TransformerModel):
                 self.node_proj = None
 
             self.edge_embed_low = nn.Embedding(num_edges, self.edge_embed_rank)
+            # Default nn.Embedding init is N(0,1), and trained tables stay statistically at that
+            # init -- a fixed random fingerprint per edge. A small std lets only rows with
+            # consistent gradient grow.
+            init_std = getattr(cfg.model, "edge_embed_init_std", None)
+            if init_std is not None:
+                nn.init.normal_(self.edge_embed_low.weight, std=float(init_std))
             self.edge_proj = nn.Linear(self.edge_embed_rank, self.content_dim)
 
             self.edge_residual_baseline = bool(getattr(cfg.model, "edge_residual_baseline", False))

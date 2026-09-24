@@ -143,6 +143,41 @@ class EIDLitEdgeClassifier(LitEdgeClassifier):
             "lr_scheduler": {"scheduler": scheduler, "interval": "epoch"},
         }
 
+    def on_train_batch_end(self, outputs, batch, batch_idx):
+        super().on_train_batch_end(outputs, batch, batch_idx)
+        self._apply_identity_proximal_step()
+
+    @torch.no_grad()
+    def _apply_identity_proximal_step(self):
+        """Decoupled L1 / group lasso on the identity table, applied after each optimizer step
+        as a proximal (soft-threshold) update scaled by the current LR -- the L1 analogue of
+        AdamW's decoupled L2. Adding an L1 term to the loss instead would be rescaled by Adam's
+        per-parameter normalization and stop behaving like L1.
+          model.edge_embed_l1: elementwise, w <- sign(w) * max(|w| - lr*l1, 0)
+          model.edge_embed_group_lasso: per edge row, r <- r * max(1 - lr*gl/||r||, 0);
+            a zeroed row makes edge_proj output its bias, a vector shared by all zeroed
+            edges, so that edge falls back to the identity-off (production) representation."""
+        table = getattr(self.model, "edge_embed_low", None)
+        l1 = float(getattr(self.cfg.model, "edge_embed_l1", 0.0) or 0.0)
+        gl = float(getattr(self.cfg.model, "edge_embed_group_lasso", 0.0) or 0.0)
+        if table is None or (l1 <= 0.0 and gl <= 0.0):
+            return
+        lr = float(self.trainer.optimizers[0].param_groups[0]["lr"])
+        w = table.weight
+        if l1 > 0.0:
+            w.copy_(torch.sign(w) * torch.clamp(w.abs() - lr * l1, min=0.0))
+        if gl > 0.0:
+            norms = w.norm(dim=1, keepdim=True).clamp(min=1e-12)
+            w.mul_(torch.clamp(1.0 - lr * gl / norms, min=0.0))
+
+    def on_train_epoch_end(self):
+        super().on_train_epoch_end()
+        table = getattr(self.model, "edge_embed_low", None)
+        if table is not None:
+            norms = table.weight.detach().norm(dim=1)
+            self.log("id_row_norm_median", norms.median(), on_epoch=True)
+            self.log("id_zero_row_frac", (norms < 1e-6).float().mean(), on_epoch=True)
+
     def _maybe_apply_edge_identity_replacement(self, input_ids, old_vocab_size):
         """Training-only regularizer: randomly corrupt VISIBLE edge-identity tokens.
 
@@ -611,6 +646,7 @@ class EIDLitEdgeClassifier(LitEdgeClassifier):
                 labels.view(-1),
                 weight=weights,
                 ignore_index=self.ignore_index,
+                label_smoothing=float(getattr(self.cfg.training, "label_smoothing", 0.0) or 0.0),
             )
 
         preds = logits.argmax(dim=-1).view(-1)
