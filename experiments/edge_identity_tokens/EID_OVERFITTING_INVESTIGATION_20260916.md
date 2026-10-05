@@ -471,6 +471,38 @@ The two fixes stack: +1.8pp over the halved LR alone on the same seeds, no colla
 **beats SiGAT on 3/3 seeds** again (the paper claim's failure point). Preliminary (3 seeds);
 needs the 10-seed confirmation.
 
+**Stage 1 -- wiki-elec, target identity hidden (`MT`), 3 seeds:** 0.8945 / 0.8842 / 0.8934, mean
+0.8907 vs. 0.8804 for original EID on the same seeds (+1.0pp). Production (42-44) 0.9030.
+
+**Stage 2 -- regularizers on top of the stage-1 base, 3 seeds each (complete, 0 failures).** Ranked
+by mean val AUC (selection metric):
+
+| wiki-elec config | val | test | vs prod | vs SiGAT | | wiki-rfa config (lr x0.5) | val | test | vs prod | vs SiGAT |
+|---|---|---|---|---|---|---|---|---|---|---|
+| MT + identity L2 0.03 | 0.8915 | 0.8948 | -0.81 | +0.63 | | MT + init 0.1 | 0.8877 | 0.8883 | -0.46 | +1.16 |
+| MT + init 0.1 | 0.8910 | 0.8933 | -0.97 | +0.48 | | MT + identity L2 0.1 | 0.8870 | 0.8875 | -0.54 | +1.09 |
+| MT + label smoothing 0.1 | 0.8910 | 0.8922 | -1.08 | +0.36 | | MT (no extra reg) | 0.8868 | 0.8878 | -0.51 | +1.12 |
+| MT (no extra reg) | 0.8901 | 0.8907 | -1.23 | +0.22 | | MT + group lasso 0.05 | 0.8863 | 0.8867 | -0.62 | +1.01 |
+| MT + group lasso 0.15 | 0.8894 | 0.8908 | -1.22 | +0.23 | | MT + identity L2 0.03 | 0.8862 | 0.8871 | -0.59 | +1.04 |
+| MT + group lasso 0.05 | 0.8887 | 0.8908 | -1.21 | +0.23 | | MT + group lasso 0.5 | 0.8858 | 0.8861 | -0.68 | +0.95 |
+| MT + identity L2 0.1 | 0.8886 | 0.8905 | -1.24 | +0.20 | | MT + label smoothing 0.1 | 0.8857 | 0.8866 | -0.64 | +0.99 |
+| MT + L1 0.03 | 0.8873 | 0.8878 | -1.52 | -0.07 | | MT + L1 0.03 | 0.8854 | 0.8863 | -0.66 | +0.97 |
+| MT + group lasso 0.5 | 0.8863 | 0.8896 | -1.34 | +0.10 | | MT + group lasso 0.15 | 0.8852 | 0.8864 | -0.65 | +0.97 |
+
+(pp; production/SiGAT = their seeds 42-44: wiki-elec 0.9030/0.8885, wiki-rfa 0.8929/0.8767.)
+**Negative result:** no identity-shrinking regularizer beats MT alone by more than seed noise
+(seed-to-seed test sd 0.1-0.6pp). The levers were structural (hide the target's identity) and LR,
+not penalty strength. wiki-elec still trails production by ~1pp.
+
+**New suspect -- node width.** EID's `edge_sign_combine=concat` carves `sign_embed_dim` out of the
+model width, so node tokens get `emb - sign_dim` dims: wiki-elec 64 -> 44, wiki-rfa 64 -> 36,
+slashdot 128 -> 88 -- exactly the datasets EID trails, and the attention analysis shows the wiki
+models rely mostly on node tokens. bitcoin-alpha (`add`, full 64) matches production once the
+target is hidden; epinions (356 vs 32) wins. **Stage 4 (queued):** (a) EID config with
+`edge_sign_combine=add` (full node width); (b) production's exact config + identity (rank 16,
+add, full width, target hidden, edge_replace 0.2, identity L2 0.03) at production's budget and at a
+bigger one. **Stage 3 (queued):** MT on the other 4 datasets, seeds 43-44.
+
 ## 16. Regularization inventory (audit 2026-09-24)
 
 **Already searched/tested** (Optuna space in `optuna_eid.py:184-199`; stage-1 search was only
