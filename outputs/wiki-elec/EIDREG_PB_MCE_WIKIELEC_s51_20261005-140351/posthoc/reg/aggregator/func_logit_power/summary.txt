@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 32
+Run ID: reg
+Model: func_logit_power  (|logit(q)|^b)
+theta* = [0.5024414062499997]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9028 (10369 edges)
+  Test  AUC: 0.8963 (10370 edges)

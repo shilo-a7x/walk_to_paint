@@ -503,6 +503,91 @@ target is hidden; epinions (356 vs 32) wins. **Stage 4 (queued):** (a) EID confi
 add, full width, target hidden, edge_replace 0.2, identity L2 0.03) at production's budget and at a
 bigger one. **Stage 3 (queued):** MT on the other 4 datasets, seeds 43-44.
 
+**Stages 3-4 (complete 2026-09-24 19:18, 0 failures; analyzed 2026-10-05).** 3-seed (42-44) test
+means; production / best baseline on the same seeds:
+
+| dataset | best config so far | EID | EID original | production | best baseline | vs prod | vs baseline (wins) |
+|---|---|---|---|---|---|---|---|
+| bitcoin-alpha | MT (EID config) | 0.9127 | 0.9003 | 0.9161 | SNEA 0.8755 | -0.34 | +3.72 (3/3) |
+| bitcoin-otc | MT (EID config) | 0.9386 | 0.9321 | 0.9350 | SNEA 0.9012 | +0.36 | +3.74 (3/3) |
+| epinions | MT (EID config) | 0.9555 | 0.9541 | 0.9541 | SiGAT 0.9071 | +0.14 | +4.83 (3/3) |
+| slashdot090221 | MT (EID config) | 0.8922 | 0.8869 | 0.8959 | SiGAT 0.8590 | -0.37 | +3.32 (3/3) |
+| wiki-elec | **PB** | **0.9006** | 0.8804 | 0.9030 | SiGAT 0.8885 | -0.24 | +1.20 (3/3) |
+| wiki-rfa | **PB** | **0.8926** | 0.8720 | 0.8929 | SiGAT 0.8767 | -0.04 | +1.59 (3/3) |
+
+**PB = production's exact config + identity** (`edge_embed_rank=16`, `edge_sign_combine=add`,
+`node_embed_dim=0` -> full node width, `mask_target_identity=true`, reveal on, `edge_replace_prob=0.2`,
+`edge_embed_weight_decay=0.03`). It is #1 by mean **val** on both wikis (wiki-elec val 0.8960, wiki-rfa
+0.8923), so the pick is not test-selected. PB_BIG (same at EID's larger budget) was slightly worse on
+both. Full-width alone on EID's config (`MT_ADD`) helped wiki-elec a little (+0.2pp) but not wiki-rfa.
+
+**Takeaways:** the gap closed through structure, not penalties -- (1) hide the target's own
+identity, (2) run identity on production's config (full node width, production LR/budget). Every
+dataset is now within ~0.4pp of production on 3 seeds (seed noise) and beats its best baseline 3/3.
+PB also satisfies the methodology rule that EID differ from production only in the identity mechanism.
+
+**Stage 5 (complete 2026-10-05):** PB on the other 4 datasets, seeds 42-44, to decide whether one
+uniform recipe (production config + identity) can replace the per-dataset Optuna EID configs.
+3-seed means (val = val-edge AUC, test = test AUC; production test on the same seeds):
+
+| dataset | MT val | MT test | PB val | PB test | production test | PB - production |
+|---|---|---|---|---|---|---|
+| bitcoin-alpha | 0.9304 | 0.9127 | 0.9270 | 0.9170 | 0.9161 | +0.09 |
+| bitcoin-otc | 0.9340 | 0.9386 | 0.9335 | 0.9382 | 0.9350 | +0.32 |
+| epinions | 0.9572 | 0.9555 | 0.9554 | 0.9536 | 0.9541 | -0.05 |
+| slashdot090221 | 0.8919 | 0.8922 | 0.8950 | 0.8945 | 0.8959 | -0.14 |
+| wiki-elec | -- | -- | 0.8960 | 0.9006 | 0.9030 | -0.24 |
+| wiki-rfa | -- | -- | 0.8923 | 0.8926 | 0.8929 | -0.04 |
+
+Val prefers MT on bitcoin-alpha/epinions (bitcoin-otc a tie) and PB on slashdot; the val
+differences (<=0.35pp) are within seed noise. Uniform PB is within 0.25pp of production on all 6.
+Recommendation (pending user sign-off): adopt PB everywhere -- one recipe, differs from production
+only in the identity mechanism. **Stage 6 (queued 2026-10-05 11:24):** PB seeds 45-51 on all 6
+(42 jobs), the no-ablation half of the 10-seed final campaign.
+
+**Stage 6 (complete 2026-10-05 13:29, 0 failures):** PB, 10 seeds (42-51), test AUC mean+-std.
+Production = existing 10-seed local-attention runs; baseline = per-seed best baseline.
+
+| dataset | PB | production | PB - prod (wins, two-sided Wilcoxon p) | best baseline | PB - baseline (wins, one-sided p) |
+|---|---|---|---|---|---|
+| bitcoin-alpha | 0.9189 +- 0.0141 | 0.9134 +- 0.0173 | +0.55pp (6/10, p=0.275) | SNEA 0.8705 | +4.85pp (10/10, p=0.00098) |
+| bitcoin-otc | 0.9330 +- 0.0059 | 0.9318 +- 0.0065 | +0.12pp (7/10, p=0.492) | SNEA 0.8899 | +4.30pp (10/10, p=0.00098) |
+| wiki-elec | 0.8986 +- 0.0044 | 0.9023 +- 0.0031 | **-0.37pp (1/10, p=0.004)** | SiGAT 0.8884 | +1.02pp (10/10, p=0.00098) |
+| wiki-rfa | 0.8922 +- 0.0040 | 0.8914 +- 0.0046 | +0.08pp (4/10, p=1.000) | SiGAT 0.8780 | +1.42pp (10/10, p=0.00098) |
+| epinions | 0.9537 +- 0.0013 | 0.9536 +- 0.0015 | +0.01pp (5/10, p=0.791) | SiGAT 0.9088 | +4.49pp (10/10, p=0.00098) |
+| slashdot090221 | 0.8957 +- 0.0021 | 0.8968 +- 0.0016 | -0.12pp (1/10, p=0.074) | SiGAT 0.8586 | +3.70pp (10/10, p=0.00098) |
+
+Paper claim holds under PB: 60/60 seeds beat the best baseline, p=0.00098 on all 6 (identical to
+production's Table 1 significance). Parity with production on 5/6; wiki-elec is significantly
+below by 0.37pp. **Stage 7 (queued 13:37):** wiki-elec screen (PB with rank 8 / edge_replace 0.5 /
+no holdout reveal, seeds 42-44) + PB ablations (mask_context_edges, mask_context_sign_only) on
+both wikis x 10 seeds -- PB is the wiki config under either adoption decision.
+
+**Stage 7 wiki-elec screen (complete 13:50), 3-seed means:**
+
+| variant | val | test |
+|---|---|---|
+| PB + edge_replace 0.5 | 0.8969 | 0.9009 |
+| PB + rank 8 | 0.8965 | 0.9012 |
+| PB | 0.8960 | 0.9006 |
+| PB without holdout reveal | 0.8943 | 0.8982 |
+
+Null result: no knob moves wiki-elec beyond seed noise (+-0.06pp); hiding the holdout identity
+hurts slightly. The 0.37pp wiki-elec gap to production is not closable by a cheap PB tweak.
+
+**Stage 7 wiki ablations (complete 14:53), PB, 10 seeds, test AUC, paired vs PB no-ablation:**
+
+| dataset | PB | mask_context_edges | mask_context_sign_only |
+|---|---|---|---|
+| wiki-elec | 0.8986 | 0.9011 (+0.25pp, 8/10 higher, p=0.014) | 0.8990 (+0.04pp, p=0.312) |
+| wiki-rfa | 0.8922 | 0.8930 (+0.08pp, p=1.000) | 0.8922 (-0.00pp, p=0.846) |
+
+On both wikis, removing all context-edge information (identity + sign) does not hurt; on
+wiki-elec it significantly helps. The wiki models predict from nodes + walk topology; edge context
+adds nothing and on wiki-elec costs a little (likely why PB trails production there). Consistent
+with production's abl:maskedge null result. **Stage 8 (queued 14:54):** the same two ablations on
+the other 4 datasets x 10 seeds (80 jobs).
+
 ## 16. Regularization inventory (audit 2026-09-24)
 
 **Already searched/tested** (Optuna space in `optuna_eid.py:184-199`; stage-1 search was only
