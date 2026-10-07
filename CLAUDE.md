@@ -746,7 +746,18 @@ visible positions — a real bug here, no guard against corrupting already-hidde
 positions, was found and fixed in `eid_src/model/lit_model.py::_maybe_apply_eid_sign_scramble`
 this session). Results: `logs/eid_gap_closer/ablation_results.json`.
 
-**Next up, full plan**: `~/.claude/plans/plan-eid-multiseed-thesis.md` — 10-seed multiseed
+**Status (2026-10-07): architecture adopted = H3, thesis campaign running.** H3 = production's
+per-dataset config untouched + rank-16 edge identity added to the content vector, target identity
+always hidden, VAL/TEST edges hidden+blocked in training and shown as `<UNK>` identity + sign when
+context at test time. Supersedes the per-dataset Optuna EID configs (they leaned on a target-identity
+memorization shortcut). Full investigation: `experiments/edge_identity_tokens/
+EID_OVERFITTING_INVESTIGATION_20260916.md` §15-17. Campaign = 12 conditions (H3, the N/I/S
+visibility grid, sign scramble, direction flip, pair-only, identity scramble) x 6 datasets x seeds
+42-51, jobs from `make_thesis_jobs.py`, driver `run_reg_campaign.py` (results
+`logs/eid_reg/results.csv`), then `run_thesis_postprocess.py` (Ablation B + `eid_thesis_results.py`
+-> `EID_THESIS_RESULTS.md`, `thesis_figure_data/eid_thesis_*.csv`).
+
+**Older plan**: `~/.claude/plans/plan-eid-multiseed-thesis.md` — 10-seed multiseed
 campaign for EID + both ablations (180 jobs), a paired-significance check, then a new
 `thesis/` directory (doesn't exist yet) that reproduces the WSDM paper's relevant figures/
 tables with EID as the new production architecture — **deadline-driven, takes priority over

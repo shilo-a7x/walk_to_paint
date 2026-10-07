@@ -287,6 +287,8 @@ class EIDLitEdgeClassifier(LitEdgeClassifier):
         untrained row -- the edge then carries sign only, exactly what production shows there."""
         if split_mask is None or not bool(getattr(self.cfg.model, "eid_unseen_identity_unk", False)):
             return model_input_ids
+        if bool(getattr(self.cfg.model, "eid_identity_off", False)):
+            return model_input_ids  # identity-off already shows every edge as the same shared row
         unseen = ((split_mask == SPLIT_VAL) | (split_mask == SPLIT_TEST)) & (
             model_input_ids >= int(self.cfg.model.old_vocab_size))
         if not unseen.any():

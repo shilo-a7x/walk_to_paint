@@ -1,0 +1,79 @@
+comparison,dataset,mean_diff,n_greater,p_value,test
+H3_NI - H3,slashdot090221,,0,,two-sided
+H3_N - H3,slashdot090221,,0,,two-sided
+H3_NS - H3,slashdot090221,,0,,two-sided
+H3_IS - H3,slashdot090221,,0,,two-sided
+H3_S - H3,slashdot090221,,0,,two-sided
+H3_I - H3,slashdot090221,,0,,two-sided
+H3_0 - H3,slashdot090221,,0,,two-sided
+H3_SS - H3,slashdot090221,,0,,two-sided
+H3_DIR - H3,slashdot090221,,0,,two-sided
+H3_PAIR - H3,slashdot090221,,0,,two-sided
+H3_IDSCR - H3,slashdot090221,,0,,two-sided
+H3 - production,slashdot090221,,3,,two-sided
+H3 - SiGAT,slashdot090221,,3,,one-sided greater
+H3_NI - H3,epinions,,0,,two-sided
+H3_N - H3,epinions,,0,,two-sided
+H3_NS - H3,epinions,,0,,two-sided
+H3_IS - H3,epinions,,0,,two-sided
+H3_S - H3,epinions,,0,,two-sided
+H3_I - H3,epinions,,0,,two-sided
+H3_0 - H3,epinions,,0,,two-sided
+H3_SS - H3,epinions,,0,,two-sided
+H3_DIR - H3,epinions,,0,,two-sided
+H3_PAIR - H3,epinions,,0,,two-sided
+H3_IDSCR - H3,epinions,,0,,two-sided
+H3 - production,epinions,,3,,two-sided
+H3 - SiGAT,epinions,,3,,one-sided greater
+H3_NI - H3,wiki-rfa,,0,,two-sided
+H3_N - H3,wiki-rfa,,0,,two-sided
+H3_NS - H3,wiki-rfa,,0,,two-sided
+H3_IS - H3,wiki-rfa,,0,,two-sided
+H3_S - H3,wiki-rfa,,0,,two-sided
+H3_I - H3,wiki-rfa,,0,,two-sided
+H3_0 - H3,wiki-rfa,,0,,two-sided
+H3_SS - H3,wiki-rfa,,0,,two-sided
+H3_DIR - H3,wiki-rfa,,0,,two-sided
+H3_PAIR - H3,wiki-rfa,,0,,two-sided
+H3_IDSCR - H3,wiki-rfa,,0,,two-sided
+H3 - production,wiki-rfa,,3,,two-sided
+H3 - SiGAT,wiki-rfa,,3,,one-sided greater
+H3_NI - H3,wiki-elec,,0,,two-sided
+H3_N - H3,wiki-elec,,0,,two-sided
+H3_NS - H3,wiki-elec,,0,,two-sided
+H3_IS - H3,wiki-elec,,0,,two-sided
+H3_S - H3,wiki-elec,,0,,two-sided
+H3_I - H3,wiki-elec,,0,,two-sided
+H3_0 - H3,wiki-elec,,0,,two-sided
+H3_SS - H3,wiki-elec,,0,,two-sided
+H3_DIR - H3,wiki-elec,,0,,two-sided
+H3_PAIR - H3,wiki-elec,,0,,two-sided
+H3_IDSCR - H3,wiki-elec,,0,,two-sided
+H3 - production,wiki-elec,,3,,two-sided
+H3 - SiGAT,wiki-elec,,3,,one-sided greater
+H3_NI - H3,bitcoin-otc,,0,,two-sided
+H3_N - H3,bitcoin-otc,,0,,two-sided
+H3_NS - H3,bitcoin-otc,,0,,two-sided
+H3_IS - H3,bitcoin-otc,,0,,two-sided
+H3_S - H3,bitcoin-otc,,0,,two-sided
+H3_I - H3,bitcoin-otc,,0,,two-sided
+H3_0 - H3,bitcoin-otc,,0,,two-sided
+H3_SS - H3,bitcoin-otc,,0,,two-sided
+H3_DIR - H3,bitcoin-otc,,0,,two-sided
+H3_PAIR - H3,bitcoin-otc,,0,,two-sided
+H3_IDSCR - H3,bitcoin-otc,,0,,two-sided
+H3 - production,bitcoin-otc,,3,,two-sided
+H3 - SNEA,bitcoin-otc,,3,,one-sided greater
+H3_NI - H3,bitcoin-alpha,,0,,two-sided
+H3_N - H3,bitcoin-alpha,,0,,two-sided
+H3_NS - H3,bitcoin-alpha,,0,,two-sided
+H3_IS - H3,bitcoin-alpha,,0,,two-sided
+H3_S - H3,bitcoin-alpha,,0,,two-sided
+H3_I - H3,bitcoin-alpha,,0,,two-sided
+H3_0 - H3,bitcoin-alpha,,0,,two-sided
+H3_SS - H3,bitcoin-alpha,,0,,two-sided
+H3_DIR - H3,bitcoin-alpha,,0,,two-sided
+H3_PAIR - H3,bitcoin-alpha,,0,,two-sided
+H3_IDSCR - H3,bitcoin-alpha,,0,,two-sided
+H3 - production,bitcoin-alpha,,3,,two-sided
+H3 - SNEA,bitcoin-alpha,,3,,one-sided greater

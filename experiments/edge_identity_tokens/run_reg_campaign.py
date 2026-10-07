@@ -115,9 +115,11 @@ def run_job(job, gpu):
            *job["overrides"], "--device", str(gpu)]
     log(f"[START] {name} on GPU {gpu}")
     if run_logged(cmd, JOB_LOGS / f"{name}.train.log") != 0:
-        log(f"[FAILED] train {name}")
-        record(job, None, None, "train_failed")
-        return
+        log(f"[RETRY] train {name}")  # one retry: transient failures (OOM from a co-scheduled job, I/O)
+        if run_logged(cmd, JOB_LOGS / f"{name}.train.retry.log") != 0:
+            log(f"[FAILED] train {name}")
+            record(job, None, None, "train_failed")
+            return
     exp_dir = latest_dir(job)
     rc = run_logged([VENV_PY, "experiments/edge_identity_tokens/eid_posthoc.py", "--exp-dir", exp_dir,
                      "--device", str(gpu), "--run-id", RUN_ID, "--agg-models", "func_logit_power"],
