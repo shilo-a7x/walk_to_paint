@@ -98,7 +98,7 @@ VERTEX tokens, `_maybe_apply_token_masking`) is inherited completely unmodified.
 
 import torch
 
-from src.model.lit_model import LitEdgeClassifier, SPLIT_TRAIN, SPLIT_MASK
+from src.model.lit_model import LitEdgeClassifier, SPLIT_TRAIN, SPLIT_MASK, SPLIT_VAL, SPLIT_TEST
 from experiments.edge_identity_tokens.eid_src.model.model import EdgeIdentityTransformerModel
 from experiments.edge_identity_tokens.eid_src.data.stage_dataset import SIGN_NA
 
@@ -278,6 +278,21 @@ class EIDLitEdgeClassifier(LitEdgeClassifier):
         x = model_input_ids.clone()
         x[x >= old_vocab_size] = old_vocab_size
         x[(labels != self.ignore_index) & edge_mask] = mask_id
+        return x
+
+    def _maybe_apply_unseen_identity_unk(self, model_input_ids, split_mask):
+        """H3 (2026-10-07): with eid_reveal_holdout_identity=false, VAL/TEST edges are hidden and
+        blocked during training, so their identity rows never get a gradient. Wherever such an
+        edge is visible as context (VAL edges at the test stage), show <UNK> instead of the
+        untrained row -- the edge then carries sign only, exactly what production shows there."""
+        if split_mask is None or not bool(getattr(self.cfg.model, "eid_unseen_identity_unk", False)):
+            return model_input_ids
+        unseen = ((split_mask == SPLIT_VAL) | (split_mask == SPLIT_TEST)) & (
+            model_input_ids >= int(self.cfg.model.old_vocab_size))
+        if not unseen.any():
+            return model_input_ids
+        x = model_input_ids.clone()
+        x[unseen] = int(getattr(self.cfg.model, "unk_id", 2))
         return x
 
     def _maybe_apply_context_edge_masking(self, model_input_ids, sign_ids, edge_mask, labels):
@@ -591,6 +606,7 @@ class EIDLitEdgeClassifier(LitEdgeClassifier):
             model_input_ids = self._maybe_apply_edge_identity_replacement(model_input_ids, old_vocab_size)
 
         model_input_ids = self._maybe_apply_identity_off(model_input_ids, edge_mask, labels)
+        model_input_ids = self._maybe_apply_unseen_identity_unk(model_input_ids, metadata.get("edge_split_mask"))
 
         # --- (c): sign_ids threaded into the model call (production has no such arg)
         logits = self.model(

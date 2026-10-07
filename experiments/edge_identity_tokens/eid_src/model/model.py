@@ -108,6 +108,9 @@ class EdgeIdentityTransformerModel(TransformerModel):
         super().__init__(cfg)  # builds self.embed (vocab_size x embedding_dim), pos_encoder,
                                 # transformer, out head, and every ablation flag -- reused as-is
 
+        self.pair_only_attention = bool(getattr(cfg.model, "pair_only_attention", False))
+        if self.pair_only_attention:
+            assert self.local_attention_window is not None, "pair_only_attention needs the local-attention path"
         self.edge_embed_rank = int(getattr(cfg.model, "edge_embed_rank", 0) or 0)
         self.edge_sign_combine = str(getattr(cfg.model, "edge_sign_combine", "add"))
         embedding_dim = cfg.model.embedding_dim
@@ -223,6 +226,12 @@ class EdgeIdentityTransformerModel(TransformerModel):
             pos = torch.arange(seq_len, device=input_ids.device)
             dist = (pos.unsqueeze(0) - pos.unsqueeze(1)).abs()
             attn_mask = dist > self.local_attention_window
+            if self.pair_only_attention:
+                # Pair-only ablation: an edge position (odd index) attends to itself and its two
+                # endpoint nodes; a node position attends only to itself. Nothing propagates
+                # between neighbours across layers, so a target's output depends on (u, v) alone.
+                is_edge_row = (pos % 2 == 1).unsqueeze(1)
+                attn_mask = ~((dist == 0) | ((dist == 1) & is_edge_row))
             attn_mask = attn_mask.view(1, 1, seq_len, seq_len)
             if key_padding_mask is not None and key_padding_mask.any():
                 attn_mask = attn_mask | key_padding_mask.view(-1, 1, 1, seq_len)
