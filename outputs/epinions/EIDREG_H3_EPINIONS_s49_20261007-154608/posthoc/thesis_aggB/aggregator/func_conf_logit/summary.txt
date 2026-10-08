@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 30
+Run ID: thesis_aggB
+Model: func_conf_logit  (sig(b*(q-0.5)))
+theta* = [0.9142089843749951]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9494 (84080 edges)
+  Test  AUC: 0.9493 (84080 edges)

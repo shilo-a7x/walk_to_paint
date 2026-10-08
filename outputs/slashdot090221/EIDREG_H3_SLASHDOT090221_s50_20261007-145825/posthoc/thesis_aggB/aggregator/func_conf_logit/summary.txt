@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 36
+Run ID: thesis_aggB
+Model: func_conf_logit  (sig(b*(q-0.5)))
+theta* = [-0.787500000000009]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8961 (54920 edges)
+  Test  AUC: 0.8986 (54921 edges)

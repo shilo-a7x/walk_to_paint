@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 44
+Run ID: thesis_aggB
+Model: func_conf_cert  (|q-0.5|^b)
+theta* = [0.5000976562499996]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8924 (17721 edges)
+  Test  AUC: 0.8915 (17722 edges)

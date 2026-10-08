@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 16
+Run ID: thesis_aggB
+Model: func_entropy_exp  (exp(-a*H(q)))
+theta* = [2.0219726562499996]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8920 (54920 edges)
+  Test  AUC: 0.8935 (54921 edges)

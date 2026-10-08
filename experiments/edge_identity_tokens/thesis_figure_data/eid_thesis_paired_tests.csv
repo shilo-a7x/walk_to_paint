@@ -1,79 +1,79 @@
 comparison,dataset,mean_diff,n_greater,p_value,test
-H3_NI - H3,slashdot090221,,0,,two-sided
-H3_N - H3,slashdot090221,,0,,two-sided
-H3_NS - H3,slashdot090221,,0,,two-sided
-H3_IS - H3,slashdot090221,,0,,two-sided
-H3_S - H3,slashdot090221,,0,,two-sided
+H3_NI - H3,slashdot090221,0.00018000000000000237,4,0.7109375,two-sided
+H3_N - H3,slashdot090221,0.00046000000000001595,5,0.4453125,two-sided
+H3_NS - H3,slashdot090221,7.00000000000145e-05,5,0.9375,two-sided
+H3_IS - H3,slashdot090221,-0.06088999999999998,0,0.001953125,two-sided
+H3_S - H3,slashdot090221,-0.22254999999999997,0,0.001953125,two-sided
 H3_I - H3,slashdot090221,,0,,two-sided
 H3_0 - H3,slashdot090221,,0,,two-sided
 H3_SS - H3,slashdot090221,,0,,two-sided
 H3_DIR - H3,slashdot090221,,0,,two-sided
 H3_PAIR - H3,slashdot090221,,0,,two-sided
 H3_IDSCR - H3,slashdot090221,,0,,two-sided
-H3 - production,slashdot090221,,3,,two-sided
-H3 - SiGAT,slashdot090221,,3,,one-sided greater
-H3_NI - H3,epinions,,0,,two-sided
-H3_N - H3,epinions,,0,,two-sided
-H3_NS - H3,epinions,,0,,two-sided
-H3_IS - H3,epinions,,0,,two-sided
-H3_S - H3,epinions,,0,,two-sided
+H3 - production,slashdot090221,-0.0006200000000000205,3,0.171875,two-sided
+H3 - SiGAT,slashdot090221,0.037559452988736454,10,0.0009765625,one-sided greater
+H3_NI - H3,epinions,-0.0006799999999999917,3,0.287109375,two-sided
+H3_N - H3,epinions,-0.0004900000000000015,4,0.517578125,two-sided
+H3_NS - H3,epinions,0.0006100000000000105,5,0.625,two-sided
+H3_IS - H3,epinions,-0.04124999999999999,0,0.001953125,two-sided
+H3_S - H3,epinions,-0.27146,0,0.001953125,two-sided
 H3_I - H3,epinions,,0,,two-sided
 H3_0 - H3,epinions,,0,,two-sided
 H3_SS - H3,epinions,,0,,two-sided
 H3_DIR - H3,epinions,,0,,two-sided
 H3_PAIR - H3,epinions,,0,,two-sided
 H3_IDSCR - H3,epinions,,0,,two-sided
-H3 - production,epinions,,3,,two-sided
-H3 - SiGAT,epinions,,3,,one-sided greater
-H3_NI - H3,wiki-rfa,,0,,two-sided
-H3_N - H3,wiki-rfa,,0,,two-sided
-H3_NS - H3,wiki-rfa,,0,,two-sided
-H3_IS - H3,wiki-rfa,,0,,two-sided
-H3_S - H3,wiki-rfa,,0,,two-sided
+H3 - production,epinions,-0.00018999999999999017,6,0.91015625,two-sided
+H3 - SiGAT,epinions,0.044650757775063346,10,0.0009765625,one-sided greater
+H3_NI - H3,wiki-rfa,-0.0006900000000000017,6,0.921875,two-sided
+H3_N - H3,wiki-rfa,-0.0006300000000000084,4,0.625,two-sided
+H3_NS - H3,wiki-rfa,-0.0011500000000000065,4,0.76953125,two-sided
+H3_IS - H3,wiki-rfa,-0.11006,0,0.001953125,two-sided
+H3_S - H3,wiki-rfa,-0.30183000000000004,0,0.001953125,two-sided
 H3_I - H3,wiki-rfa,,0,,two-sided
 H3_0 - H3,wiki-rfa,,0,,two-sided
 H3_SS - H3,wiki-rfa,,0,,two-sided
 H3_DIR - H3,wiki-rfa,,0,,two-sided
 H3_PAIR - H3,wiki-rfa,,0,,two-sided
 H3_IDSCR - H3,wiki-rfa,,0,,two-sided
-H3 - production,wiki-rfa,,3,,two-sided
-H3 - SiGAT,wiki-rfa,,3,,one-sided greater
-H3_NI - H3,wiki-elec,,0,,two-sided
-H3_N - H3,wiki-elec,,0,,two-sided
-H3_NS - H3,wiki-elec,,0,,two-sided
-H3_IS - H3,wiki-elec,,0,,two-sided
-H3_S - H3,wiki-elec,,0,,two-sided
+H3 - production,wiki-rfa,0.0006699999999999929,5,0.921875,two-sided
+H3 - SiGAT,wiki-rfa,0.014061672138461623,10,0.0009765625,one-sided greater
+H3_NI - H3,wiki-elec,0.0011300000000000088,7,0.185546875,two-sided
+H3_N - H3,wiki-elec,0.0015300000000000203,6,0.322265625,two-sided
+H3_NS - H3,wiki-elec,0.0018600000000000172,7,0.060546875,two-sided
+H3_IS - H3,wiki-elec,-0.24528999999999995,0,0.001953125,two-sided
+H3_S - H3,wiki-elec,-0.32927999999999996,0,0.001953125,two-sided
 H3_I - H3,wiki-elec,,0,,two-sided
 H3_0 - H3,wiki-elec,,0,,two-sided
 H3_SS - H3,wiki-elec,,0,,two-sided
 H3_DIR - H3,wiki-elec,,0,,two-sided
 H3_PAIR - H3,wiki-elec,,0,,two-sided
 H3_IDSCR - H3,wiki-elec,,0,,two-sided
-H3 - production,wiki-elec,,3,,two-sided
-H3 - SiGAT,wiki-elec,,3,,one-sided greater
-H3_NI - H3,bitcoin-otc,,0,,two-sided
-H3_N - H3,bitcoin-otc,,0,,two-sided
-H3_NS - H3,bitcoin-otc,,0,,two-sided
-H3_IS - H3,bitcoin-otc,,0,,two-sided
-H3_S - H3,bitcoin-otc,,0,,two-sided
+H3 - production,wiki-elec,-0.004740000000000011,0,0.001953125,two-sided
+H3 - SiGAT,wiki-elec,0.009160201095019405,10,0.0009765625,one-sided greater
+H3_NI - H3,bitcoin-otc,-0.004279999999999995,1,0.005859375,two-sided
+H3_N - H3,bitcoin-otc,-0.002759999999999996,2,0.0625,two-sided
+H3_NS - H3,bitcoin-otc,3.0000000000007797e-05,4,1.0,two-sided
+H3_IS - H3,bitcoin-otc,-0.02770999999999999,0,0.001953125,two-sided
+H3_S - H3,bitcoin-otc,-0.13868,0,0.001953125,two-sided
 H3_I - H3,bitcoin-otc,,0,,two-sided
 H3_0 - H3,bitcoin-otc,,0,,two-sided
 H3_SS - H3,bitcoin-otc,,0,,two-sided
 H3_DIR - H3,bitcoin-otc,,0,,two-sided
 H3_PAIR - H3,bitcoin-otc,,0,,two-sided
 H3_IDSCR - H3,bitcoin-otc,,0,,two-sided
-H3 - production,bitcoin-otc,,3,,two-sided
-H3 - SNEA,bitcoin-otc,,3,,one-sided greater
-H3_NI - H3,bitcoin-alpha,,0,,two-sided
-H3_N - H3,bitcoin-alpha,,0,,two-sided
-H3_NS - H3,bitcoin-alpha,,0,,two-sided
-H3_IS - H3,bitcoin-alpha,,0,,two-sided
-H3_S - H3,bitcoin-alpha,,0,,two-sided
+H3 - production,bitcoin-otc,0.003770000000000007,8,0.025390625,two-sided
+H3 - SNEA,bitcoin-otc,0.045603421442257805,10,0.0009765625,one-sided greater
+H3_NI - H3,bitcoin-alpha,-0.0026899999999999815,3,0.232421875,two-sided
+H3_N - H3,bitcoin-alpha,-0.0021499999999999853,5,0.6953125,two-sided
+H3_NS - H3,bitcoin-alpha,0.0008800000000000141,4,0.76953125,two-sided
+H3_IS - H3,bitcoin-alpha,-0.026639999999999997,0,0.001953125,two-sided
+H3_S - H3,bitcoin-alpha,-0.18923999999999996,0,0.001953125,two-sided
 H3_I - H3,bitcoin-alpha,,0,,two-sided
 H3_0 - H3,bitcoin-alpha,,0,,two-sided
 H3_SS - H3,bitcoin-alpha,,0,,two-sided
 H3_DIR - H3,bitcoin-alpha,,0,,two-sided
 H3_PAIR - H3,bitcoin-alpha,,0,,two-sided
 H3_IDSCR - H3,bitcoin-alpha,,0,,two-sided
-H3 - production,bitcoin-alpha,,3,,two-sided
-H3 - SNEA,bitcoin-alpha,,3,,one-sided greater
+H3 - production,bitcoin-alpha,0.005259999999999998,5,0.359375,two-sided
+H3 - SNEA,bitcoin-alpha,0.04822407269631487,10,0.0009765625,one-sided greater

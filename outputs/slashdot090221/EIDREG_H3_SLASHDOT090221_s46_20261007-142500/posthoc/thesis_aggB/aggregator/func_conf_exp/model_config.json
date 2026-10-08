@@ -1,0 +1,10 @@
+{
+  "model_name": "func_conf_exp",
+  "description": "exp(b*q)",
+  "theta_star": [
+    -0.42880859375000213
+  ],
+  "n_iters": 21,
+  "n_params": 1,
+  "seed": 46
+}

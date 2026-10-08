@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-alpha
+Epoch: 29
+Run ID: thesis_aggB
+Model: func_fisher_power  ((q(1-q))^{-b}  Fisher-information / inverse-variance weighting)
+theta* = [0.6234374999999998]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9368 (2419 edges)
+  Test  AUC: 0.9079 (2419 edges)

@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: slashdot090221
+Epoch: 35
+Run ID: thesis_aggB
+Model: func_fisher_power  ((q(1-q))^{-b}  Fisher-information / inverse-variance weighting)
+theta* = [0.3639648437499995]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8972 (54920 edges)
+  Test  AUC: 0.8968 (54921 edges)

@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-alpha
+Epoch: 40
+Run ID: thesis_aggB
+Model: func_logq_power  ((-log(q))^b)
+theta* = [-9.471875000000008]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9256 (2419 edges)
+  Test  AUC: 0.9180 (2419 edges)

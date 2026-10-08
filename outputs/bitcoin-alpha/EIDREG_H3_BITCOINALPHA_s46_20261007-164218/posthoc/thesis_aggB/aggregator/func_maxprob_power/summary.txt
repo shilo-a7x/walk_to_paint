@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-alpha
+Epoch: 36
+Run ID: thesis_aggB
+Model: func_maxprob_power  (max(q,1-q)^b  confidence in predicted class)
+theta* = [11.075000000000022]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9189 (2419 edges)
+  Test  AUC: 0.9279 (2419 edges)

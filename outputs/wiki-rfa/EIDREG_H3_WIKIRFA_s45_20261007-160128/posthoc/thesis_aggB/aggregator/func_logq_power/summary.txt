@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 45
+Run ID: thesis_aggB
+Model: func_logq_power  ((-log(q))^b)
+theta* = [-0.14199218750000103]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8876 (17721 edges)
+  Test  AUC: 0.8925 (17722 edges)

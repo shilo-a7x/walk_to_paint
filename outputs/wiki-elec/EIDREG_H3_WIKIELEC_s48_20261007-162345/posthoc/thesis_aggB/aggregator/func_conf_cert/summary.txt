@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-elec
+Epoch: 44
+Run ID: thesis_aggB
+Model: func_conf_cert  (|q-0.5|^b)
+theta* = [-0.007617187500000895]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8957 (10369 edges)
+  Test  AUC: 0.8917 (10370 edges)

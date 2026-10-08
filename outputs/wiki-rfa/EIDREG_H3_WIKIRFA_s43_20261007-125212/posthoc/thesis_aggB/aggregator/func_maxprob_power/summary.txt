@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 40
+Run ID: thesis_aggB
+Model: func_maxprob_power  (max(q,1-q)^b  confidence in predicted class)
+theta* = [3.538964843750005]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8921 (17721 edges)
+  Test  AUC: 0.8904 (17722 edges)

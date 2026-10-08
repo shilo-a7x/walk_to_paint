@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 40
+Run ID: thesis_aggB
+Model: func_entropy_power  ((ln2-H(q))^b)
+theta* = [0.5033203124999996]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8921 (17721 edges)
+  Test  AUC: 0.8902 (17722 edges)

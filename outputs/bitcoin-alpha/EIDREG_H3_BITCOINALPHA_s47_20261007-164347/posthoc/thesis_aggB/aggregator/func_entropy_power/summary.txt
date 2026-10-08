@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: bitcoin-alpha
+Epoch: 29
+Run ID: thesis_aggB
+Model: func_entropy_power  ((ln2-H(q))^b)
+theta* = [1.2250000000000008]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9369 (2419 edges)
+  Test  AUC: 0.9075 (2419 edges)
