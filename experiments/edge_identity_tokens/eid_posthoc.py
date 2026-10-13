@@ -53,6 +53,30 @@ from experiments.edge_identity_tokens.eid_src.data.prepare_eid_data import prepa
 from experiments.edge_identity_tokens.run_eid import EID_CACHE_PATH, ensure_eid_cache
 
 
+def apply_eval_transforms(model, input_ids, sign_ids, labels, metadata, device, dataset):
+    """Eval-time input transforms, in the same order EIDLitEdgeClassifier._step applies them
+    (ablation flags + H3 visibility rules). Shared by posthoc and the attention/SHAP extraction
+    so neither can silently evaluate a different input than training saw."""
+    positions = metadata.get("positions")
+    if positions is None or not hasattr(model, "_maybe_apply_token_masking"):
+        return input_ids, sign_ids
+    positions = positions.to(device)
+    node_mask = (positions >= 0) & ((positions % 2) == 0)
+    edge_mask = (positions >= 0) & ((positions % 2) == 1)
+    edge_ids = metadata["edge_ids"].to(device)
+    input_ids = model._maybe_apply_token_masking(input_ids, node_mask, edge_mask)
+    sign_ids = model._maybe_apply_edge_sign_masking(sign_ids, edge_mask)
+    sign_ids = model._maybe_apply_eid_sign_scramble(sign_ids, edge_mask, edge_ids,
+                                                    metadata["edge_classes"].to(device), dataset=dataset)
+    input_ids = model._maybe_apply_eid_identity_scramble(input_ids, edge_mask, edge_ids, dataset=dataset)
+    input_ids = model._maybe_apply_target_identity_masking(input_ids, edge_mask, labels)
+    input_ids, sign_ids = model._maybe_apply_context_edge_masking(input_ids, sign_ids, edge_mask, labels)
+    sign_ids = model._maybe_apply_context_sign_only_masking(sign_ids, edge_mask, labels)
+    input_ids = model._maybe_apply_identity_off(input_ids, edge_mask, labels)
+    input_ids = model._maybe_apply_unseen_identity_unk(input_ids, metadata["edge_split_mask"].to(device))
+    return input_ids, sign_ids
+
+
 def _extract_eid_predictions(model, dataloader, split_name, epoch, device):
     """EID-aware copy of PerEpochPredictionSaver._extract_predictions -- same output
     schema, same AUC computation, only the forward call differs (sign_ids threaded in,
@@ -82,39 +106,8 @@ def _extract_eid_predictions(model, dataloader, split_name, epoch, device):
             # abl:maskedge bug, see PAPER_CLOSEOUT_LOG.md 2026-08-23. Confirmed the walk-level
             # Trainer.test() numbers (test_auc_epoch) were NOT affected, since those go through
             # _step directly.
-            positions_for_mask = metadata.get("positions")
-            if positions_for_mask is not None and hasattr(model, "_maybe_apply_token_masking"):
-                positions_for_mask = positions_for_mask.to(device)
-                node_mask = (positions_for_mask >= 0) & ((positions_for_mask % 2) == 0)
-                edge_mask = (positions_for_mask >= 0) & ((positions_for_mask % 2) == 1)
-                input_ids = model._maybe_apply_token_masking(input_ids, node_mask, edge_mask)
-                if hasattr(model, "_maybe_apply_edge_sign_masking"):
-                    sign_ids = model._maybe_apply_edge_sign_masking(sign_ids, edge_mask)
-                if hasattr(model, "_maybe_apply_eid_sign_scramble"):
-                    sign_ids = model._maybe_apply_eid_sign_scramble(
-                        sign_ids, edge_mask, metadata["edge_ids"].to(device), metadata["edge_classes"].to(device),
-                        dataset=dataloader.dataset,
-                    )
-                if hasattr(model, "_maybe_apply_eid_identity_scramble"):
-                    input_ids = model._maybe_apply_eid_identity_scramble(
-                        input_ids, edge_mask, metadata["edge_ids"].to(device),
-                        dataset=dataloader.dataset,
-                    )
-                if hasattr(model, "_maybe_apply_target_identity_masking"):
-                    input_ids = model._maybe_apply_target_identity_masking(input_ids, edge_mask, labels)
-                if hasattr(model, "_maybe_apply_context_edge_masking"):
-                    input_ids, sign_ids = model._maybe_apply_context_edge_masking(
-                        input_ids, sign_ids, edge_mask, labels
-                    )
-                if hasattr(model, "_maybe_apply_context_sign_only_masking"):
-                    sign_ids = model._maybe_apply_context_sign_only_masking(
-                        sign_ids, edge_mask, labels
-                    )
-                if hasattr(model, "_maybe_apply_identity_off"):
-                    input_ids = model._maybe_apply_identity_off(input_ids, edge_mask, labels)
-                if hasattr(model, "_maybe_apply_unseen_identity_unk"):
-                    input_ids = model._maybe_apply_unseen_identity_unk(
-                        input_ids, metadata["edge_split_mask"].to(device))
+            input_ids, sign_ids = apply_eval_transforms(model, input_ids, sign_ids, labels, metadata, device,
+                                                        dataloader.dataset)
 
             logits = model.model(input_ids, sign_ids, attention_mask=attention_mask)
             probs = torch.softmax(logits, dim=-1)
