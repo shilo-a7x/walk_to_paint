@@ -21,6 +21,7 @@ Other ablations:
   H3_DIR    randomize_walk_direction (fixed per-walk coin flip, whole walk reversed)
   H3_PAIR   pair_only_attention   (target sees only its two endpoint nodes)
   H3_IDSCR  scramble_edge_identity (context edges show a fixed wrong identity)
+  H3_FULL   local_attention_window=null (full attention; the paper's proximal-attention ablation)
 
 Usage: .venv/bin/python experiments/edge_identity_tokens/make_thesis_jobs.py
 """
@@ -50,6 +51,7 @@ CONDITIONS = [
     ("H3_DIR", ["model.randomize_walk_direction=true"]),
     ("H3_PAIR", ["model.pair_only_attention=true"]),
     ("H3_IDSCR", ["model.scramble_edge_identity=true"]),
+    ("H3_FULL", ["model.local_attention_window=null"]),  # added 2026-10-13
 ]
 
 

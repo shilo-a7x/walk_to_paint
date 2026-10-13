@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: wiki-rfa
+Epoch: 22
+Run ID: reg
+Model: func_logit_power  (|logit(q)|^b)
+theta* = [0.6540039062499997]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.8799 (17721 edges)
+  Test  AUC: 0.8870 (17722 edges)

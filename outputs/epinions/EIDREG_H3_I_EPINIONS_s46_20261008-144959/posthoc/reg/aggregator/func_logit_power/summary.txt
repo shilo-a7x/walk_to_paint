@@ -1,0 +1,10 @@
+Post-hoc aggregator summary
+Dataset: epinions
+Epoch: 37
+Run ID: reg
+Model: func_logit_power  (|logit(q)|^b)
+theta* = [2.854296875000004]
+
+Edge-level aggregated AUC:
+  Train AUC: 0.9070 (84080 edges)
+  Test  AUC: 0.9097 (84080 edges)
