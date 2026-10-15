@@ -60,8 +60,8 @@ CACHE_DIR = os.path.join(ROOT, "outputs", "eid_attention_shap")
 OUT_DIR = os.path.join(ROOT, "experiments", "edge_identity_tokens", "thesis_figure_data")
 
 
-def load(ds, device):
-    tag = f"EIDREG_H3_{ds.upper().replace('-', '')}_s{SEED}_"
+def load(ds, device, seed=SEED):
+    tag = f"EIDREG_H3_{ds.upper().replace('-', '')}_s{seed}_"
     exp_dir = sorted(glob.glob(os.path.join(ROOT, "outputs", ds, f"{tag}*")))[-1]
     ckpt = resolve_checkpoint(Path(exp_dir) / "checkpoints", "best", None)
     cfg = OmegaConf.create(torch.load(str(ckpt), map_location="cpu", weights_only=False)["hyper_parameters"]["cfg"])
@@ -71,7 +71,7 @@ def load(ds, device):
     local = lit.model.local_attention_window is not None
     for layer in lit.model.transformer.layers:
         layer.__class__ = LocalAttentionRecordingEncoderLayer if local else AttentionRecordingEncoderLayer
-    loader = prepare_eid_data(cfg, EID_CACHE_PATH.format(dataset=ds, num_walks=int(cfg.dataset.num_walks), seed=SEED))["test"]
+    loader = prepare_eid_data(cfg, EID_CACHE_PATH.format(dataset=ds, num_walks=int(cfg.dataset.num_walks), seed=seed))["test"]
     ds_test = loader.dataset
     n = len(ds_test)
     idx = np.random.default_rng(42).choice(n, MAX_SAMPLES, replace=False).tolist() if n > MAX_SAMPLES else list(range(n))
@@ -125,7 +125,10 @@ def attention_pass(ds, lit, ds_test, idx, collate, device):
             "n_targets": n_targets, **{k: np.concatenate(v) for k, v in per.items()}}
 
 
-def shap_pass(ds, lit, ds_test, idx, collate, device):
+def shap_pass(ds, lit, ds_test, idx, collate, device, remove="both"):
+    """remove="both": a removed context edge shows <MASK> identity + hidden sign (default, the
+    figure); remove="sign": only its sign is hidden, identity stays -- removes exactly what
+    production's sign-only edge token carried."""
     model = lit.model
     mask_id = int(getattr(lit.cfg.model, "mask_id", 1))
     records = {"bwd": {1: [], 2: []}, "fwd": {1: [], 2: []}}
@@ -150,7 +153,9 @@ def shap_pass(ds, lit, ds_test, idx, collate, device):
                     xv, sv = x[r].clone(), s[r].clone()
                     for f, (_, _, jpos) in enumerate(valid):
                         if f not in sub:
-                            xv[jpos], sv[jpos] = mask_id, SIGN_NA
+                            sv[jpos] = SIGN_NA
+                            if remove == "both":
+                                xv[jpos] = mask_id
                     jobs_x.append(xv); jobs_s.append(sv); jobs_r.append(r); jobs_meta.append((inst, sub, i))
             if not jobs_x:
                 continue

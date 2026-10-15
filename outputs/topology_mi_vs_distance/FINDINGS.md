@@ -34,3 +34,24 @@ surrogate-sign run (`topology_mi_vs_distance.csv`), which only showed a similar 
 Remaining candidates: pair reuse at the tail (few distinct far edges counted many times,
 PAPER_CLOSEOUT_LOG.md 2026-07-28) and core/periphery position not captured by 4 degrees.
 Next cheap test: count each distinct (far) context edge once.
+
+## Bump dedup test (2026-10-13) — scripts/panelB_bump_dedup.py
+Question: is Panel B's far-hop NMI bump an artifact of a few context edges being reused by many
+anchors? Per hop: naive NMI (Panel B), dedup NMI (each distinct context edge weight 1), top-10
+share of pairs, cluster permutation test (context signs permuted across distinct edges, 500 draws).
+Files: panelB_bump_dedup_undirected.csv (20k anchors), _directed_exact.csv (all anchors: bitcoins,
+wikis), _directed.csv (20k anchors: epinions, slashdot).
+
+**The two bumps that matter are real, not reuse artifacts.**
+- slashdot undirected hop 6: naive 1.84e-2 (vs 3.4e-3 at hop 2), dedup 1.63e-2, spread over 548,691
+  distinct edges, top-10 share 1.4%, permutation null 1.2e-4, p=0.002. Hop 7 also survives
+  (dedup 1.4e-2, p=0.02); hop 8 does not (2,835 edges, top-10 share 67%, p=0.77).
+- wiki directed hops 7-8: wiki-elec hop 8 naive 4.3e-3 / dedup 3.4e-3 (vs ~1e-5..1e-7 at hops
+  3-7), 38,852 distinct edges, top-10 share 0.1%, p=0.002. wiki-rfa hop 7/8 naive 2.7e-3/2.7e-2,
+  dedup 6.8e-4/2.0e-2, top-10 share ~2%, p=0.002.
+- By contrast the bitcoin far-hop values (undirected hops 6-7, directed alpha hops 6-7) are at
+  the permutation floor (p=0.12-0.99, top-10 share 14-54%) -> those are reuse/estimator artifacts.
+- Combined with Part B (bumps survive within degree-topology bins): the slashdot/wiki bumps are
+  genuine sign dependence at long range among the few edges that sit that far out, not reuse and
+  not degree topology. Mechanism still open (candidate: the periphery of these graphs is a
+  structurally distinct population with its own sign base rate).

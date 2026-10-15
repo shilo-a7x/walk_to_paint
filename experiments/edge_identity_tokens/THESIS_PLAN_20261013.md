@@ -129,3 +129,19 @@ attention+SHAP figure needs EID port; new grid figure; pipeline schematic redraw
 1. H3_FULL (running). 2. Port attention+SHAP extraction to EID and run. 3. Thesis plot scripts
 (300 dpi). 4. Pick framing (user + professor). 5. Create thesis/ and apply the diff.
 6. Canonical refactor (can follow the writing). 7. Optional: topology bump dedup test.
+
+## 10. Update 2026-10-13 (evening): all runs done
+- H3_FULL 60/60 ok; collector rerun (EID_THESIS_RESULTS.md, eid_thesis_*.csv include H3_FULL).
+  Test AUC full / local (H3): b-alpha .9155/.9187, b-otc .9309/.9355*, epinions .9499/.9536*,
+  slashdot .8989/.8962* (full better), wiki-elec .8972/.8976, wiki-rfa .8928/.8921 (* p<.01 paired).
+  Production for reference full/local: .9146/.9134 .9315/.9317 .9523/.9536 .8989/.8968 .9008/.9023 .8923/.8914.
+- Attention/SHAP on H3 (seed 42; SHAP removal = identity <MASK> + sign hidden, option (a), pending
+  user sign-off) done for all 6; thesis/figures/attndir_panels_abcd_combined.png rendered, 300 dpi.
+  fwd/bwd mass: b-alpha .426/.443, b-otc .511/.393, epinions .498/.386, slashdot .270/.243,
+  wiki-elec .435/.377, wiki-rfa .457/.394 -> 5 forward-dominant, 1 backward (production: 2 fwd, 4 bwd).
+  node/edge mass: node-dominant on all 6 (production: 4 node, 2 edge).
+  SHAP: hop1 > hop2 on 6/6 both directions (WSDM claim holds); hop-1 fwd > bwd on all 6, so the
+  WSDM "attention and SHAP disagree on the wikis" sentence no longer applies (they now agree).
+  -> the WSDM attention paragraphs need their dataset lists rewritten, not just numbers.
+- Bump dedup: see outputs/topology_mi_vs_distance/FINDINGS.md (slashdot-undirected and
+  wiki-directed bumps are real, not reuse; bitcoin far hops are artifacts).
