@@ -10,13 +10,13 @@ Status: TODO / PROPOSED / APPROVED+APPLIED / NO CHANGE
 |---|---|---|---|
 | 0 | copy WSDM tex + bib into thesis/ (identical) | setup | done 2026-10-15 |
 | 1 | Abstract | 1a: keep "3.3pp" (user: local attention is the presented model; H3 local - best baseline = 3.32). 1b: last sentence (vertex/edge split) on hold until item 20 | 1a NO CHANGE, 1b ON HOLD |
-| 2 | Introduction | check | TODO |
-| 3 | Related work | check | TODO |
-| 4 | Contributions | check | TODO |
-| 5 | Problem setting + theory | check | TODO |
-| 6 | Methods (tokenizer, holdout policy, schematic caption) | DISCUSS | TODO |
-| 7 | Hyperparameter table | add EID params | TODO |
-| 8 | Experimental setup | check | TODO |
+| 2 | Introduction | check | NO CHANGE (approved 2026-10-19) |
+| 3 | Related work | check | NO CHANGE (approved 2026-10-19) |
+| 4 | Contributions | check (bullet 5 entropy pattern: H3 matches production, regression rerun at item 11) | NO CHANGE (approved 2026-10-19) |
+| 5 | Problem setting + theory | check | NO CHANGE (approved 2026-10-19) |
+| 6 | Methods: 6a walk encoding, 6b embedding (+unknown-edge identity sentence), 6c target hides identity, 6d edge-identity replacement, 6e leakage paragraph (minimal: "edge token (identity and sign)", "sign and identity hidden"), 6f algorithm line, 6g schematic legend "positive/negative edge" | DISCUSS | APPROVED+APPLIED 2026-10-19 |
+| 7 | Setup paragraph (no hyperparam table exists): added EID settings sentence (rank 16, replace 0.2/70% unk, wd 0.03) | add EID params | APPROVED+APPLIED 2026-10-19 |
+| 8 | Statistical evaluation paragraph | check (new ablations state their test inline, as WSDM does) | NO CHANGE (approved 2026-10-19) |
 | 9 | Empirical evidence (Fig 1) | check | TODO |
 | 10 | Table 1 | numbers | TODO |
 | 11 | Entropy heatmap section | numbers | TODO |
