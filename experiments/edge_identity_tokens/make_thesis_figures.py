@@ -54,6 +54,7 @@ def attention_figure():
     import plot_shap_edge_directionality as d
     a.IN_CSV, a.OUT_PNG = os.path.join(DATA, "attndir_panelA_headgrid.csv"), os.path.join(FIG, "attndir_panelA_headgrid.png")
     for mod, name in ((b, "attndir_panelB_direction.png"), (c, "attndir_panelC_nodeedge.png")):
+        mod.YLIM_INCLUDE_ERR = True  # error bars are std across the 10 models, taller than WSDM's SEs
         mod.IN_CSV = os.path.join(DATA, "attndir_panelBC_summary.csv")
         mod.SE_CSV = os.path.join(DATA, "attndir_panelBC_se.csv")
         mod.OUT_PNG = os.path.join(FIG, name)

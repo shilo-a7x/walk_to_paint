@@ -25,6 +25,7 @@ import numpy as np
 
 IN_CSV = "aaai2027/figure_data/attndir_panelBC_summary.csv"
 SE_CSV = "aaai2027/figure_data/attndir_panelBC_se.csv"
+YLIM_INCLUDE_ERR = False  # True: y-axis leaves room for the error bars (thesis: larger across-model std bars)
 OUT_PNG = "aaai2027/figures/attndir_panelB_direction.png"
 
 DATASET_ORDER = ["bitcoin-alpha", "bitcoin-otc", "epinions", "slashdot090221", "wiki-elec", "wiki-rfa"]
@@ -60,7 +61,8 @@ def main():
         ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.008,
                  f"{bar.get_height():.3f}", ha="center", va="bottom", fontsize=10)
 
-    ax.set_ylim(0, max(fwd + bwd) * 1.2)
+    top = max(v + e for v, e in zip(fwd + bwd, fwd_err + bwd_err)) * 1.25 if YLIM_INCLUDE_ERR else max(fwd + bwd) * 1.2
+    ax.set_ylim(0, top)
     ax.set_xticks(x)
     ax.set_xticklabels([DISPLAY_LABEL.get(d, d) for d in DATASET_ORDER], fontsize=12)
     ax.tick_params(axis="y", labelsize=11)

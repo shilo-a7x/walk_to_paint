@@ -145,3 +145,10 @@ attention+SHAP figure needs EID port; new grid figure; pipeline schematic redraw
   -> the WSDM attention paragraphs need their dataset lists rewritten, not just numbers.
 - Bump dedup: see outputs/topology_mi_vs_distance/FINDINGS.md (slashdot-undirected and
   wiki-directed bumps are real, not reuse; bitcoin far hops are artifacts).
+
+## 11. Note 2026-10-20: identity-scramble ablation is uninformative by construction
+`model.scramble_edge_identity` maps every edge to a fixed substitute identity (a derangement) consistently
+in training AND evaluation -> a pure relabeling of identity-table rows, no information removed; its null
+result is guaranteed. A valid test would scramble at evaluation only, or re-randomize per occurrence.
+Sign scramble (fixed 50% liars, train+eval) makes the presented sign independent of the true sign ->
+equivalent to hiding context signs (grid row "vertices + identities"). Both left out of the thesis.
