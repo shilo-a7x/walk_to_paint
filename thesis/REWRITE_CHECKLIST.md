@@ -9,7 +9,7 @@ Status: TODO / PROPOSED / APPROVED+APPLIED / NO CHANGE
 | # | item | type | status |
 |---|---|---|---|
 | 0 | copy WSDM tex + bib into thesis/ (identical) | setup | done 2026-10-15 |
-| 1 | Abstract | 1a: keep "3.3pp" (user: local attention is the presented model; H3 local - best baseline = 3.32). 1b: last sentence (vertex/edge split) on hold until item 20 | 1a NO CHANGE, 1b ON HOLD |
+| 1 | Abstract | 1a: keep "3.3pp" (user: local attention is the presented model; H3 local - best baseline = 3.32). 1b: last sentence (vertex/edge split) on hold until item 20 | 1a NO CHANGE, 1b APPLIED 2026-10-22 ("a preference of attention for vertex over edge tokens") |
 | 2 | Introduction | check | NO CHANGE (approved 2026-10-19) |
 | 3 | Related work | check | NO CHANGE (approved 2026-10-19) |
 | 4 | Contributions | check (bullet 5 entropy pattern: H3 matches production, regression rerun at item 11) | NO CHANGE (approved 2026-10-19) |
@@ -28,7 +28,7 @@ Status: TODO / PROPOSED / APPROVED+APPLIED / NO CHANGE
 | 17 | sign scramble / identity scramble: LEFT OUT. Identity scramble = consistent relabeling in train+eval -> no information removed, null by construction (design flaw). Sign scramble = informationally same as grid row "signs hidden" (also scrambled in training) | DISCUSS | NO CHANGE (approved 2026-10-20) |
 | 18 | New abl: pair-only attention: P2 paragraph (facts + embeddings-carry-most sentence) after grid table | DISCUSS | APPROVED+APPLIED 2026-10-20 |
 | 19 | Complexity: 19a param sentence DROPPED (vertex table never mentioned either); 19b "4 to 70 minutes" (same rule as WSDM: shortest-longest single run) | numbers | APPROVED+APPLIED 2026-10-20 |
-| 20 | Attention section: 20a figure B-D = mean over 10 models +-std (A1: panel A split 42), SHAP removal = identity+sign; 20b fwd/bwd paragraph APPLIED (option ii, ending trimmed); 20c vertex/edge APPLIED (descriptive); 20d SHAP APPLIED (decay + hop-1 direction + agreement); 20e caption, 20f abstract 1b | DISCUSS | IN PROGRESS |
+| 20 | Attention section: 20a figure B-D = mean over 10 models +-std (A1: panel A split 42), SHAP removal = identity+sign; 20b fwd/bwd paragraph APPLIED (option ii, ending trimmed); 20c vertex/edge APPLIED (descriptive); 20d SHAP APPLIED (decay + hop-1 direction + agreement); 20e caption APPLIED (panel A = Wiki-RfA split 42, no recurrence claim; self excluded from B/C; B-D = 10-model mean +-std); 20f abstract 1b APPLIED (option a) | DISCUSS | APPROVED+APPLIED 2026-10-22 |
 | 21 | Full proofs | check (pure math; only Pewter mention is the aggregator table caption, done in 13) | NO CHANGE (approved 2026-10-20) |
-| 22 | Discussion / limitations | DISCUSS (small) | TODO |
-| 23 | Ethics | check | TODO |
+| 22 | Discussion / limitations | DISCUSS (small): para 1 option B (no edge-identity sentence), para 2 unchanged ("approx 1pp" kept) | NO CHANGE (approved 2026-10-22) |
+| 23 | Ethics | check (per-edge vectors store only public data) | NO CHANGE (approved 2026-10-20) |

@@ -26,6 +26,7 @@ NODE_COLOR = "#5b9bd5"
 EDGE_COLOR = "#f2a154"
 
 
+PANEL_WIDTH_HEADS = None  # e.g. 4: draw a 2-head panel at the width of a 4-head one (thesis)
 DISPLAY_LABEL = {
     "bitcoin-alpha": "Bitcoin-alpha", "bitcoin-otc": "Bitcoin-otc", "epinions": "Epinions",
     "slashdot090221": "Slashdot", "wiki-elec": "Wiki-elec", "wiki-rfa": "Wiki-RfA",
@@ -44,7 +45,8 @@ def main():
         by_head[int(r["head"])][int(r["d"])] = float(r["mass"])
 
     nhead = len(heads)
-    fig, axes = plt.subplots(1, nhead, figsize=(2.8 * nhead, 3.0), sharey=True, squeeze=False)
+    width_heads = max(nhead, PANEL_WIDTH_HEADS or nhead)  # keep font size when a model has few heads
+    fig, axes = plt.subplots(1, nhead, figsize=(2.8 * width_heads, 3.0), sharey=True, squeeze=False)
     axes = axes[0]
 
     d_range = list(range(-window, window + 1))

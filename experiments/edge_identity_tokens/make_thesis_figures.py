@@ -52,6 +52,7 @@ def attention_figure():
     import plot_attndir_panelB_direction as b
     import plot_attndir_panelC_nodeedge as c
     import plot_shap_edge_directionality as d
+    a.PANEL_WIDTH_HEADS = 4  # Wiki-RfA has 2 heads; keep WSDM's 4-head panel width so fonts match
     a.IN_CSV, a.OUT_PNG = os.path.join(DATA, "attndir_panelA_headgrid.csv"), os.path.join(FIG, "attndir_panelA_headgrid.png")
     for mod, name in ((b, "attndir_panelB_direction.png"), (c, "attndir_panelC_nodeedge.png")):
         mod.YLIM_INCLUDE_ERR = True  # error bars are std across the 10 models, taller than WSDM's SEs

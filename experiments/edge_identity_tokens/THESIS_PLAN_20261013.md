@@ -152,3 +152,10 @@ in training AND evaluation -> a pure relabeling of identity-table rows, no infor
 result is guaranteed. A valid test would scramble at evaluation only, or re-randomize per occurrence.
 Sign scramble (fixed 50% liars, train+eval) makes the presented sign independent of the true sign ->
 equivalent to hiding context signs (grid row "vertices + identities"). Both left out of the thesis.
+
+## 12. 2026-10-22: thesis text pass complete
+All 23 checklist items in thesis/REWRITE_CHECKLIST.md approved item by item (applied or no change).
+thesis/thesis.tex vs WSDM: 65 insertions / 32 deletions. Attention figure: panel A = Wiki-RfA split 42,
+B-D = mean over 10 models +-std (eid_attention_multiseed_figure_data.py -> make_thesis_figures.py).
+Not yet done: compile (no LaTeX on this machine), full read-through, optional grid-table header
+style (two-level "Visible"), canonical refactor + clean public repo.
