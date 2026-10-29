@@ -23,7 +23,8 @@ os.chdir(ROOT)  # the production plot scripts use repo-relative paths
 
 DATA = os.path.join("experiments", "edge_identity_tokens", "thesis_figure_data")
 FIG = os.path.join("thesis", "figures")
-UNCHANGED = ["empconf_panels_abcde_combined_sidebyside.png", "pipeline_schematic.png"]
+UNCHANGED = ["pipeline_schematic.png"]
+PANELS = os.path.join(FIG, "panels")  # intermediate single-panel PNGs
 
 
 def delta_heatmap():
@@ -64,6 +65,30 @@ def attention_figure():
         mod.main()
     comb.PANEL_A, comb.PANEL_B, comb.PANEL_C, comb.PANEL_D = a.OUT_PNG, b.OUT_PNG, c.OUT_PNG, d.OUT_PNG
     comb.OUT_PNG = os.path.join(FIG, "attndir_panels_abcd_combined.png")
+    comb.HSPACE, comb.LABEL_LIFT_BC = 0.12, 0.01  # lift (B)/(C) above their plots
+    comb.main()
+
+
+def empconf_figure(scale=0.75):
+    """Empirical-evidence figure (baseline/data-only): WSDM panels, with A, D, E redrawn on a smaller
+    canvas so their text is larger after combining (B, C reused as rendered for WSDM)."""
+    import combine_empconf_panels_abcde_sidebyside as comb
+    import plot_empconf_panelA_schematic as pa
+    import plot_empconf_panelD_signagreement_auc as pd_
+    import plot_empconf_panelE_coefficients as pe
+    os.makedirs(PANELS, exist_ok=True)
+    pd_.FIG_SCALE = pe.FIG_SCALE = scale
+    for k in ("FONT_SIZE_INDEX", "FONT_SIZE_LABEL", "FONT_SIZE_TERM"):  # A is an equal-aspect drawing: scale its fonts instead
+        setattr(pa, k, getattr(pa, k) * 1.5)
+    pa.OUT_PNG = os.path.join(PANELS, "empconf_panelA_schematic.png")
+    pd_.OUT_POOLED_PNG = os.path.join(PANELS, "empconf_panelD_signagreement_auc.png")
+    pd_.OUT_PERDATASET_PNG = os.path.join(PANELS, "empconf_panelD_signagreement_auc_perdataset.png")
+    pe.OUT_PNG = os.path.join(PANELS, "empconf_panelE_coefficients.png")
+    for mod in (pa, pd_, pe):
+        mod.main()
+    comb.PANEL_A, comb.PANEL_D, comb.PANEL_E = pa.OUT_PNG, pd_.OUT_PERDATASET_PNG, pe.OUT_PNG
+    comb.OUT_PNG = os.path.join(FIG, "empconf_panels_abcde_combined_sidebyside.png")
+    comb.HSPACE = 0.08
     comb.main()
 
 
@@ -71,7 +96,7 @@ def check_dpi():
     from PIL import Image
     bad = []
     for name in sorted(os.listdir(FIG)):
-        if name.endswith(".png"):
+        if name.endswith(".png") and os.path.isfile(os.path.join(FIG, name)):
             dpi = Image.open(os.path.join(FIG, name)).info.get("dpi", (0, 0))
             ok = all(abs(x - 300) < 0.5 for x in dpi)
             print(f"  {'ok ' if ok else 'BAD'} {dpi[0]:.0f} dpi  {name}")
@@ -85,6 +110,7 @@ def main():
     for name in UNCHANGED:
         shutil.copy2(os.path.join("aaai2027", "figures", name), os.path.join(FIG, name))
     delta_heatmap()
+    empconf_figure()
     se = os.path.join(DATA, "attndir_panelBC_se.csv")
     if os.path.exists(se) and sum(1 for _ in open(se)) == 7:  # header + all 6 datasets
         attention_figure()

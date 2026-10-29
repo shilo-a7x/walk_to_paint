@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch, Circle
 
 OUT_PNG = "aaai2027/figures/empconf_panelA_schematic.png"
+FIG_SCALE = 1.0  # <1: smaller canvas, same font points -> relatively larger text (thesis)
 
 # ---- tweakable style constants (see PANELA_SCHEMATIC_GUIDE.md) ----
 NODE_COLOR = "#4a4a4a"
@@ -56,7 +57,7 @@ def draw_edge(ax, p_from, p_to, color, lw, index_label=None, index_xy=None, styl
 
 
 def main():
-    fig, ax = plt.subplots(figsize=(7.2, 3.6))
+    fig, ax = plt.subplots(figsize=(7.2 * FIG_SCALE, 3.6 * FIG_SCALE))
 
     u = (-1.0, 0.0)
     v = (1.0, 0.0)

@@ -34,6 +34,8 @@ PANEL_A = "aaai2027/figures/attndir_panelA_headgrid.png"
 PANEL_B = "aaai2027/figures/attndir_panelB_direction.png"
 PANEL_C = "aaai2027/figures/attndir_panelC_nodeedge.png"
 PANEL_D = "aaai2027/figures/shap_edge_directionality.png"
+HSPACE = 0.05
+LABEL_LIFT_BC = 0.0  # >0: put the (B)/(C) labels above their panels instead of over the plot corner (thesis)
 OUT_PNG = "aaai2027/figures/attndir_panels_abcd_combined.png"
 
 WIDTH_IN = 7.2
@@ -44,13 +46,13 @@ def _aspect(path):
     return im, im.shape[0] / im.shape[1]
 
 
-def _add_panel(fig, gs_cell, path, label):
+def _add_panel(fig, gs_cell, path, label, lift=0.0):
     img, _ = _aspect(path)
     ax = fig.add_subplot(gs_cell)
     ax.imshow(img)
     ax.axis("off")
-    ax.text(0.0, 1.0, label, transform=ax.transAxes, fontsize=11, fontweight="bold",
-             va="top", ha="left")
+    ax.text(0.0, 1.0 + lift, label, transform=ax.transAxes, fontsize=11, fontweight="bold",
+             va="top" if lift == 0 else "bottom", ha="left", clip_on=False)
     return ax
 
 
@@ -69,13 +71,13 @@ def main():
 
     total_h = row1_h + row2_h + row3_h
     fig = plt.figure(figsize=(WIDTH_IN, total_h))
-    gs = fig.add_gridspec(3, 1, height_ratios=[row1_h, row2_h, row3_h], hspace=0.05)
+    gs = fig.add_gridspec(3, 1, height_ratios=[row1_h, row2_h, row3_h], hspace=HSPACE)
 
     _add_panel(fig, gs[0], PANEL_A, "(A)")
 
     gs_row2 = gs[1].subgridspec(1, 2, width_ratios=[0.5, 0.5], wspace=0.03)
-    _add_panel(fig, gs_row2[0], PANEL_B, "(B)")
-    _add_panel(fig, gs_row2[1], PANEL_C, "(C)")
+    _add_panel(fig, gs_row2[0], PANEL_B, "(B)", lift=LABEL_LIFT_BC)
+    _add_panel(fig, gs_row2[1], PANEL_C, "(C)", lift=LABEL_LIFT_BC)
 
     _add_panel(fig, gs[2], PANEL_D, "(D)")
 

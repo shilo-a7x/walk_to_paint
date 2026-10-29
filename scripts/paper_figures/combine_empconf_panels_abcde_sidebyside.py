@@ -34,6 +34,7 @@ PANEL_C = "aaai2027/figures/empconf_panelC_gnn_entropy_heatmap.png"
 PANEL_D = "aaai2027/figures/empconf_panelD_signagreement_auc_perdataset.png"
 PANEL_E = "aaai2027/figures/empconf_panelE_coefficients.png"
 OUT_PNG = "aaai2027/figures/empconf_panels_abcde_combined_sidebyside.png"
+HSPACE = 0.03  # vertical gap between rows (thesis uses more: its D/E row is taller)
 
 WIDTH_IN = 7.2
 ROW1_A_FRAC = 0.34
@@ -73,7 +74,7 @@ def main():
 
     total_h = row1_h + row2_h + row3_h
     fig = plt.figure(figsize=(WIDTH_IN, total_h))
-    gs = fig.add_gridspec(3, 1, height_ratios=[row1_h, row2_h, row3_h], hspace=0.03)
+    gs = fig.add_gridspec(3, 1, height_ratios=[row1_h, row2_h, row3_h], hspace=HSPACE)
 
     gs_row1 = gs[0].subgridspec(1, 2, width_ratios=[ROW1_A_FRAC, 1 - ROW1_A_FRAC], wspace=0.03)
     _add_panel(fig, gs_row1[0], PANEL_A, "(A)")

@@ -32,3 +32,9 @@ Status: TODO / PROPOSED / APPROVED+APPLIED / NO CHANGE
 | 21 | Full proofs | check (pure math; only Pewter mention is the aggregator table caption, done in 13) | NO CHANGE (approved 2026-10-20) |
 | 22 | Discussion / limitations | DISCUSS (small): para 1 option B (no edge-identity sentence), para 2 unchanged ("approx 1pp" kept) | NO CHANGE (approved 2026-10-22) |
 | 23 | Ethics | check (per-edge vectors store only public data) | NO CHANGE (approved 2026-10-20) |
+| 24 | Methods: 4 references to the pipeline schematic (walk encoding; window, merged with position-index ref; Stage 1; Stage 2) | text | APPROVED+APPLIED 2026-10-26 |
+| 25 | Tables: dataset table \small (single col); visibility + aggregator tables -> table*[t!], \small, no resizebox | layout | APPROVED+APPLIED 2026-10-26 (check placement/fit when compiling) |
+| 26 | Contributions rewritten: 5 bullets with bold labels, plain wording; old bullet 2 (claimed WL residual entropy is quantified - not done in paper) merged into 'Evidence'; new 'What drives the gain' bullet | text | APPROVED+APPLIED 2026-10-29 |
+| 27 | Attention/SHAP figure: (B),(C) labels above panels (combine_attndir_panels LABEL_LIFT_BC, HSPACE; off by default) | figure | DONE 2026-10-26 |
+| 28 | Empirical-evidence figure: A fonts x1.5, D canvas 0.75, E width 0.75 + 2-col legend, row gap 0.08 (FIG_SCALE/HSPACE options, off by default); rendered by make_thesis_figures.empconf_figure | figure | DONE 2026-10-26 |
+| 29 | Comment audit: line 120 (linear Fano remark) stays commented; proof Jensen middle step RESTORED + "chain rule" -> "definition of conditional entropy"; "multiplicity" line stays commented; dropped-ablation comment blocks, \ph macro, amssymb removed by user (intentional) | math/text | APPROVED+APPLIED 2026-10-29 |

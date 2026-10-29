@@ -32,6 +32,7 @@ IN_POOLED_CSV = "aaai2027/figure_data/empconf_panelD_signagreement_auc.csv"
 IN_PERDATASET_CSV = "aaai2027/figure_data/empconf_panelD_signagreement_auc_perdataset.csv"
 OUT_POOLED_PNG = "aaai2027/figures/empconf_panelD_signagreement_auc.png"
 OUT_PERDATASET_PNG = "aaai2027/figures/empconf_panelD_signagreement_auc_perdataset.png"
+FIG_SCALE = 1.0  # <1: smaller canvas, same font points -> relatively larger text (thesis)
 
 BUCKET_ORDER = ["in_same", "in_diff", "out_same", "out_diff"]
 BUCKET_LABEL = {
@@ -94,7 +95,7 @@ def plot_perdataset():
     spread = 0.5
     offsets = np.linspace(-spread / 2, spread / 2, n_ds)
 
-    fig, ax = plt.subplots(figsize=(7.2, 4.9))
+    fig, ax = plt.subplots(figsize=(7.2 * FIG_SCALE, 4.9 * FIG_SCALE))
     for off, ds in zip(offsets, DATASET_ORDER):
         aucs = [float(data[(ds, b)]["mean_auc"]) for b in BUCKET_ORDER]
         ses = [float(data[(ds, b)]["std_auc"]) for b in BUCKET_ORDER]

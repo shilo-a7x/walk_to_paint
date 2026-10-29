@@ -77,6 +77,7 @@ from dataset_style import DATASET_ORDER, DATASET_COLORS, DATASET_DISPLAY
 
 IN_CSV = "aaai2027/figure_data/empconf_panelE_coefficients.csv"
 OUT_PNG = "aaai2027/figures/empconf_panelE_coefficients.png"
+FIG_SCALE = 1.0  # <1: narrower canvas (same height), 2-column legend -> relatively larger text (thesis)
 
 # position-based order, matching Panel A's schematic: -1 (source) before +1 (target),
 # out before in within each position.
@@ -90,7 +91,7 @@ def main():
 
     x = np.arange(len(TERM_ORDER))
     width = 0.62
-    fig, ax = plt.subplots(figsize=(7.4, 5.1))
+    fig, ax = plt.subplots(figsize=(7.4 * FIG_SCALE, 5.1))  # width only: the half-page slot is width-limited
 
     cum_pos = np.zeros(len(TERM_ORDER))
     cum_neg = np.zeros(len(TERM_ORDER))
@@ -133,8 +134,16 @@ def main():
     dataset_handles, dataset_labels = ax.get_legend_handles_labels()
     hatch_handle = Patch(facecolor="white", edgecolor="#555", hatch="///",
                           label="Not robust ($<$8/10 seeds sig.)")
-    ax.legend(handles=dataset_handles + [hatch_handle], fontsize=12.5, ncol=3,
-               loc="lower center", bbox_to_anchor=(0.5, -0.52), frameon=False)
+    if FIG_SCALE == 1.0:
+        ax.legend(handles=dataset_handles + [hatch_handle], fontsize=12.5, ncol=3,
+                   loc="lower center", bbox_to_anchor=(0.5, -0.52), frameon=False)
+    else:  # smaller canvas: anchor the legend just below the tick labels instead of a fixed offset
+        fig.tight_layout()
+        fig.canvas.draw()
+        tick_bottom = min(t.get_window_extent().y0 for t in ax.get_xticklabels())
+        y = ax.transAxes.inverted().transform((0, tick_bottom))[1] - 0.03
+        ax.legend(handles=dataset_handles + [hatch_handle], fontsize=12.5, ncol=2,
+                   loc="upper center", bbox_to_anchor=(0.5, y), frameon=False)
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
